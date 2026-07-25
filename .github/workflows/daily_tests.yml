@@ -29,6 +29,13 @@ jobs:
           appium --log appium_server.log &
           sleep 5
 
+      - name: Download / Prepare UAT APK
+        run: |
+          mkdir -p app
+          # If your APK is stored in a URL (Firebase / AWS S3 / Internal Server), uncomment the line below:
+          # curl -L "https://YOUR_COMPANY_STORAGE_URL/app-uat.apk" -o app/app-uat.apk
+          echo "APK folder prepared at app/"
+
       - name: Run Appium Tests on Android Emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -36,7 +43,7 @@ jobs:
           target: google_apis
           arch: x86_64
           profile: Pixel 4
-          script: mvn test
+          script: mvn test -DappPath=app/app-uat.apk
 
       - name: Upload Test Reports & Screenshots Artifacts
         if: always()
