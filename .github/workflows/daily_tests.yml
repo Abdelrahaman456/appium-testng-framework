@@ -51,6 +51,7 @@ jobs:
         with:
           name: appium-test-reports
           path: |
+            target/extent-reports/
             target/surefire-reports/
             target/screenshots/
             appium_server.log
