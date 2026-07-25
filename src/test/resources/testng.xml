@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
+<suite name="Appium Mobile Test Suite" parallel="tests" thread-count="2">
+
+    <listeners>
+        <listener class-name="utils.TestListener" />
+        <listener class-name="utils.AnnotationTransformer" />
+    </listeners>
+
+    <!-- Physical Android Device Suite -->
+    <test name="Physical Android Test">
+        <parameter name="platformName" value="Android" />
+        <parameter name="deviceName" value="Pixel 10 Pro Fold" />
+        <!-- Replace 'YOUR_DEVICE_UDID' with the value from 'adb devices' -->
+        <parameter name="udid" value="57251FDCG000LF" />
+        <parameter name="appPackage" value="sa.com.tree.digital.insurance.uat" />
+        <parameter name="appActivity" value="sa.com.tree.digital.insurance.MainActivity" />
+        <classes>
+            <class name="tests.SampleTest" />
+        </classes>
+    </test>
+
+</suite>

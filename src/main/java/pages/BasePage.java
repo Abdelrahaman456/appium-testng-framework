@@ -1,0 +1,225 @@
+package pages;
+
+import io.appium.java_client.AppiumDriver;
+import org.openqa.selenium.WebElement;
+import org.openqa.selenium.StaleElementReferenceException;
+import org.openqa.selenium.support.PageFactory;
+import org.openqa.selenium.support.ui.ExpectedConditions;
+import org.openqa.selenium.support.ui.WebDriverWait;
+import org.openqa.selenium.interactions.PointerInput;
+import org.openqa.selenium.interactions.Sequence;
+import org.openqa.selenium.Dimension;
+import utils.DriverManager;
+
+import java.time.Duration;
+import java.util.Arrays;
+
+public class BasePage {
+    protected AppiumDriver driver;
+    protected WebDriverWait wait;
+
+    public BasePage() {
+        this.driver = DriverManager.getDriver();
+        PageFactory.initElements(driver, this);
+        this.wait = new WebDriverWait(driver, Duration.ofSeconds(10));
+    }
+
+    public boolean healAndDismissPopups() {
+        String[] popupDismissXpaths = {
+            "//android.widget.Button[@content-desc='Skip' or @text='Skip']",
+            "//android.widget.Button[@content-desc='Dismiss' or @text='Dismiss']",
+            "//android.widget.Button[@content-desc='Close' or @text='Close']",
+            "//android.widget.Button[@content-desc='Not now' or @text='Not now']",
+            "//android.widget.Button[@content-desc='Cancel' or @text='Cancel']",
+            "//*[contains(@resource-id, 'permission_allow_button')]",
+            "//android.widget.Button[@content-desc='OK' or @text='OK']"
+        };
+
+        for (String xpath : popupDismissXpaths) {
+            try {
+                java.util.List<WebElement> elements = driver.findElements(org.openqa.selenium.By.xpath(xpath));
+                for (WebElement el : elements) {
+                    if (el.isDisplayed()) {
+                        System.out.println("[Self-Healing] Detected unexpected obstructing popup (" + xpath + "). Auto-dismissing...");
+                        el.click();
+                        try { Thread.sleep(1000); } catch (Exception e) {}
+                        return true;
+                    }
+                }
+            } catch (Exception e) {}
+        }
+        return false;
+    }
+
+    protected void click(WebElement element) {
+        try {
+            waitForVisibility(element);
+            element.click();
+        } catch (Exception e) {
+            System.out.println("[Self-Healing Triggered] Primary click failed. Checking for obstructing popups...");
+            if (healAndDismissPopups()) {
+                System.out.println("[Self-Healing Success] Popup auto-dismissed! Retrying primary click...");
+                try {
+                    waitForVisibility(element);
+                    element.click();
+                    return;
+                } catch (Exception retryEx) {
+                    System.out.println("[Self-Healing] Retrying via physical tap...");
+                    tapElement(element);
+                    return;
+                }
+            }
+            throw e;
+        }
+    }
+
+    protected void sendKeys(WebElement element, String text) {
+        waitForVisibility(element);
+        
+        // Intelligent caching: If the field already contains the exact text we want to type
+        // (which happens frequently when chaining flows together), skip typing to save time and prevent duplication!
+        try {
+            String currentText = element.getText();
+            if (currentText != null && currentText.equals(text)) {
+                System.out.println("Field already contains '" + text + "'. Skipping input.");
+                return;
+            }
+        } catch (Exception e) {}
+        
+        element.click(); // Click to focus the field and bring up the keyboard
+        
+        try {
+            element.clear(); // Attempt to clear any old data (e.g. from Flow 1)
+        } catch (Exception e) {}
+
+        try {
+            Thread.sleep(500); // Give the keyboard a moment to fully render
+            
+            // BUG FIX: If the text is numbers, we use pure native Android KeyEvents.
+            if (driver instanceof io.appium.java_client.android.AndroidDriver && text.matches("\\d+")) {
+                io.appium.java_client.android.AndroidDriver androidDriver = (io.appium.java_client.android.AndroidDriver) driver;
+                
+                for (char c : text.toCharArray()) {
+                    io.appium.java_client.android.nativekey.AndroidKey key = io.appium.java_client.android.nativekey.AndroidKey.valueOf("DIGIT_" + c);
+                    androidDriver.pressKey(new io.appium.java_client.android.nativekey.KeyEvent(key));
+                    Thread.sleep(50); // Pause exactly like a human typing
+                }
+                
+                // Press the native ENTER/DONE key on the keypad
+                androidDriver.pressKey(new io.appium.java_client.android.nativekey.KeyEvent(io.appium.java_client.android.nativekey.AndroidKey.ENTER));
+                Thread.sleep(500);
+                
+                try {
+                    androidDriver.hideKeyboard();
+                } catch (Exception e) {} // Ignore if already hidden
+            } else {
+                // Fallback for non-numeric or non-Android
+                new org.openqa.selenium.interactions.Actions(driver)
+                    .sendKeys(text)
+                    .sendKeys(org.openqa.selenium.Keys.ENTER)
+                    .perform();
+                    
+                try {
+                    if (driver instanceof io.appium.java_client.android.AndroidDriver) {
+                        ((io.appium.java_client.android.AndroidDriver) driver).hideKeyboard();
+                    }
+                } catch (Exception e) {}
+            }
+        } catch (Exception e) {
+            System.out.println("Warning: Native typing failed, falling back to standard sendKeys");
+            element.sendKeys(text);
+            try {
+                if (driver instanceof io.appium.java_client.android.AndroidDriver) {
+                    ((io.appium.java_client.android.AndroidDriver) driver).hideKeyboard();
+                }
+            } catch (Exception ex) {}
+        }
+    }
+
+    protected void waitForVisibility(WebElement element) {
+        wait.ignoring(StaleElementReferenceException.class).until(ExpectedConditions.visibilityOf(element));
+    }
+
+    protected String getText(WebElement element) {
+        waitForVisibility(element);
+        return element.getText();
+    }
+
+    protected WebElement getVisibleElement(org.openqa.selenium.By locator) {
+        try {
+            return wait.until(d -> {
+                java.util.List<WebElement> elements = driver.findElements(locator);
+                for (WebElement el : elements) {
+                    if (el.isDisplayed()) {
+                        return el;
+                    }
+                }
+                return null; // Return null so WebDriverWait keeps polling
+            });
+        } catch (org.openqa.selenium.TimeoutException e) {
+            throw new org.openqa.selenium.NoSuchElementException("No visible element found for locator: " + locator + " after 10 seconds");
+        }
+    }
+
+    public void navigateBack() {
+        driver.navigate().back();
+    }
+
+    public void scrollDown() {
+        Dimension size = driver.manage().window().getSize();
+        int startX = size.width / 2;
+        int startY = (int) (size.height * 0.7);
+        int endY = (int) (size.height * 0.3);
+
+        PointerInput finger = new PointerInput(PointerInput.Kind.TOUCH, "finger");
+        Sequence scroll = new Sequence(finger, 1);
+        scroll.addAction(finger.createPointerMove(Duration.ofMillis(0), PointerInput.Origin.viewport(), startX, startY));
+        scroll.addAction(finger.createPointerDown(PointerInput.MouseButton.LEFT.asArg()));
+        scroll.addAction(finger.createPointerMove(Duration.ofMillis(600), PointerInput.Origin.viewport(), startX, endY));
+        scroll.addAction(finger.createPointerUp(PointerInput.MouseButton.LEFT.asArg()));
+        driver.perform(Arrays.asList(scroll));
+        try { Thread.sleep(1000); } catch (Exception e) {} // Wait for scroll to settle
+    }
+
+    public void scrollWheel(int startX, int startY, int endY) {
+        PointerInput finger = new PointerInput(PointerInput.Kind.TOUCH, "finger");
+        Sequence scroll = new Sequence(finger, 1);
+        scroll.addAction(finger.createPointerMove(Duration.ofMillis(0), PointerInput.Origin.viewport(), startX, startY));
+        scroll.addAction(finger.createPointerDown(PointerInput.MouseButton.LEFT.asArg()));
+        // Use a slower duration for wheel pickers so it doesn't spin wildly
+        scroll.addAction(finger.createPointerMove(Duration.ofMillis(1000), PointerInput.Origin.viewport(), startX, endY));
+        // CRITICAL BUG FIX: Add a pause before releasing the finger to kill momentum/fling!
+        scroll.addAction(new org.openqa.selenium.interactions.Pause(finger, Duration.ofMillis(200)));
+        scroll.addAction(finger.createPointerUp(PointerInput.MouseButton.LEFT.asArg()));
+        driver.perform(Arrays.asList(scroll));
+        try { Thread.sleep(1000); } catch (Exception e) {} // Wait for wheel to settle
+    }
+
+    public void tapElement(WebElement element) {
+        org.openqa.selenium.Rectangle rect = element.getRect();
+        int centerX = rect.getX() + (rect.getWidth() / 2);
+        int centerY = rect.getY() + (rect.getHeight() / 2);
+        tapCoordinates(centerX, centerY);
+    }
+
+    public void tapCoordinates(int x, int y) {
+        PointerInput finger = new PointerInput(PointerInput.Kind.TOUCH, "finger");
+        Sequence tap = new Sequence(finger, 1);
+        tap.addAction(finger.createPointerMove(Duration.ofMillis(0), PointerInput.Origin.viewport(), x, y));
+        tap.addAction(finger.createPointerDown(PointerInput.MouseButton.LEFT.asArg()));
+        tap.addAction(finger.createPointerUp(PointerInput.MouseButton.LEFT.asArg()));
+        driver.perform(Arrays.asList(tap));
+    }
+
+    public void tapScreenCenter() {
+        Dimension size = driver.manage().window().getSize();
+        int x = size.width / 2;
+        int y = size.height / 2;
+        PointerInput finger = new PointerInput(PointerInput.Kind.TOUCH, "finger");
+        Sequence tap = new Sequence(finger, 1);
+        tap.addAction(finger.createPointerMove(Duration.ofMillis(0), PointerInput.Origin.viewport(), x, y));
+        tap.addAction(finger.createPointerDown(PointerInput.MouseButton.LEFT.asArg()));
+        tap.addAction(finger.createPointerUp(PointerInput.MouseButton.LEFT.asArg()));
+        driver.perform(Arrays.asList(tap));
+    }
+}
