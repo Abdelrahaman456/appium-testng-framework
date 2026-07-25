@@ -161,9 +161,32 @@ public class AboutYouScreen extends BasePage {
     }
 
     public void selectSequenceNumberRadio() {
-        org.openqa.selenium.By locator = org.openqa.selenium.By.xpath("//*[@resource-id='radio_btn_about_you_page_motor_sequence_number' or contains(@resource-id, 'radio_btn_about_you_page_motor_sequence_number')]");
+        System.out.println("Selecting Sequence Number radio button (resource-id: radio_btn_about_you_page_motor_sequence_number)...");
+        org.openqa.selenium.By locator = org.openqa.selenium.By.xpath("//*[@resource-id='radio_btn_about_you_page_motor_sequence_number'] | //*[contains(@resource-id, 'sequence_number') and contains(@resource-id, 'radio')]");
         WebElement radio = getVisibleElement(locator);
-        click(radio);
+        
+        try {
+            click(radio);
+        } catch (Exception e) {
+            System.out.println("Standard click on Sequence Number radio failed, attempting physical tap...");
+            tapElement(radio);
+        }
+        
+        try { Thread.sleep(1000); } catch (Exception e) {}
+        
+        // Self-verification: check if sequence number text field is visible. If not, re-tap radio button!
+        try {
+            org.openqa.selenium.By seqFieldLocator = org.openqa.selenium.By.xpath("//android.widget.EditText[contains(@resource-id, 'sequence_number')]");
+            WebElement seqField = driver.findElement(seqFieldLocator);
+            if (!seqField.isDisplayed()) {
+                System.out.println("Sequence number field not visible yet. Tapping radio button again...");
+                tapElement(radio);
+                try { Thread.sleep(1000); } catch (Exception e) {}
+            }
+        } catch (Exception e) {
+            System.out.println("Re-attempting tap on Sequence Number radio...");
+            tapElement(radio);
+        }
     }
 
     public void selectCustomCardRadio() {
