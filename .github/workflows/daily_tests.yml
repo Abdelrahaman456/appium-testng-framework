@@ -4,6 +4,8 @@ on:
   schedule:
     # Runs every day at 8:00 AM UTC (11:00 AM local time)
     - cron: '0 8 * * *'
+  push:
+    branches: [ main ]
   workflow_dispatch: # Allows manual one-click trigger from GitHub UI anytime!
 
 jobs:
