@@ -11,7 +11,7 @@ on:
 jobs:
   test:
     # macOS runners support KVM hardware acceleration for high-speed Android Emulators
-    runs-on: macos-latest
+    runs-on: macos-13
 
     steps:
       - name: Checkout Repository Code

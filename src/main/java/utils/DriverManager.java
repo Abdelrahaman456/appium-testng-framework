@@ -34,7 +34,8 @@ public class DriverManager {
                     }
                     if (appPath != null && !appPath.isEmpty()) {
                         options.setApp(appPath);
-                    } else if (appPackage != null && !appPackage.isEmpty() && appActivity != null && !appActivity.isEmpty()) {
+                    }
+                    if (appPackage != null && !appPackage.isEmpty() && appActivity != null && !appActivity.isEmpty()) {
                         options.setAppPackage(appPackage);
                         options.setAppActivity(appActivity);
                     }
