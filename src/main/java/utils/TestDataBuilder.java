@@ -1,24 +1,23 @@
 package utils;
 
+/**
+ * TestDataBuilder - now reads all values from testdata.properties via TestConfig.
+ * Change values in testdata.properties WITHOUT recompiling code!
+ */
 public class TestDataBuilder {
 
-    // Pre-configured default customer data
-    public static final String DEFAULT_PHONE = "500421222";
-    public static final String DEFAULT_OTP = "1234";
-    public static final String DEFAULT_EMAIL = "aashraf@tree.com.sa";
-    public static final String DEFAULT_IBAN = "SA6530400108071059170014";
-    
-    // Default vehicle data
-    public static final String DEFAULT_SEQUENCE_NUMBER = "704848484";
-    public static final String DEFAULT_CUSTOM_CARD = "1254874892";
-    public static final String DEFAULT_SELLER_ID = "1313424273";
-    public static final String DEFAULT_CAR_YEAR = "2026";
-
-    // Default payment card data
-    public static final String DEFAULT_CARD_NUMBER = "5123456789012346";
-    public static final String DEFAULT_CARD_EXPIRY = "01/2031";
-    public static final String DEFAULT_CARD_CVV = "100";
-    public static final String DEFAULT_CARD_HOLDER = "Tree User";
+    // All values loaded from testdata.properties
+    public static String DEFAULT_PHONE        = TestConfig.phone();
+    public static String DEFAULT_OTP          = TestConfig.otp();
+    public static String DEFAULT_EMAIL        = TestConfig.email();
+    public static String DEFAULT_IBAN         = TestConfig.iban();
+    public static String DEFAULT_CARD_NUMBER  = TestConfig.cardNumber();
+    public static String DEFAULT_CARD_EXPIRY  = TestConfig.cardExpiry();
+    public static String DEFAULT_CARD_CVV     = TestConfig.cardCvv();
+    public static String DEFAULT_CARD_HOLDER  = TestConfig.cardHolder();
+    public static String DEFAULT_SELLER_ID    = TestConfig.sellerId();
+    public static String DEFAULT_CAR_YEAR     = TestConfig.carYear();
+    public static String DEFAULT_CUSTOM_CARD  = TestConfig.customCard();
 
     /**
      * Generates a dynamic unique email address per test run to prevent backend caching issues.

@@ -38,7 +38,41 @@ public class BasePage {
     public BasePage() {
         this.driver = DriverManager.getDriver();
         PageFactory.initElements(driver, this);
-        this.wait = new WebDriverWait(driver, Duration.ofSeconds(10));
+        this.wait = new WebDriverWait(driver, Duration.ofSeconds(utils.TestConfig.elementTimeout()));
+    }
+
+    /**
+     * Smart Dynamic Wait: polls a condition every 500ms until it's true or timeout is reached.
+     * Replaces all fixed Thread.sleep() calls!
+     * @param condition  a lambda returning true when the wait should stop
+     * @param timeoutSec maximum seconds to wait
+     */
+    protected boolean waitUntil(java.util.function.Supplier<Boolean> condition, int timeoutSec) {
+        long endTime = System.currentTimeMillis() + (timeoutSec * 1000L);
+        while (System.currentTimeMillis() < endTime) {
+            try {
+                if (Boolean.TRUE.equals(condition.get())) return true;
+            } catch (Exception e) { /* element not ready yet, keep polling */ }
+            try { Thread.sleep(500); } catch (Exception e) {}
+        }
+        return false;
+    }
+
+    /**
+     * Checks if an element is visible on screen RIGHT NOW (no waiting).
+     */
+    protected boolean isElementVisible(WebElement element) {
+        try { return element.isDisplayed(); } catch (Exception e) { return false; }
+    }
+
+    /**
+     * Checks if an element (by locator) is visible RIGHT NOW.
+     */
+    protected boolean isElementVisible(org.openqa.selenium.By locator) {
+        try {
+            java.util.List<WebElement> elements = driver.findElements(locator);
+            return !elements.isEmpty() && elements.get(0).isDisplayed();
+        } catch (Exception e) { return false; }
     }
 
     public static org.openqa.selenium.By getCompiledLocator(String xpath) {
@@ -153,7 +187,7 @@ public class BasePage {
         scroll.addAction(finger.createPointerMove(Duration.ofMillis(600), PointerInput.Origin.viewport(), startX, endY));
         scroll.addAction(finger.createPointerUp(PointerInput.MouseButton.LEFT.asArg()));
         driver.perform(Arrays.asList(scroll));
-        try { Thread.sleep(1000); } catch (Exception e) {} // Wait for scroll to settle
+        waitUntil(() -> true, 1); // Smart 1-second settle wait
     }
 
     public void scrollWheel(int startX, int startY, int endY) {

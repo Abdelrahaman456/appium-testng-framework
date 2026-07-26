@@ -23,14 +23,21 @@ public class PolicyConfirmationScreen extends BasePage {
     @AndroidFindBy(xpath = "//*[contains(@content-desc, 'View Policy') or contains(@text, 'View Policy')]")
     private WebElement viewPolicyButton;
 
+    /**
+     * Page Load Validation: Confirms this screen is fully loaded before interacting.
+     * Fails fast with a meaningful error instead of cryptic NoSuchElementException.
+     */
+    public boolean isLoaded() {
+        boolean loaded = waitUntil(() -> isElementVisible(readyToRollHeader) || isElementVisible(viewPolicyButton),
+                utils.TestConfig.policyTimeout());
+        if (!loaded) System.out.println("[PageValidation] PolicyConfirmationScreen did NOT load within " + utils.TestConfig.policyTimeout() + "s!");
+        return loaded;
+    }
+
     public boolean isPolicyConfirmed() {
         try {
             System.out.println("Verifying Policy Confirmation Screen elements...");
-            org.openqa.selenium.support.ui.WebDriverWait longWait = new org.openqa.selenium.support.ui.WebDriverWait(driver, Duration.ofSeconds(30));
-            return longWait.until(org.openqa.selenium.support.ui.ExpectedConditions.or(
-                org.openqa.selenium.support.ui.ExpectedConditions.visibilityOf(readyToRollHeader),
-                org.openqa.selenium.support.ui.ExpectedConditions.visibilityOf(viewPolicyButton)
-            )) != null;
+            return isLoaded();
         } catch (Exception e) {
             System.out.println("Policy confirmation screen element not detected: " + e.getMessage());
             return false;
