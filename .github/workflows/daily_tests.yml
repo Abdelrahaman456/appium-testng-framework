@@ -29,6 +29,11 @@ jobs:
           distribution: 'temurin'
           cache: 'maven'
 
+      - name: Install Appium & UiAutomator2 Driver
+        run: |
+          npm install -g appium
+          appium driver install uiautomator2
+
       - name: Run Appium Tests on Android Emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -38,8 +43,6 @@ jobs:
           profile: Pixel 4
           disable-animations: true
           script: |
-            npm install -g appium
-            appium driver install uiautomator2
             appium --log appium_server.log &
             sleep 8
             mvn test -DappPath=app/app-uat-release.apk
