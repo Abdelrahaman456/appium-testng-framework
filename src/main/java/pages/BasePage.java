@@ -104,46 +104,19 @@ public class BasePage {
         } catch (Exception e) {}
 
         try {
-            Thread.sleep(500); // Give the keyboard a moment to fully render
-            
-            // BUG FIX: If the text is numbers, we use pure native Android KeyEvents.
-            if (driver instanceof io.appium.java_client.android.AndroidDriver && text.matches("\\d+")) {
-                io.appium.java_client.android.AndroidDriver androidDriver = (io.appium.java_client.android.AndroidDriver) driver;
-                
-                for (char c : text.toCharArray()) {
-                    io.appium.java_client.android.nativekey.AndroidKey key = io.appium.java_client.android.nativekey.AndroidKey.valueOf("DIGIT_" + c);
-                    androidDriver.pressKey(new io.appium.java_client.android.nativekey.KeyEvent(key));
-                    Thread.sleep(50); // Pause exactly like a human typing
-                }
-                
-                // Press the native ENTER/DONE key on the keypad
-                androidDriver.pressKey(new io.appium.java_client.android.nativekey.KeyEvent(io.appium.java_client.android.nativekey.AndroidKey.ENTER));
-                Thread.sleep(500);
-                
-                try {
-                    androidDriver.hideKeyboard();
-                } catch (Exception e) {} // Ignore if already hidden
-            } else {
-                // Fallback for non-numeric or non-Android
-                new org.openqa.selenium.interactions.Actions(driver)
-                    .sendKeys(text)
-                    .sendKeys(org.openqa.selenium.Keys.ENTER)
-                    .perform();
-                    
-                try {
-                    if (driver instanceof io.appium.java_client.android.AndroidDriver) {
-                        ((io.appium.java_client.android.AndroidDriver) driver).hideKeyboard();
-                    }
-                } catch (Exception e) {}
-            }
-        } catch (Exception e) {
-            System.out.println("Warning: Native typing failed, falling back to standard sendKeys");
+            // HIGH-PERFORMANCE OPTIMIZATION (Rec 3): High-speed direct text setting
             element.sendKeys(text);
+            
             try {
                 if (driver instanceof io.appium.java_client.android.AndroidDriver) {
-                    ((io.appium.java_client.android.AndroidDriver) driver).hideKeyboard();
+                    io.appium.java_client.android.AndroidDriver androidDriver = (io.appium.java_client.android.AndroidDriver) driver;
+                    androidDriver.pressKey(new io.appium.java_client.android.nativekey.KeyEvent(io.appium.java_client.android.nativekey.AndroidKey.ENTER));
+                    androidDriver.hideKeyboard();
                 }
-            } catch (Exception ex) {}
+            } catch (Exception e) {} // Ignore if keyboard already closed
+        } catch (Exception e) {
+            System.out.println("Warning: Fast sendKeys failed, retrying standard sendKeys");
+            element.sendKeys(text);
         }
     }
 

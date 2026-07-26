@@ -41,6 +41,13 @@ public class DriverManager {
                     }
                     options.setAutomationName("UiAutomator2");
                     options.setAutoGrantPermissions(true);
+                    
+                    // HIGH-PERFORMANCE OPTIMIZATION (Rec 2): Skip redundant checks & compress accessibility tree
+                    options.setSkipUnlock(true);
+                    options.setSkipServerInstallation(true);
+                    options.setIgnoreUnimportantViews(true);
+                    options.setNewCommandTimeout(Duration.ofSeconds(120));
+                    
                     // CRITICAL FIX: If the app has any background animations, Appium will wait 10 seconds 
                     // on EVERY single findElement attempt because it thinks the app is "busy".
                     // Setting this to 0 forces Appium to search immediately without waiting for the app to be idle.

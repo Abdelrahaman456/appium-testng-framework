@@ -32,13 +32,9 @@ public class SampleTest extends BaseTest {
         aboutYouScreen.clickPrivacyCheckbox();
         aboutYouScreen.clickNext();
         
-        System.out.println("Waiting 10 seconds for the OTP popup...");
-        try { Thread.sleep(10000); } catch (InterruptedException e) {}
-        
         System.out.println("Entering OTP...");
         OtpModal otpModal = new OtpModal();
         otpModal.enterOtp(utils.TestDataBuilder.DEFAULT_OTP);
-        try { Thread.sleep(3000); } catch (InterruptedException e) {} // Wait for OTP to be processed
     }
 
     // =========================================================================================

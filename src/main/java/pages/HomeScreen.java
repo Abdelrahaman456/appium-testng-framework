@@ -3,6 +3,7 @@ package pages;
 import io.appium.java_client.pagefactory.AndroidFindBy;
 import io.appium.java_client.pagefactory.AppiumFieldDecorator;
 import org.openqa.selenium.WebElement;
+import org.openqa.selenium.support.CacheLookup;
 import org.openqa.selenium.support.PageFactory;
 
 import java.time.Duration;
@@ -15,8 +16,8 @@ public class HomeScreen extends BasePage {
         PageFactory.initElements(new AppiumFieldDecorator(driver, Duration.ofSeconds(0)), this);
     }
 
-    // Using uiAutomator instead of XPath! XPath is the #1 cause of slow Appium tests.
-    // Native uiAutomator searches the screen in milliseconds instead of seconds.
+    // Using uiAutomator instead of XPath! Native uiAutomator searches the screen in milliseconds.
+    @CacheLookup
     @AndroidFindBy(uiAutomator = "new UiSelector().resourceId(\"btn_home_product_motor\")")
     private WebElement motorProductButton;
 
