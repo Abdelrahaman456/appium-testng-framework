@@ -29,6 +29,13 @@ public class BaseTest {
             udid = sysUdid;
         }
 
+        // Smart CI/CD Detection: If running inside GitHub Actions, ignore physical device UDID and connect to Cloud Emulator!
+        boolean isCI = System.getenv("GITHUB_ACTIONS") != null || "true".equalsIgnoreCase(System.getProperty("ci"));
+        if (isCI) {
+            System.out.println("[CI ENVIRONMENT DETECTED] Clearing physical UDID (" + udid + ") to target GitHub Actions Cloud Emulator...");
+            udid = "";
+        }
+
         System.out.println("Initializing Driver for " + platformName + " on device: " + deviceName + " (UDID: " + udid + ")");
         DriverManager.initializeDriver(platformName, deviceName, udid, appPath, appPackage, appActivity);
     }
