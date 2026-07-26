@@ -11,8 +11,8 @@
     <test name="Physical Android Test">
         <parameter name="platformName" value="Android" />
         <parameter name="deviceName" value="Pixel 10 Pro Fold" />
-        <!-- Replace 'YOUR_DEVICE_UDID' with the value from 'adb devices' -->
-        <parameter name="udid" value="57251FDCG000LF" />
+        <!-- Optional UDID fallback (empty allows auto-connection to emulator or connected device) -->
+        <parameter name="udid" value="" />
         <parameter name="appPackage" value="sa.com.tree.digital.insurance.uat" />
         <parameter name="appActivity" value="sa.com.tree.digital.insurance.MainActivity" />
         <classes>

@@ -12,12 +12,23 @@ public class BaseTest {
     @BeforeMethod(alwaysRun = true)
     public void setUp(
             @Optional("Android") String platformName,
-            @Optional("Pixel 10 Pro Fold") String deviceName,
-            @Optional("57251FDCG000LF") String udid,
+            @Optional("Android Device") String deviceName,
+            @Optional("") String udid,
             @Optional("") String appPath,
             @Optional("sa.com.tree.digital.insurance.uat") String appPackage,
             @Optional("sa.com.tree.digital.insurance.MainActivity") String appActivity) {
         
+        // Read command-line system properties passed via mvn test -DappPath=... -Dudid=...
+        String sysAppPath = System.getProperty("appPath");
+        if (sysAppPath != null && !sysAppPath.isEmpty()) {
+            appPath = sysAppPath;
+        }
+
+        String sysUdid = System.getProperty("udid");
+        if (sysUdid != null && !sysUdid.isEmpty()) {
+            udid = sysUdid;
+        }
+
         System.out.println("Initializing Driver for " + platformName + " on device: " + deviceName + " (UDID: " + udid + ")");
         DriverManager.initializeDriver(platformName, deviceName, udid, appPath, appPackage, appActivity);
     }
