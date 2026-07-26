@@ -136,6 +136,10 @@ public class SampleTest extends BaseTest {
         
         fillRemainingFields(aboutYouScreen);
 
+        // Handle Vehicle Details modal ("We need more details about your vehicle") for Flow 4
+        VehicleDetailsModal vehicleDetailsModal = new VehicleDetailsModal();
+        vehicleDetailsModal.handleVehicleDetailsIfPresent();
+
         QuoteScreen quoteScreen = new QuoteScreen();
         Assert.assertTrue(quoteScreen.isPageLoaded(), "Quote screen did not display after OTP in Flow 4.");
         try { Thread.sleep(5000); } catch (InterruptedException e) {}
@@ -298,4 +302,45 @@ public class SampleTest extends BaseTest {
         fillCheckoutAndPayment(quoteScreen, nationalId);
         System.out.println("Flow 3 Saver Cover Completed Successfully!");
     }
+
+    // FLOW 4: OWNERSHIP TRANSFER + CUSTOM CARD
+
+    @Test
+    public void testFlow4_ComprehensiveCover() {
+        String nationalId = utils.NationalIdGenerator.getNextNationalId();
+        QuoteScreen quoteScreen = reachQuoteScreenFlow4(nationalId);
+        System.out.println("Executing Flow 4 -> Comprehensive Cover scenario...");
+        
+        fillCheckoutAndPayment(quoteScreen, nationalId);
+        System.out.println("Flow 4 Comprehensive Cover Completed Successfully!");
+    }
+
+    @Test
+    public void testFlow4_SmartCover() {
+        String nationalId = utils.NationalIdGenerator.getNextNationalId();
+        QuoteScreen quoteScreen = reachQuoteScreenFlow4(nationalId);
+        System.out.println("Executing Flow 4 -> Smart Cover scenario...");
+        
+        System.out.println("Clicking Smart Cover card...");
+        quoteScreen.selectSmartCover();
+        try { Thread.sleep(2000); } catch (Exception e) {} // Wait for card to expand
+        
+        fillCheckoutAndPayment(quoteScreen, nationalId);
+        System.out.println("Flow 4 Smart Cover Completed Successfully!");
+    }
+
+    @Test
+    public void testFlow4_SaverCover() {
+        String nationalId = utils.NationalIdGenerator.getNextNationalId();
+        QuoteScreen quoteScreen = reachQuoteScreenFlow4(nationalId);
+        System.out.println("Executing Flow 4 -> Saver Cover scenario...");
+        
+        System.out.println("Clicking Saver Cover card...");
+        quoteScreen.selectSaverCover();
+        try { Thread.sleep(2000); } catch (Exception e) {} // Wait for card to expand
+        
+        fillCheckoutAndPayment(quoteScreen, nationalId);
+        System.out.println("Flow 4 Saver Cover Completed Successfully!");
+    }
+}
 }
