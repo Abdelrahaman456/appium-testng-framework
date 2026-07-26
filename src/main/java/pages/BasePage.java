@@ -104,16 +104,7 @@ public class BasePage {
         } catch (Exception e) {}
 
         try {
-            // HIGH-PERFORMANCE OPTIMIZATION (Rec 3): High-speed direct text setting
             element.sendKeys(text);
-            
-            try {
-                if (driver instanceof io.appium.java_client.android.AndroidDriver) {
-                    io.appium.java_client.android.AndroidDriver androidDriver = (io.appium.java_client.android.AndroidDriver) driver;
-                    androidDriver.pressKey(new io.appium.java_client.android.nativekey.KeyEvent(io.appium.java_client.android.nativekey.AndroidKey.ENTER));
-                    androidDriver.hideKeyboard();
-                }
-            } catch (Exception e) {} // Ignore if keyboard already closed
         } catch (Exception e) {
             System.out.println("Warning: Fast sendKeys failed, retrying standard sendKeys");
             element.sendKeys(text);
