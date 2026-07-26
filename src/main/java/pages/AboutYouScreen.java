@@ -144,6 +144,11 @@ public class AboutYouScreen extends BasePage {
         org.openqa.selenium.By locator = org.openqa.selenium.By.xpath("//android.widget.EditText[contains(@resource-id, 'phone_number')]");
         WebElement field = getVisibleElement(locator);
         sendKeys(field, phoneNumber);
+        try {
+            if (driver instanceof io.appium.java_client.android.AndroidDriver) {
+                ((io.appium.java_client.android.AndroidDriver) driver).hideKeyboard();
+            }
+        } catch (Exception e) {}
     }
 
     public void selectPolicyStartDate() {
