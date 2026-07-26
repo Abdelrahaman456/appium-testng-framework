@@ -61,6 +61,33 @@ This framework automates the full end-to-end customer journey for purchasing mot
    - Transfer tab activation, Seller ID entry, and Sequence Number radio button selection (`radio_btn_about_you_page_motor_sequence_number`).
    - OTP processing, quote selection, payment, and policy confirmation across Comprehensive, Smart, and Saver covers.
 
+4. **Flow 4 (Ownership Transfer + Custom Card)**:
+   - Transfer tab activation, Seller ID entry, Custom Card selection, and Model Year (`2026`).
+   - Dynamic 3-digit auto-incrementing National ID (`NationalIdGenerator`).
+   - Direct quote selection, payment, and policy confirmation across Comprehensive, Smart, and Saver covers.
+
+---
+
+## ⚡ High-Performance Data Structure Architecture
+
+The framework incorporates specialized **Data Structures** to guarantee $O(1)$ high-speed execution, minimal memory consumption, and zero thread lock contention:
+
+1. **`ConcurrentHashMap<String, By>` Locator Cache (`BasePage.java`)**:
+   - Locators are pre-compiled into memory on first access.
+   - Delivers $O(1)$ constant-time lookup for element discovery across all 12 test cases, eliminating raw XPath string parsing CPU churn.
+
+2. **`ArrayDeque<By>` High-Speed Self-Healing Queue (`BasePage.java`)**:
+   - Double-ended Queue (`ArrayDeque`) storing pre-compiled XPaths for system permission banners, upsell dialogs, and popups.
+   - Enables $O(1)$ high-speed queue traversal for instant popup auto-dismissal.
+
+3. **Strongly-Typed Enums & `EnumMap` (`CoverType.java` & `InsuranceFlow.java`)**:
+   - Replaces fragile String comparisons with type-safe Enums (`COMPREHENSIVE`, `SMART`, `SAVER`).
+   - Provides $O(1)$ direct array index memory access and eliminates string allocation overhead.
+
+4. **`ThreadLocal` Isolation Pattern (`DriverManager.java` & `TestListener.java`)**:
+   - Enforces thread-isolated `ThreadLocal<AppiumDriver>` and `ThreadLocal<ExtentTest>` instances.
+   - Enables zero-lock parallel test execution without thread contention.
+
 ---
 
 ## 🛠 Technical Architecture
@@ -69,31 +96,36 @@ This framework automates the full end-to-end customer journey for purchasing mot
 - **Test Runner**: TestNG (`7.9.0`) with parallel execution configuration.
 - **Design Pattern**: Page Object Model (POM) with PageFactory lazy element initialization.
 - **Build System**: Apache Maven (`pom.xml`).
-- **CI/CD Engine**: GitHub Actions running cloud Android Emulators on macOS runners.
+- **Reporting Engine**: ExtentReports 5.x (`com.aventstack:extentreports 5.1.1`) Dark-Mode Visual Dashboard.
+- **CI/CD Engine**: GitHub Actions running cloud Android Emulators with KVM acceleration.
 
 ---
 
 ## 🔥 Key Framework Innovations
 
-### 1. 🛡️ Self-Healing Popup Interceptor Engine (`BasePage.java`)
+### 1. 📊 ExtentReports 5.x Dark-Mode Visual Dashboard (`ExtentManager.java` & `TestListener.java`)
+- Generates interactive, dark-mode HTML reports at `target/extent-reports/ExtentReport.html`.
+- Displays real-time test execution analytics, pass/fail status badges, execution duration, and attaches inline Base64 failure screenshots.
+
+### 2. 🛡️ Self-Healing Popup Interceptor Engine (`BasePage.java`)
 - Automatically intercepts and dismisses unexpected obstructing popups (system permissions, upsell banners, promo dialogs, "Skip", "Dismiss", "Not now", "Close") whenever an element click fails.
 - Once auto-dismissed, the framework retries the primary user operation smoothly without failing the test execution.
 
-### 2. 🔢 Persisted Dynamic Data Generators (`NationalIdGenerator` & `SequenceNumberGenerator`)
+### 3. 🔢 Persisted Dynamic Data Generators (`NationalIdGenerator` & `SequenceNumberGenerator`)
 - Maintains disk-persisted counters (`national_id_counter.properties` and `sequence_number_counter.properties`).
 - Automatically increments the **last 3 digits (`+1`)** for both National ID (`1354545XXX`) and Sequence Number (`704848XXX`) on every test case run.
 - **Business Impact**: Prevents backend API policy duplicate errors (Najm / Tawuniya) across repeated local and CI/CD test runs.
 
-### 3. 📝 Failure Artifacts Collector (`TestListener.java`)
+### 4. 📝 Failure Artifacts Collector (`TestListener.java`)
 - Automatically listens to test events via TestNG `ITestListener`.
 - Upon test failure, it captures:
   - High-res PNG Screenshot saved to `target/screenshots/{TestName}_{Timestamp}.png`.
   - Complete Appium DOM XML Tree saved to `target/screenshots/{TestName}_{Timestamp}_DOM.xml`.
 
-### 4. 🔄 Flaky Test Retry Engine (`RetryAnalyzer.java` & `AnnotationTransformer.java`)
+### 5. 🔄 Flaky Test Retry Engine (`RetryAnalyzer.java` & `AnnotationTransformer.java`)
 - Implements `IRetryAnalyzer` and `IAnnotationTransformer` to automatically retry transient network glitches or backend SMS delays **once** before declaring a failure.
 
-### 5. ⚡ Smart Form Auto-Filler (`TestDataBuilder.java`)
+### 6. ⚡ Smart Form Auto-Filler (`TestDataBuilder.java`)
 - Centralized data model (`CustomerProfile` & `CreditCard`) enabling one-line form auto-filling for Checkout (`autoFillCheckout`) and Add New Card (`autoFillCardDetails`).
 
 ---
@@ -106,8 +138,11 @@ appium-testng-framework/
 │   └── daily_tests.yml                  # Daily CI/CD pipeline on Android Cloud Emulator
 ├── src/
 │   ├── main/java/
+│   │   ├── enums/
+│   │   │   ├── CoverType.java           # Type-safe cover selection Enum
+│   │   │   └── InsuranceFlow.java       # Insurance flow classification Enum
 │   │   ├── pages/
-│   │   │   ├── BasePage.java            # Base page with Self-Healing, gestures & waits
+│   │   │   ├── BasePage.java            # Base page with ConcurrentHashMap cache & ArrayDeque queue
 │   │   │   ├── HomeScreen.java          # Home screen navigation
 │   │   │   ├── MotorCoverageSelectionScreen.java
 │   │   │   ├── AboutYouScreen.java      # Customer info & tab switching
@@ -124,11 +159,12 @@ appium-testng-framework/
 │   │       └── TestDataBuilder.java     # Centralized test data profiles & auto-fillers
 │   └── test/java/
 │       ├── base/
-│       │   └── BaseTest.java            # TestNG setup/teardown with device fallbacks
+│       │   └── BaseTest.java            # TestNG setup/teardown with smart CI detection
 │       ├── tests/
-│       │   └── SampleTest.java          # 9 E2E test cases (Flows 1, 2, and 3)
+│       │   └── SampleTest.java          # 12 E2E test cases (Flows 1, 2, 3, and 4)
 │       └── utils/
-│           ├── TestListener.java        # Automatic screenshot & XML DOM logger
+│           ├── ExtentManager.java       # Dark-mode ExtentReports 5.x manager
+│           ├── TestListener.java        # ExtentReports logger, screenshots & DOM collector
 │           ├── RetryAnalyzer.java       # Automatic test retry logic
 │           └── AnnotationTransformer.java # TestNG retry listener injector
 ├── src/test/resources/
