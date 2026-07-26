@@ -26,7 +26,7 @@ public class PolicyConfirmationScreen extends BasePage {
     public boolean isPolicyConfirmed() {
         try {
             System.out.println("Verifying Policy Confirmation Screen elements...");
-            org.openqa.selenium.support.ui.WebDriverWait longWait = new org.openqa.selenium.support.ui.WebDriverWait(driver, Duration.ofSeconds(20));
+            org.openqa.selenium.support.ui.WebDriverWait longWait = new org.openqa.selenium.support.ui.WebDriverWait(driver, Duration.ofSeconds(30));
             return longWait.until(org.openqa.selenium.support.ui.ExpectedConditions.or(
                 org.openqa.selenium.support.ui.ExpectedConditions.visibilityOf(readyToRollHeader),
                 org.openqa.selenium.support.ui.ExpectedConditions.visibilityOf(viewPolicyButton)

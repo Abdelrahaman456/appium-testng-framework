@@ -99,7 +99,7 @@ public class AddNewCardModal extends BasePage {
         } catch (Exception e) {
             tapElement(saveButton);
         }
-        System.out.println("Card saved! Waiting 25 seconds for payment processing...");
-        try { Thread.sleep(25000); } catch (Exception e) {}
+        System.out.println("Card saved! Waiting 30 seconds for payment processing...");
+        try { Thread.sleep(30000); } catch (Exception e) {}
     }
 }
