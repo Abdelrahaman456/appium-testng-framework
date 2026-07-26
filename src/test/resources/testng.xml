@@ -16,6 +16,7 @@
         <parameter name="appActivity" value="sa.com.tree.digital.insurance.MainActivity" />
         <classes>
             <class name="tests.SampleTest" />
+            <class name="tests.NegativeValidationTest" />
         </classes>
     </test>
 
