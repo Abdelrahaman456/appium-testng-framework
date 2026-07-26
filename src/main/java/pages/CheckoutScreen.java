@@ -45,7 +45,17 @@ public class CheckoutScreen extends BasePage {
     }
 
     public void enterIban(String iban) {
-        sendKeys(ibanField, iban);
+        System.out.println("Entering IBAN into Checkout field...");
+        ibanField.click();
+        try {
+            ibanField.clear();
+        } catch (Exception e) {}
+        
+        // Strip 'SA' prefix up front so the UI field receives strictly the 22 numeric digits (e.g. 6530400108071059170014)
+        // This ensures the last two digits (14) are typed completely without exceeding the input's max character limit.
+        String numericOnly = (iban != null && iban.toUpperCase().startsWith("SA")) ? iban.substring(2) : iban;
+        
+        sendKeys(ibanField, numericOnly);
     }
     
     public void clickPayNow() {

@@ -153,9 +153,28 @@ public class SampleTest extends BaseTest {
         utils.TestDataBuilder.CustomerProfile profile = utils.TestDataBuilder.CustomerProfile.createDefault(nationalId);
         checkoutScreen.autoFillCheckout(profile);
         
-        System.out.println("Waiting for Add New Card modal & Auto-filling Credit Card details...");
+        System.out.println("Waiting for Add New Card modal...");
         AddNewCardModal cardModal = new AddNewCardModal();
-        cardModal.autoFillCardDetails(utils.TestDataBuilder.CreditCard.defaultCard());
+        utils.TestDataBuilder.CreditCard card = utils.TestDataBuilder.CreditCard.defaultCard();
+        
+        System.out.println("Entering Card Number...");
+        cardModal.enterCardNumber(card.number);
+        try { Thread.sleep(1000); } catch (Exception e) {}
+        
+        System.out.println("Entering Expiry Date...");
+        cardModal.enterExpiryDate(card.expiry);
+        try { Thread.sleep(1000); } catch (Exception e) {}
+        
+        System.out.println("Entering CVV...");
+        cardModal.enterCvv(card.cvv);
+        try { Thread.sleep(1000); } catch (Exception e) {}
+        
+        System.out.println("Entering Cardholder Name...");
+        cardModal.enterCardHolderName(card.holderName);
+        try { Thread.sleep(1000); } catch (Exception e) {}
+        
+        System.out.println("Clicking Save...");
+        cardModal.clickSave();
         
         System.out.println("Verifying Policy Confirmation Screen...");
         PolicyConfirmationScreen confirmationScreen = new PolicyConfirmationScreen();
