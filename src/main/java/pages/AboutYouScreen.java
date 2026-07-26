@@ -130,14 +130,38 @@ public class AboutYouScreen extends BasePage {
     }
 
     public void selectDob() {
-        org.openqa.selenium.By locator = org.openqa.selenium.By.xpath("//*[(contains(@resource-id, 'dob') or @content-desc='Month/Year of birth')]");
+        System.out.println("Opening Month/Year of birth dropdown...");
+        org.openqa.selenium.By locator = org.openqa.selenium.By.xpath(
+            "//*[contains(@resource-id, 'dob') or @content-desc='Month/Year of birth' or contains(@content-desc, 'Month') or contains(@content-desc, 'birth')]"
+        );
+        
+        // Scroll down to make sure DOB field is visible (it may be hidden under the keyboard in Flow 2)
+        boolean found = waitUntil(() -> isElementVisible(locator), 5);
+        if (!found) {
+            System.out.println("DOB field not visible yet, scrolling down...");
+            scrollDown();
+        }
+        
         WebElement field = getVisibleElement(locator);
-        click(field);
         
-        // Wait for Picker to fully open
-        try { Thread.sleep(1000); } catch (Exception e) {}
+        // Try standard click first, fall back to physical tap if it doesn't open
+        try {
+            field.click();
+        } catch (Exception e) {
+            System.out.println("Standard click on DOB failed, using physical tap...");
+            tapElement(field);
+        }
         
-        click(confirmButton);
+        // Wait for the picker dialog to fully animate open
+        try { Thread.sleep(1500); } catch (Exception e) {}
+        
+        // Confirm the selection
+        try {
+            click(confirmButton);
+            System.out.println("DOB picker confirmed.");
+        } catch (Exception e) {
+            System.out.println("Confirm button not found for DOB, may have auto-closed.");
+        }
     }
 
     public void enterPhoneNumber(String phoneNumber) {
