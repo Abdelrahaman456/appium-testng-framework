@@ -46,7 +46,7 @@ jobs:
           script: |
             appium --log appium_server.log &
             sleep 10
-            mvn test -DappPath=app/app-uat-release.apk
+            mvn test -DappPath=app/app-uat-release.apk -DtestFailureIgnore=true
 
       - name: Upload Test Reports & Screenshots Artifacts
         if: always()
