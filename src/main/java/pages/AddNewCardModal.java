@@ -14,28 +14,24 @@ public class AddNewCardModal extends BasePage {
         PageFactory.initElements(new AppiumFieldDecorator(driver, Duration.ofSeconds(10)), this);
     }
 
-    @AndroidFindBy(xpath = "//android.widget.EditText[@resource-id='textfield_credit_debit_card_bottom_sheet_card_number']")
+    @AndroidFindBy(xpath = "//android.widget.EditText[@resource-id='textfield_credit_debit_card_bottom_sheet_card_number' or contains(@resource-id, 'card_number')]")
     private WebElement cardNumberField;
 
     @AndroidFindBy(xpath = "//android.widget.ImageView[@resource-id='textfield_credit_debit_card_bottom_sheet_expiry_date' or contains(@resource-id, 'expiry_date')]")
     private WebElement expiryDateField;
 
-    @AndroidFindBy(xpath = "//android.widget.EditText[@resource-id='textfield_credit_debit_card_bottom_sheet_cvv']")
+    @AndroidFindBy(xpath = "//android.widget.EditText[@resource-id='textfield_credit_debit_card_bottom_sheet_cvv' or contains(@resource-id, 'cvv')]")
     private WebElement cvvField;
 
-    @AndroidFindBy(xpath = "//android.widget.EditText[@resource-id='textfield_credit_debit_card_bottom_sheet_card_holder_name']")
+    @AndroidFindBy(xpath = "//android.widget.EditText[@resource-id='textfield_credit_debit_card_bottom_sheet_card_holder_name' or contains(@resource-id, 'card_holder_name')]")
     private WebElement cardHolderNameField;
 
-    @AndroidFindBy(xpath = "//android.widget.Button[@resource-id='btn_credit_debit_card_bottom_sheet_save']")
+    @AndroidFindBy(xpath = "//android.widget.Button[@resource-id='btn_credit_debit_card_bottom_sheet_save' or contains(@resource-id, 'save')]")
     private WebElement saveButton;
 
     public void enterCardNumber(String cardNumber) {
-        System.out.println("Entering Card Number...");
-        try {
-            cardNumberField.click();
-            cardNumberField.clear();
-        } catch (Exception e) {}
-        cardNumberField.sendKeys(cardNumber);
+        System.out.println("Entering Card Number: " + cardNumber);
+        sendKeys(cardNumberField, cardNumber);
     }
 
     public void enterExpiryDate(String expiry) {
@@ -87,20 +83,12 @@ public class AddNewCardModal extends BasePage {
 
     public void enterCvv(String cvv) {
         System.out.println("Entering CVV...");
-        try {
-            cvvField.click();
-            cvvField.clear();
-        } catch (Exception e) {}
-        cvvField.sendKeys(cvv);
+        sendKeys(cvvField, cvv);
     }
 
     public void enterCardHolderName(String name) {
         System.out.println("Entering Cardholder Name...");
-        try {
-            cardHolderNameField.click();
-            cardHolderNameField.clear();
-        } catch (Exception e) {}
-        cardHolderNameField.sendKeys(name);
+        sendKeys(cardHolderNameField, name);
     }
 
     public void clickSave() {
