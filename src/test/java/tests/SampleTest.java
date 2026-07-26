@@ -136,10 +136,6 @@ public class SampleTest extends BaseTest {
         
         fillRemainingFields(aboutYouScreen);
 
-        // Handle Vehicle Details modal ("We need more details about your vehicle") for Flow 4
-        VehicleDetailsModal vehicleDetailsModal = new VehicleDetailsModal();
-        vehicleDetailsModal.handleVehicleDetailsIfPresent();
-
         QuoteScreen quoteScreen = new QuoteScreen();
         Assert.assertTrue(quoteScreen.isPageLoaded(), "Quote screen did not display after OTP in Flow 4.");
         try { Thread.sleep(5000); } catch (InterruptedException e) {}
@@ -342,5 +338,4 @@ public class SampleTest extends BaseTest {
         fillCheckoutAndPayment(quoteScreen, nationalId);
         System.out.println("Flow 4 Saver Cover Completed Successfully!");
     }
-}
 }
