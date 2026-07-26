@@ -43,9 +43,10 @@ jobs:
           disable-animations: true
           emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           script: |
-            nohup appium --log appium_server.log > /dev/null 2>&1 &
+            appium --log appium_server.log &
+            echo "Waiting for Appium server to start..."
             sleep 10
-            mvn test -DappPath=app/app-uat-release.apk -DtestFailureIgnore=true
+            mvn test -DappPath=app/app-uat-release.apk
 
       - name: Upload Test Reports & Screenshots Artifacts
         if: always()
