@@ -13,10 +13,27 @@ import utils.DriverManager;
 
 import java.time.Duration;
 import java.util.Arrays;
+import java.util.ArrayDeque;
+import java.util.Deque;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class BasePage {
     protected AppiumDriver driver;
     protected WebDriverWait wait;
+
+    // DATA STRUCTURE 1: ConcurrentHashMap for thread-safe O(1) pre-compiled locator caching
+    private static final ConcurrentHashMap<String, org.openqa.selenium.By> LOCATOR_CACHE = new ConcurrentHashMap<>();
+
+    // DATA STRUCTURE 2: ArrayDeque (Double-ended Queue) for high-speed O(1) popup interceptor queue
+    private static final Deque<org.openqa.selenium.By> POPUP_QUEUE = new ArrayDeque<>(Arrays.asList(
+        getCompiledLocator("//android.widget.Button[@content-desc='Skip' or @text='Skip']"),
+        getCompiledLocator("//android.widget.Button[@content-desc='Dismiss' or @text='Dismiss']"),
+        getCompiledLocator("//android.widget.Button[@content-desc='Close' or @text='Close']"),
+        getCompiledLocator("//android.widget.Button[@content-desc='Not now' or @text='Not now']"),
+        getCompiledLocator("//android.widget.Button[@content-desc='Cancel' or @text='Cancel']"),
+        getCompiledLocator("//*[contains(@resource-id, 'permission_allow_button')]"),
+        getCompiledLocator("//android.widget.Button[@content-desc='OK' or @text='OK']")
+    ));
 
     public BasePage() {
         this.driver = DriverManager.getDriver();
@@ -24,25 +41,19 @@ public class BasePage {
         this.wait = new WebDriverWait(driver, Duration.ofSeconds(10));
     }
 
-    public boolean healAndDismissPopups() {
-        String[] popupDismissXpaths = {
-            "//android.widget.Button[@content-desc='Skip' or @text='Skip']",
-            "//android.widget.Button[@content-desc='Dismiss' or @text='Dismiss']",
-            "//android.widget.Button[@content-desc='Close' or @text='Close']",
-            "//android.widget.Button[@content-desc='Not now' or @text='Not now']",
-            "//android.widget.Button[@content-desc='Cancel' or @text='Cancel']",
-            "//*[contains(@resource-id, 'permission_allow_button')]",
-            "//android.widget.Button[@content-desc='OK' or @text='OK']"
-        };
+    public static org.openqa.selenium.By getCompiledLocator(String xpath) {
+        return LOCATOR_CACHE.computeIfAbsent(xpath, org.openqa.selenium.By::xpath);
+    }
 
-        for (String xpath : popupDismissXpaths) {
+    public boolean healAndDismissPopups() {
+        for (org.openqa.selenium.By popupBy : POPUP_QUEUE) {
             try {
-                java.util.List<WebElement> elements = driver.findElements(org.openqa.selenium.By.xpath(xpath));
+                java.util.List<WebElement> elements = driver.findElements(popupBy);
                 for (WebElement el : elements) {
                     if (el.isDisplayed()) {
-                        System.out.println("[Self-Healing] Detected unexpected obstructing popup (" + xpath + "). Auto-dismissing...");
+                        System.out.println("[Self-Healing] Detected unexpected obstructing popup (" + popupBy + "). Auto-dismissing...");
                         el.click();
-                        try { Thread.sleep(1000); } catch (Exception e) {}
+                        try { Thread.sleep(800); } catch (Exception e) {}
                         return true;
                     }
                 }
