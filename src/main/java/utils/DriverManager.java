@@ -45,7 +45,7 @@ public class DriverManager {
                     // HIGH-PERFORMANCE OPTIMIZATION (Rec 2): Skip redundant checks & compress accessibility tree
                     options.setSkipUnlock(true);
                     options.setSkipServerInstallation(true);
-                    options.setIgnoreUnimportantViews(true);
+                    options.setCapability("appium:ignoreUnimportantViews", true);
                     options.setNewCommandTimeout(Duration.ofSeconds(120));
                     
                     // CRITICAL FIX: If the app has any background animations, Appium will wait 10 seconds 
