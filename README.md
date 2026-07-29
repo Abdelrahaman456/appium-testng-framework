@@ -1,4 +1,4 @@
-# 🚀 Tree Digital Insurance - Enterprise Appium Mobile Automation Framework
+# 🚀 Tree Digital Insurance -  Appium Mobile Automation Framework
 
 An end-to-end, self-healing mobile test automation framework built for **Tree Digital Insurance (UAT)** Android app using **Appium 2.x**, **Java 17**, **TestNG**, and **GitHub Actions**.
 
