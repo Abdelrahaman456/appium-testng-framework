@@ -27,8 +27,8 @@ public class ExtentManager {
             }
 
             ExtentSparkReporter sparkReporter = new ExtentSparkReporter(REPORT_PATH);
-            sparkReporter.config().setDocumentTitle("Tree Digital Insurance - Mobile Test Automation Report");
-            sparkReporter.config().setReportName("📱 Tree Mobile Appium E2E Execution Dashboard");
+            sparkReporter.config().setDocumentTitle("Tree Digital Insurance [" + utils.TestConfig.appEnvName() + "] - Mobile Test Report");
+            sparkReporter.config().setReportName("📱 Tree [" + utils.TestConfig.appEnvName() + "] Appium E2E Execution Dashboard");
             sparkReporter.config().setTheme(Theme.DARK);
             sparkReporter.config().setTimeStampFormat("yyyy-MM-dd HH:mm:ss.SSS");
 
