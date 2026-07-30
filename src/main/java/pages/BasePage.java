@@ -85,7 +85,9 @@ public class BasePage {
                 java.util.List<WebElement> elements = driver.findElements(popupBy);
                 for (WebElement el : elements) {
                     if (el.isDisplayed()) {
-                        System.out.println("[Self-Healing] Detected unexpected obstructing popup (" + popupBy + "). Auto-dismissing...");
+                        String msg = "[Self-Healing Engine] Detected unexpected obstructing popup (" + popupBy + "). Auto-dismissing...";
+                        System.out.println(msg);
+                        utils.TestListener.logWarning(msg);
                         el.click();
                         try { Thread.sleep(800); } catch (Exception e) {}
                         return true;
@@ -102,8 +104,10 @@ public class BasePage {
             element.click();
         } catch (Exception e) {
             System.out.println("[Self-Healing Triggered] Primary click failed. Checking for obstructing popups...");
+            utils.TestListener.logWarning("[Self-Healing Interceptor] Primary click failed, scanning for popups...");
             if (healAndDismissPopups()) {
                 System.out.println("[Self-Healing Success] Popup auto-dismissed! Retrying primary click...");
+                utils.TestListener.logStep("[Self-Healing Success] Retrying primary element click after popup dismissal...");
                 try {
                     waitForVisibility(element);
                     element.click();
