@@ -32,7 +32,7 @@ public class DriverManager {
                     if (udid != null && !udid.isEmpty()) {
                         options.setUdid(udid);
                     }
-                    if (appPath != null && !appPath.isEmpty()) {
+                    if (appPath != null && !appPath.isEmpty() && new java.io.File(appPath).exists()) {
                         options.setApp(appPath);
                     }
                     if (appPackage != null && !appPackage.isEmpty() && appActivity != null && !appActivity.isEmpty()) {
