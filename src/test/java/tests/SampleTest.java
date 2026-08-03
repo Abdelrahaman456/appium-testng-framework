@@ -180,6 +180,9 @@ public class SampleTest extends BaseTest {
         PolicyConfirmationScreen confirmationScreen = new PolicyConfirmationScreen();
         Assert.assertTrue(confirmationScreen.isPolicyConfirmed(), "Policy Confirmation screen ('You're ready to roll!') did not display after payment!");
         System.out.println("SUCCESS! Policy Confirmation Screen displayed! Policy purchase completed successfully.");
+
+        System.out.println("Closing Policy Confirmation screen (✕) to return to Home Landing Page for next test case...");
+        confirmationScreen.clickCloseToHome();
     }
 
     // =========================================================================================

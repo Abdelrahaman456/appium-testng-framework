@@ -23,6 +23,9 @@ public class PolicyConfirmationScreen extends BasePage {
     @AndroidFindBy(xpath = "//*[contains(@content-desc, 'View Policy') or contains(@text, 'View Policy')]")
     private WebElement viewPolicyButton;
 
+    @AndroidFindBy(xpath = "//android.widget.FrameLayout[@resource-id=\"android:id/content\"]/android.widget.FrameLayout/android.widget.FrameLayout/android.view.View/android.view.View/android.view.View/android.view.View/android.widget.ImageView[1]")
+    private WebElement closeHeaderButton;
+
     /**
      * Page Load Validation: Confirms this screen is fully loaded before interacting.
      * Fails fast with a meaningful error instead of cryptic NoSuchElementException.
@@ -46,5 +49,25 @@ public class PolicyConfirmationScreen extends BasePage {
 
     public void clickViewPolicy() {
         click(viewPolicyButton);
+    }
+
+    /**
+     * Clicks top-right Close (✕) icon on Policy Confirmation screen to route back to Home Landing Page.
+     * Keeps driver session alive and enables continuous fast test case execution!
+     */
+    public void clickCloseToHome() {
+        System.out.println("Clicking Close (✕) icon on Policy Confirmation screen to return to Home Landing Page...");
+        try {
+            click(closeHeaderButton);
+        } catch (Exception e) {
+            System.out.println("Standard click on Close icon failed, attempting fallback locator/tap...");
+            try {
+                WebElement fallbackClose = getVisibleElement(org.openqa.selenium.By.xpath("(//android.widget.ImageView)[1]"));
+                tapElement(fallbackClose);
+            } catch (Exception ex) {
+                tapCoordinates(993, 198); // Physical tap coordinates from Inspector screenshot
+            }
+        }
+        try { Thread.sleep(2000); } catch (Exception e) {} // Wait for Home screen to load
     }
 }

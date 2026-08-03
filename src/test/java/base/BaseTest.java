@@ -1,5 +1,7 @@
 package base;
 
+import org.testng.ITestResult;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Optional;
@@ -36,21 +38,36 @@ public class BaseTest {
             udid = "";
         }
 
-        System.out.println("╔══════════════════════════════════════════════════════════╗");
-        System.out.println("║  [BaseTest] Initializing Driver");
-        System.out.println("║  Environment  : " + TestConfig.appEnvName());
-        System.out.println("║  Platform     : " + platformName);
-        System.out.println("║  Device       : " + deviceName + " (UDID: " + udid + ")");
-        System.out.println("║  App Package  : " + appPackage);
-        System.out.println("║  App Path     : " + (appPath.isEmpty() ? "(use installed app)" : appPath));
-        System.out.println("╚══════════════════════════════════════════════════════════╝");
-
-        DriverManager.initializeDriver(platformName, deviceName, udid, appPath, appPackage, appActivity);
+        // 🚀 CONTINUOUS SESSION REUSE: Initialize driver only if session is not already active!
+        if (DriverManager.getDriver() == null) {
+            System.out.println("╔══════════════════════════════════════════════════════════╗");
+            System.out.println("║  [BaseTest] Initializing Driver Session");
+            System.out.println("║  Environment  : " + TestConfig.appEnvName());
+            System.out.println("║  Platform     : " + platformName);
+            System.out.println("║  Device       : " + deviceName + " (UDID: " + (udid.isEmpty() ? "Auto-detect" : udid) + ")");
+            System.out.println("║  App Package  : " + appPackage);
+            System.out.println("║  App Path     : " + (appPath.isEmpty() ? "(use installed app)" : appPath));
+            System.out.println("╚══════════════════════════════════════════════════════════╝");
+            DriverManager.initializeDriver(platformName, deviceName, udid, appPath, appPackage, appActivity);
+        } else {
+            System.out.println("[SESSION REUSE] Appium session active. Reusing current app session for fast execution!");
+        }
     }
 
     @AfterMethod(alwaysRun = true)
-    public void tearDown() {
-        System.out.println("Tearing down Driver");
+    public void tearDown(ITestResult result) {
+        // If test failed, tear down driver session to guarantee next test starts fresh
+        if (!result.isSuccess()) {
+            System.out.println("[TEST FAILED: " + result.getName() + "] Tearing down Driver session to reset app state for next test...");
+            DriverManager.quitDriver();
+        } else {
+            System.out.println("[TEST PASSED: " + result.getName() + "] Driver session kept active for continuous fast execution!");
+        }
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void tearDownClass() {
+        System.out.println("=== TEST CLASS COMPLETED: Closing Driver Session ===");
         DriverManager.quitDriver();
     }
 }
