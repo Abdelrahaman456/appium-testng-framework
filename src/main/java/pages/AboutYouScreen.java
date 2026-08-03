@@ -155,12 +155,67 @@ public class AboutYouScreen extends BasePage {
         // Wait for the picker dialog to fully animate open
         try { Thread.sleep(1500); } catch (Exception e) {}
         
+        // Scroll Month wheel up to Jan (January)
+        scrollMonthWheelToJan();
+        
         // Confirm the selection
         try {
             click(confirmButton);
-            System.out.println("DOB picker confirmed.");
+            System.out.println("DOB picker confirmed with Jan (January) selected.");
         } catch (Exception e) {
-            System.out.println("Confirm button not found for DOB, may have auto-closed.");
+            System.out.println("Confirm button not found for DOB, attempting fallback click/tap...");
+            try {
+                WebElement confirm = getVisibleElement(org.openqa.selenium.By.xpath("(//*[@text='Confirm' or @content-desc='Confirm' or @text='Done' or @content-desc='Done'])[last()]"));
+                confirm.click();
+            } catch (Exception ex) {}
+        }
+    }
+
+    /**
+     * Scrolls the Month wheel picker in the DOB dialog UP to Jan (January).
+     * Swiping DOWN on the right Month wheel moves the items upward toward Jan.
+     */
+    private void scrollMonthWheelToJan() {
+        System.out.println("Scrolling Month wheel up to Jan (January)...");
+        try {
+            // Locate Month wheel (right side wheel column in the DOB picker dialog)
+            org.openqa.selenium.By monthWheelBy = org.openqa.selenium.By.xpath(
+                "(//android.widget.SeekBar | //android.view.View[contains(@content-desc,'Jan') or contains(@content-desc,'Feb') or contains(@content-desc,'Mar') or contains(@content-desc,'Apr') or contains(@content-desc,'May') or contains(@content-desc,'Jun') or contains(@content-desc,'Jul') or contains(@content-desc,'Aug') or contains(@content-desc,'Sep') or contains(@content-desc,'Oct') or contains(@content-desc,'Nov') or contains(@content-desc,'Dec')])[last()]"
+            );
+            
+            java.util.List<WebElement> monthPickers = driver.findElements(monthWheelBy);
+            int startX, startY, endY;
+            
+            if (!monthPickers.isEmpty() && monthPickers.get(0).isDisplayed()) {
+                WebElement monthPicker = monthPickers.get(0);
+                org.openqa.selenium.Rectangle rect = monthPicker.getRect();
+                startX = rect.getX() + (rect.getWidth() / 2);
+                startY = rect.getY() + (int)(rect.getHeight() * 0.2); // Top of wheel
+                endY = rect.getY() + (int)(rect.getHeight() * 0.8);   // Bottom of wheel (Swipe DOWN moves wheel UP to Jan)
+            } else {
+                // Exact Inspector coordinates fallback: Month wheel center X is ~716 (599 to 833), Y is ~991 to ~1357
+                org.openqa.selenium.Dimension size = driver.manage().window().getSize();
+                startX = (int) (size.width * 0.72);  // ~716px right column (Month wheel)
+                startY = (int) (size.height * 0.40); // Top of wheel (~991px)
+                endY = (int) (size.height * 0.60);   // Bottom of wheel (~1357px)
+            }
+            
+            // Perform 3 swipes DOWN to reach "Jan" at top of list
+            for (int i = 1; i <= 3; i++) {
+                try {
+                    java.util.List<WebElement> janCheck = driver.findElements(org.openqa.selenium.By.xpath("//*[contains(@content-desc,'Jan') or contains(@text,'Jan') or contains(@content-desc,'01')]"));
+                    if (!janCheck.isEmpty() && janCheck.get(0).isDisplayed()) {
+                        System.out.println("Jan (January) is visible/selected on Month wheel!");
+                        break;
+                    }
+                } catch (Exception ignored) {}
+
+                System.out.println("Swiping DOWN on Month wheel to reach Jan (attempt " + i + "/3)...");
+                scrollWheel(startX, startY, endY);
+                try { Thread.sleep(600); } catch (Exception e) {}
+            }
+        } catch (Exception e) {
+            System.out.println("Warning while scrolling Month wheel to Jan: " + e.getMessage());
         }
     }
 
