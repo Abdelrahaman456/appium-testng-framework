@@ -11,7 +11,7 @@
     <test name="Physical Android Test">
         <parameter name="platformName" value="Android" />
         <parameter name="deviceName" value="Physical Device" />
-        <parameter name="udid" value="57251FDCG000LF" />
+        <parameter name="udid" value="" />
         <parameter name="appPackage" value="sa.com.tree.digital.insurance.uat" />
         <parameter name="appActivity" value="sa.com.tree.digital.insurance.MainActivity" />
         <classes>
