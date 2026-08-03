@@ -9,7 +9,6 @@ import java.net.InetSocketAddress;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
@@ -30,7 +29,7 @@ public class ConfigServer {
         server.createContext("/", new DashboardHandler());
         server.createContext("/save", new SaveConfigHandler());
         server.createContext("/run", new RunTestHandler());
-        server.setExecutor(null); // Default executor
+        server.setExecutor(null);
 
         System.out.println("╔══════════════════════════════════════════════════════════════════╗");
         System.out.println("║  🌐 Tree Digital Insurance — Test Config Web Dashboard Active    ║");
@@ -164,7 +163,33 @@ public class ConfigServer {
         return map;
     }
 
+    private static String generateFieldHtml(String label, String key, String value) {
+        return "<div class=\"form-group\"><label>" + label + "</label><input type=\"text\" name=\"" + key + "\" value=\"" + value + "\"></div>\n";
+    }
+
     private static String generateDashboardHtml(Properties uat, Properties prod) {
+        StringBuilder uatFields = new StringBuilder();
+        uatFields.append(generateFieldHtml("Customer Phone Number", "default.phone", uat.getProperty("default.phone", "")));
+        uatFields.append(generateFieldHtml("Customer Email", "default.email", uat.getProperty("default.email", "")));
+        uatFields.append(generateFieldHtml("IBAN Number", "default.iban", uat.getProperty("default.iban", "")));
+        uatFields.append(generateFieldHtml("Payment Card Number", "default.card.number", uat.getProperty("default.card.number", "")));
+        uatFields.append(generateFieldHtml("Card Expiry (MM/YYYY)", "default.card.expiry", uat.getProperty("default.card.expiry", "")));
+        uatFields.append(generateFieldHtml("Card CVV", "default.card.cvv", uat.getProperty("default.card.cvv", "")));
+        uatFields.append(generateFieldHtml("Card Holder Name", "default.card.holder", uat.getProperty("default.card.holder", "")));
+        uatFields.append(generateFieldHtml("Seller National ID", "default.seller.id", uat.getProperty("default.seller.id", "")));
+        uatFields.append(generateFieldHtml("Car Model Year", "default.car.year", uat.getProperty("default.car.year", "")));
+
+        StringBuilder prodFields = new StringBuilder();
+        prodFields.append(generateFieldHtml("Customer Phone Number", "default.phone", prod.getProperty("default.phone", "")));
+        prodFields.append(generateFieldHtml("Customer Email", "default.email", prod.getProperty("default.email", "")));
+        prodFields.append(generateFieldHtml("IBAN Number", "default.iban", prod.getProperty("default.iban", "")));
+        prodFields.append(generateFieldHtml("Payment Card Number", "default.card.number", prod.getProperty("default.card.number", "")));
+        prodFields.append(generateFieldHtml("Card Expiry (MM/YYYY)", "default.card.expiry", prod.getProperty("default.card.expiry", "")));
+        prodFields.append(generateFieldHtml("Card CVV", "default.card.cvv", prod.getProperty("default.card.cvv", "")));
+        prodFields.append(generateFieldHtml("Card Holder Name", "default.card.holder", prod.getProperty("default.card.holder", "")));
+        prodFields.append(generateFieldHtml("Seller National ID", "default.seller.id", prod.getProperty("default.seller.id", "")));
+        prodFields.append(generateFieldHtml("Car Model Year", "default.car.year", prod.getProperty("default.car.year", "")));
+
         return """
             <!DOCTYPE html>
             <html lang="en">
@@ -205,15 +230,7 @@ public class ConfigServer {
                     <div id="uat-section" class="form-section active">
                         <form action="/save" method="POST">
                             <input type="hidden" name="env" value="uat">
-                            <div class="form-group"><label>Customer Phone Number</label><input type="text" name="default.phone" value="""" + uat.getProperty("default.phone", "") + """"></div>
-                            <div class="form-group"><label>Customer Email</label><input type="text" name="default.email" value="""" + uat.getProperty("default.email", "") + """"></div>
-                            <div class="form-group"><label>IBAN Number</label><input type="text" name="default.iban" value="""" + uat.getProperty("default.iban", "") + """"></div>
-                            <div class="form-group"><label>Payment Card Number</label><input type="text" name="default.card.number" value="""" + uat.getProperty("default.card.number", "") + """"></div>
-                            <div class="form-group"><label>Card Expiry (MM/YYYY)</label><input type="text" name="default.card.expiry" value="""" + uat.getProperty("default.card.expiry", "") + """"></div>
-                            <div class="form-group"><label>Card CVV</label><input type="text" name="default.card.cvv" value="""" + uat.getProperty("default.card.cvv", "") + """"></div>
-                            <div class="form-group"><label>Card Holder Name</label><input type="text" name="default.card.holder" value="""" + uat.getProperty("default.card.holder", "") + """"></div>
-                            <div class="form-group"><label>Seller National ID</label><input type="text" name="default.seller.id" value="""" + uat.getProperty("default.seller.id", "") + """"></div>
-                            <div class="form-group"><label>Car Model Year</label><input type="text" name="default.car.year" value="""" + uat.getProperty("default.car.year", "") + """"></div>
+                            """ + uatFields.toString() + """
                             <div class="btn-group">
                                 <button type="submit" class="btn-save">💾 Save UAT Config</button>
                                 <a href="/run?env=uat" class="btn-run">🚀 Run UAT Test Suite</a>
@@ -225,15 +242,7 @@ public class ConfigServer {
                     <div id="prod-section" class="form-section">
                         <form action="/save" method="POST">
                             <input type="hidden" name="env" value="prod">
-                            <div class="form-group"><label>Customer Phone Number</label><input type="text" name="default.phone" value="""" + prod.getProperty("default.phone", "") + """"></div>
-                            <div class="form-group"><label>Customer Email</label><input type="text" name="default.email" value="""" + prod.getProperty("default.email", "") + """"></div>
-                            <div class="form-group"><label>IBAN Number</label><input type="text" name="default.iban" value="""" + prod.getProperty("default.iban", "") + """"></div>
-                            <div class="form-group"><label>Payment Card Number</label><input type="text" name="default.card.number" value="""" + prod.getProperty("default.card.number", "") + """"></div>
-                            <div class="form-group"><label>Card Expiry (MM/YYYY)</label><input type="text" name="default.card.expiry" value="""" + prod.getProperty("default.card.expiry", "") + """"></div>
-                            <div class="form-group"><label>Card CVV</label><input type="text" name="default.card.cvv" value="""" + prod.getProperty("default.card.cvv", "") + """"></div>
-                            <div class="form-group"><label>Card Holder Name</label><input type="text" name="default.card.holder" value="""" + prod.getProperty("default.card.holder", "") + """"></div>
-                            <div class="form-group"><label>Seller National ID</label><input type="text" name="default.seller.id" value="""" + prod.getProperty("default.seller.id", "") + """"></div>
-                            <div class="form-group"><label>Car Model Year</label><input type="text" name="default.car.year" value="""" + prod.getProperty("default.car.year", "") + """"></div>
+                            """ + prodFields.toString() + """
                             <div class="btn-group">
                                 <button type="submit" class="btn-save" style="background:#ef4444;">💾 Save PROD Config</button>
                                 <a href="/run?env=prod" class="btn-run" style="background:#dc2626;">⚠️ Run PROD Test Suite</a>
