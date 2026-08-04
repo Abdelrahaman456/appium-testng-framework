@@ -8,15 +8,10 @@ on:
 
 jobs:
   test:
-    timeout-minutes: 15
-    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    runs-on: macos-latest
 
     steps:
-      - name: Enable KVM Hardware Acceleration
-        run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm-nodes.rules
-          sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm
-
       - name: Checkout Repository Code
         uses: actions/checkout@v4
 
@@ -39,11 +34,11 @@ jobs:
           target: default
           arch: x86_64
           disable-animations: true
-          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          emulator-options: -no-snapshot-save -no-window -noaudio -no-boot-anim -camera-back none
           script: |
             appium --log appium_server.log &
             echo "Waiting for Appium server to start..."
-            sleep 10
+            sleep 15
             mvn test -DappPath=app/app-uat-release.apk
 
       - name: Upload Test Reports & Screenshots Artifacts

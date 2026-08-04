@@ -29,15 +29,6 @@ public class MotorCoverageSelectionScreen extends BasePage {
         }
     }
 
-    public MotorCoverageSelectionScreen selectCoverage(String coverageName) {
-        // Using an XPath 'contains' strategy because the full content-desc includes pricing and details
-        String xpath = String.format("//android.view.View[contains(@content-desc, '%s')]", coverageName);
-        WebElement coverageOption = wait.ignoring(StaleElementReferenceException.class)
-                .until(ExpectedConditions.elementToBeClickable(AppiumBy.xpath(xpath)));
-        coverageOption.click();
-        return this;
-    }
-
     public void clickInsureNow() {
         click(insureNowButton);
     }

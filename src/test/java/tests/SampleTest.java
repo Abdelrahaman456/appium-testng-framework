@@ -189,171 +189,72 @@ public class SampleTest extends BaseTest {
     // ISOLATED TEST CASES
     // =========================================================================================
 
+    @org.testng.annotations.DataProvider(name = "coverTypes")
+    public Object[][] getCoverTypes() {
+        return new Object[][] {
+            {"Comprehensive"},
+            {"Smart"},
+            {"Saver"}
+        };
+    }
+
+    private void selectCoverType(QuoteScreen quoteScreen, String coverType) {
+        System.out.println("Executing scenario for -> " + coverType + " Cover...");
+        if (coverType.equals("Smart")) {
+            System.out.println("Clicking Smart Cover card...");
+            quoteScreen.selectSmartCover();
+            try { Thread.sleep(2000); } catch (Exception e) {}
+        } else if (coverType.equals("Saver")) {
+            System.out.println("Clicking Saver Cover card...");
+            quoteScreen.selectSaverCover();
+            try { Thread.sleep(2000); } catch (Exception e) {}
+        }
+        // Comprehensive is already selected by default
+    }
+
     // FLOW 1: NEW INSURANCE + SEQUENCE NUMBER
-    
-    @Test
-    public void testFlow1_ComprehensiveCover() {
+    @Test(dataProvider = "coverTypes")
+    public void testFlow1(String coverType) {
         String nationalId = utils.NationalIdGenerator.getNextNationalId();
         String sequenceNumber = utils.SequenceNumberGenerator.getNextSequenceNumber();
         QuoteScreen quoteScreen = reachQuoteScreenFlow1(nationalId, sequenceNumber);
-        System.out.println("Executing Flow 1 -> Comprehensive Cover scenario...");
         
-        // Comprehensive Cover is already open/selected by default when Quote Screen loads!
-        // We do not click selectComprehensiveCover() because re-clicking it might collapse the card.
+        selectCoverType(quoteScreen, coverType);
         fillCheckoutAndPayment(quoteScreen, nationalId);
-        System.out.println("Flow 1 Comprehensive Cover Completed Successfully!");
-    }
-
-    @Test
-    public void testFlow1_SmartCover() {
-        String nationalId = utils.NationalIdGenerator.getNextNationalId();
-        String sequenceNumber = utils.SequenceNumberGenerator.getNextSequenceNumber();
-        QuoteScreen quoteScreen = reachQuoteScreenFlow1(nationalId, sequenceNumber);
-        System.out.println("Executing Flow 1 -> Smart Cover scenario...");
-        
-        System.out.println("Clicking Smart Cover card...");
-        quoteScreen.selectSmartCover();
-        try { Thread.sleep(2000); } catch (Exception e) {} // Wait for card to expand
-        
-        fillCheckoutAndPayment(quoteScreen, nationalId);
-        System.out.println("Flow 1 Smart Cover Completed Successfully!");
-    }
-
-    @Test
-    public void testFlow1_SaverCover() {
-        String nationalId = utils.NationalIdGenerator.getNextNationalId();
-        String sequenceNumber = utils.SequenceNumberGenerator.getNextSequenceNumber();
-        QuoteScreen quoteScreen = reachQuoteScreenFlow1(nationalId, sequenceNumber);
-        System.out.println("Executing Flow 1 -> Saver Cover scenario...");
-        
-        System.out.println("Clicking Saver Cover card...");
-        quoteScreen.selectSaverCover();
-        try { Thread.sleep(2000); } catch (Exception e) {} // Wait for card to expand
-        
-        fillCheckoutAndPayment(quoteScreen, nationalId);
-        System.out.println("Flow 1 Saver Cover Completed Successfully!");
+        System.out.println("Flow 1 " + coverType + " Cover Completed Successfully!");
     }
 
     // FLOW 2: NEW INSURANCE + CUSTOM CARD
-    
-    @Test
-    public void testFlow2_ComprehensiveCover() {
+    @Test(dataProvider = "coverTypes")
+    public void testFlow2(String coverType) {
         String nationalId = utils.NationalIdGenerator.getNextNationalId();
         QuoteScreen quoteScreen = reachQuoteScreenFlow2(nationalId);
-        System.out.println("Executing Flow 2 -> Comprehensive Cover scenario...");
         
+        selectCoverType(quoteScreen, coverType);
         fillCheckoutAndPayment(quoteScreen, nationalId);
-        System.out.println("Flow 2 Comprehensive Cover Completed Successfully!");
-    }
-
-    @Test
-    public void testFlow2_SmartCover() {
-        String nationalId = utils.NationalIdGenerator.getNextNationalId();
-        QuoteScreen quoteScreen = reachQuoteScreenFlow2(nationalId);
-        System.out.println("Executing Flow 2 -> Smart Cover scenario...");
-        
-        System.out.println("Clicking Smart Cover card...");
-        quoteScreen.selectSmartCover();
-        try { Thread.sleep(2000); } catch (Exception e) {} // Wait for card to expand
-        
-        fillCheckoutAndPayment(quoteScreen, nationalId);
-        System.out.println("Flow 2 Smart Cover Completed Successfully!");
-    }
-
-    @Test
-    public void testFlow2_SaverCover() {
-        String nationalId = utils.NationalIdGenerator.getNextNationalId();
-        QuoteScreen quoteScreen = reachQuoteScreenFlow2(nationalId);
-        System.out.println("Executing Flow 2 -> Saver Cover scenario...");
-        
-        System.out.println("Clicking Saver Cover card...");
-        quoteScreen.selectSaverCover();
-        try { Thread.sleep(2000); } catch (Exception e) {} // Wait for card to expand
-        
-        fillCheckoutAndPayment(quoteScreen, nationalId);
-        System.out.println("Flow 2 Saver Cover Completed Successfully!");
+        System.out.println("Flow 2 " + coverType + " Cover Completed Successfully!");
     }
 
     // FLOW 3: OWNERSHIP TRANSFER + SEQUENCE NUMBER
-
-    @Test
-    public void testFlow3_ComprehensiveCover() {
+    @Test(dataProvider = "coverTypes")
+    public void testFlow3(String coverType) {
         String nationalId = utils.NationalIdGenerator.getNextNationalId();
         String sequenceNumber = utils.SequenceNumberGenerator.getNextSequenceNumber();
         QuoteScreen quoteScreen = reachQuoteScreenFlow3(nationalId, sequenceNumber);
-        System.out.println("Executing Flow 3 -> Comprehensive Cover scenario...");
         
+        selectCoverType(quoteScreen, coverType);
         fillCheckoutAndPayment(quoteScreen, nationalId);
-        System.out.println("Flow 3 Comprehensive Cover Completed Successfully!");
-    }
-
-    @Test
-    public void testFlow3_SmartCover() {
-        String nationalId = utils.NationalIdGenerator.getNextNationalId();
-        String sequenceNumber = utils.SequenceNumberGenerator.getNextSequenceNumber();
-        QuoteScreen quoteScreen = reachQuoteScreenFlow3(nationalId, sequenceNumber);
-        System.out.println("Executing Flow 3 -> Smart Cover scenario...");
-        
-        System.out.println("Clicking Smart Cover card...");
-        quoteScreen.selectSmartCover();
-        try { Thread.sleep(2000); } catch (Exception e) {} // Wait for card to expand
-        
-        fillCheckoutAndPayment(quoteScreen, nationalId);
-        System.out.println("Flow 3 Smart Cover Completed Successfully!");
-    }
-
-    @Test
-    public void testFlow3_SaverCover() {
-        String nationalId = utils.NationalIdGenerator.getNextNationalId();
-        String sequenceNumber = utils.SequenceNumberGenerator.getNextSequenceNumber();
-        QuoteScreen quoteScreen = reachQuoteScreenFlow3(nationalId, sequenceNumber);
-        System.out.println("Executing Flow 3 -> Saver Cover scenario...");
-        
-        System.out.println("Clicking Saver Cover card...");
-        quoteScreen.selectSaverCover();
-        try { Thread.sleep(2000); } catch (Exception e) {} // Wait for card to expand
-        
-        fillCheckoutAndPayment(quoteScreen, nationalId);
-        System.out.println("Flow 3 Saver Cover Completed Successfully!");
+        System.out.println("Flow 3 " + coverType + " Cover Completed Successfully!");
     }
 
     // FLOW 4: OWNERSHIP TRANSFER + CUSTOM CARD
-
-    @Test
-    public void testFlow4_ComprehensiveCover() {
+    @Test(dataProvider = "coverTypes")
+    public void testFlow4(String coverType) {
         String nationalId = utils.NationalIdGenerator.getNextNationalId();
         QuoteScreen quoteScreen = reachQuoteScreenFlow4(nationalId);
-        System.out.println("Executing Flow 4 -> Comprehensive Cover scenario...");
         
+        selectCoverType(quoteScreen, coverType);
         fillCheckoutAndPayment(quoteScreen, nationalId);
-        System.out.println("Flow 4 Comprehensive Cover Completed Successfully!");
-    }
-
-    @Test
-    public void testFlow4_SmartCover() {
-        String nationalId = utils.NationalIdGenerator.getNextNationalId();
-        QuoteScreen quoteScreen = reachQuoteScreenFlow4(nationalId);
-        System.out.println("Executing Flow 4 -> Smart Cover scenario...");
-        
-        System.out.println("Clicking Smart Cover card...");
-        quoteScreen.selectSmartCover();
-        try { Thread.sleep(2000); } catch (Exception e) {} // Wait for card to expand
-        
-        fillCheckoutAndPayment(quoteScreen, nationalId);
-        System.out.println("Flow 4 Smart Cover Completed Successfully!");
-    }
-
-    @Test
-    public void testFlow4_SaverCover() {
-        String nationalId = utils.NationalIdGenerator.getNextNationalId();
-        QuoteScreen quoteScreen = reachQuoteScreenFlow4(nationalId);
-        System.out.println("Executing Flow 4 -> Saver Cover scenario...");
-        
-        System.out.println("Clicking Saver Cover card...");
-        quoteScreen.selectSaverCover();
-        try { Thread.sleep(2000); } catch (Exception e) {} // Wait for card to expand
-        
-        fillCheckoutAndPayment(quoteScreen, nationalId);
-        System.out.println("Flow 4 Saver Cover Completed Successfully!");
+        System.out.println("Flow 4 " + coverType + " Cover Completed Successfully!");
     }
 }

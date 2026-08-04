@@ -153,11 +153,6 @@ public class BasePage {
         wait.ignoring(StaleElementReferenceException.class).until(ExpectedConditions.visibilityOf(element));
     }
 
-    protected String getText(WebElement element) {
-        waitForVisibility(element);
-        return element.getText();
-    }
-
     protected WebElement getVisibleElement(org.openqa.selenium.By locator) {
         try {
             return wait.until(d -> {
@@ -172,10 +167,6 @@ public class BasePage {
         } catch (org.openqa.selenium.TimeoutException e) {
             throw new org.openqa.selenium.NoSuchElementException("No visible element found for locator: " + locator + " after 10 seconds");
         }
-    }
-
-    public void navigateBack() {
-        driver.navigate().back();
     }
 
     public void scrollDown() {
