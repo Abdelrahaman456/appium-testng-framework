@@ -40,6 +40,9 @@ public class NegativeValidationTest extends BaseTest {
         // Validation check: National ID field should block progression or maintain state
         Assert.assertNotNull(aboutYouScreen, "AboutYouScreen should remain active when short National ID is entered.");
         System.out.println("[PASS] Short National ID validation check verified!");
+        
+        // Reset app state for the next test
+        utils.DriverManager.quitDriver();
     }
 
     @Test
@@ -54,6 +57,9 @@ public class NegativeValidationTest extends BaseTest {
         System.out.println("Verifying sequence number field filters non-numeric characters...");
         Assert.assertNotNull(aboutYouScreen, "AboutYouScreen should remain active when non-numeric Sequence Number is entered.");
         System.out.println("[PASS] Non-numeric Sequence Number validation check verified!");
+        
+        // Reset app state for the next test
+        utils.DriverManager.quitDriver();
     }
 
     @Test
@@ -80,6 +86,9 @@ public class NegativeValidationTest extends BaseTest {
         System.out.println("Verifying OTP modal blocks invalid code entry...");
         // Invalid OTP should fail authentication and not proceed to Quote Screen
         System.out.println("[PASS] Incorrect OTP validation check verified!");
+        
+        // Reset app state for the next test
+        utils.DriverManager.quitDriver();
     }
 
     @Test
@@ -96,6 +105,9 @@ public class NegativeValidationTest extends BaseTest {
         
         Assert.assertNotNull(aboutYouScreen, "AboutYouScreen should remain active when short Seller ID is entered.");
         System.out.println("[PASS] Invalid Seller ID validation check verified!");
+        
+        // Reset app state for the next test
+        utils.DriverManager.quitDriver();
     }
 
     @Test
@@ -110,5 +122,8 @@ public class NegativeValidationTest extends BaseTest {
         // Progression must be blocked
         Assert.assertNotNull(aboutYouScreen, "Form submission should be blocked when mandatory fields are empty.");
         System.out.println("[PASS] Empty mandatory fields validation check verified!");
+        
+        // Reset app state for the next test
+        utils.DriverManager.quitDriver();
     }
 }
