@@ -9,7 +9,7 @@ on:
 jobs:
   test:
     timeout-minutes: 20
-    runs-on: macos-latest
+    runs-on: macos-13
 
     steps:
       - name: Checkout Repository Code
@@ -30,9 +30,9 @@ jobs:
       - name: Run Appium Tests on Android Emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 34
-          target: google_apis
-          arch: arm64-v8a
+          api-level: 29
+          target: default
+          arch: x86_64
           disable-animations: true
           emulator-options: -no-snapshot-save -no-window -noaudio -no-boot-anim -camera-back none
           script: |
