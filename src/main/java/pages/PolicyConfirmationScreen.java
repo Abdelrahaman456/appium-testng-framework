@@ -23,7 +23,9 @@ public class PolicyConfirmationScreen extends BasePage {
     @AndroidFindBy(xpath = "//*[contains(@content-desc, 'View Policy') or contains(@text, 'View Policy')]")
     private WebElement viewPolicyButton;
 
-    @AndroidFindBy(xpath = "//android.widget.FrameLayout[@resource-id=\"android:id/content\"]/android.widget.FrameLayout/android.widget.FrameLayout/android.view.View/android.view.View/android.view.View/android.view.View/android.widget.ImageView[1]")
+    // The absolute XPath is highly brittle across devices. 
+    // From logs, we know the button has 'Close' text or content-desc, or it's an ImageView at the top right.
+    @AndroidFindBy(xpath = "//*[contains(@content-desc, 'Close') or contains(@text, 'Close')] | //android.widget.FrameLayout[@resource-id=\"android:id/content\"]//android.widget.ImageView[1]")
     private WebElement closeHeaderButton;
 
     /**
@@ -62,7 +64,8 @@ public class PolicyConfirmationScreen extends BasePage {
         } catch (Exception e) {
             System.out.println("Standard click on Close icon failed, attempting fallback locator/tap...");
             try {
-                WebElement fallbackClose = getVisibleElement(org.openqa.selenium.By.xpath("(//android.widget.ImageView)[1]"));
+                // The self-healing logs proved that //android.widget.Button[@content-desc='Close' or @text='Close'] exists!
+                WebElement fallbackClose = getVisibleElement(org.openqa.selenium.By.xpath("//android.widget.Button[@content-desc='Close' or @text='Close'] | (//android.widget.ImageView)[1]"));
                 tapElement(fallbackClose);
             } catch (Exception ex) {
                 tapCoordinates(993, 198); // Physical tap coordinates from Inspector screenshot
