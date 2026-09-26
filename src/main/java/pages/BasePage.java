@@ -211,6 +211,7 @@ public class BasePage {
         Sequence tap = new Sequence(finger, 1);
         tap.addAction(finger.createPointerMove(Duration.ofMillis(0), PointerInput.Origin.viewport(), x, y));
         tap.addAction(finger.createPointerDown(PointerInput.MouseButton.LEFT.asArg()));
+        tap.addAction(new org.openqa.selenium.interactions.Pause(finger, Duration.ofMillis(100))); // CRITICAL: React Native needs a pause to register a tap
         tap.addAction(finger.createPointerUp(PointerInput.MouseButton.LEFT.asArg()));
         driver.perform(Arrays.asList(tap));
     }

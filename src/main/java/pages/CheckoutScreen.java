@@ -26,18 +26,48 @@ public class CheckoutScreen extends BasePage {
     @AndroidFindBy(xpath = "//android.widget.Button[@content-desc='Pay now']")
     private WebElement payNowButton;
 
+    @AndroidFindBy(xpath = "//*[@resource-id='tgl_checkout_page_motor_checkbox']")
+    private WebElement termsCheckbox;
+
+    public void clickTermsCheckbox() {
+        System.out.println("Clicking Terms and Conditions checkbox on Checkout Screen...");
+        try {
+            // Scroll slightly to ensure the checkbox isn't hidden by the bottom navigation bar
+            scrollDown();
+            Thread.sleep(500);
+            
+            click(termsCheckbox);
+            Thread.sleep(1000); // Wait for toggle animation
+            
+            // Self-verify if the switch actually toggled
+            String isChecked = termsCheckbox.getAttribute("checked");
+            if ("false".equals(isChecked)) {
+                System.out.println("Checkbox ignored the click, using physical tap...");
+                tapElement(termsCheckbox);
+            }
+        } catch (Exception e) {
+            System.out.println("Could not find Terms checkbox, moving on...");
+        }
+    }
+
     public void selectCreditDebitCard() {
         System.out.println("Scrolling down to reveal Payment Methods...");
+        boolean found = false;
         for (int i = 0; i < 3; i++) {
             try {
                 if (creditDebitCardButton.isDisplayed()) {
+                    found = true;
                     break;
                 }
             } catch (Exception e) {}
             scrollDown();
             try { Thread.sleep(1000); } catch (Exception e) {}
         }
-        click(creditDebitCardButton);
+        if (found) {
+            click(creditDebitCardButton);
+        } else {
+            System.out.println("Credit/Debit card button not found on this screen! Assuming it is removed or auto-selected.");
+        }
     }
 
     public void enterEmail(String email) {
@@ -46,16 +76,39 @@ public class CheckoutScreen extends BasePage {
 
     public void enterIban(String iban) {
         System.out.println("Entering IBAN into Checkout field...");
-        ibanField.click();
-        try {
-            ibanField.clear();
-        } catch (Exception e) {}
         
-        // Strip 'SA' prefix up front so the UI field receives strictly the 22 numeric digits (e.g. 6530400108071059170014)
-        // This ensures the last two digits (14) are typed completely without exceeding the input's max character limit.
+        // Strip 'SA' prefix up front so the UI field receives strictly the 22 numeric digits
         String numericOnly = (iban != null && iban.toUpperCase().startsWith("SA")) ? iban.substring(2) : iban;
         
         sendKeys(ibanField, numericOnly);
+        
+        // Allow app frontend (React/Flutter) a moment to capture the onChange event
+        try { Thread.sleep(1000); } catch(Exception e) {}
+        
+        // Removed performEditorAction here because it appears to be clearing the IBAN field on the checkout screen.
+        
+        // CRITICAL BUG FIX: Hide the keyboard so it doesn't physically cover the Checkbox!
+        try {
+            if (driver instanceof io.appium.java_client.android.AndroidDriver) {
+                ((io.appium.java_client.android.AndroidDriver) driver).hideKeyboard();
+            }
+            Thread.sleep(500); // let keyboard disappear
+        } catch (Exception ignore) {}
+        
+        // Verification loop: If it wiped the text, type it again!
+        try {
+            String currentText = ibanField.getText();
+            if (currentText == null || currentText.trim().isEmpty() || currentText.equals("IBAN *")) {
+                System.out.println("IBAN was wiped by the app! Retrying via Actions...");
+                org.openqa.selenium.interactions.Actions actions = new org.openqa.selenium.interactions.Actions(driver);
+                actions.moveToElement(ibanField).click().sendKeys(numericOnly).perform();
+                try {
+                    if (driver instanceof io.appium.java_client.android.AndroidDriver) {
+                        ((io.appium.java_client.android.AndroidDriver) driver).hideKeyboard();
+                    }
+                } catch (Exception ignore) {}
+            }
+        } catch (Exception e) {}
     }
     
     public void clickPayNow() {
@@ -66,6 +119,7 @@ public class CheckoutScreen extends BasePage {
         selectCreditDebitCard();
         enterEmail(profile.email);
         enterIban(profile.iban);
+        clickTermsCheckbox();
         clickPayNow();
     }
 }

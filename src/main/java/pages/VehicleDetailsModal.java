@@ -108,18 +108,30 @@ public class VehicleDetailsModal extends BasePage {
     private boolean selectCarModel() {
         System.out.println("[CarModel] Looking for Car Model field...");
 
-        // Wait up to 3s for the form to re-render after car make selection
         try { Thread.sleep(3000); } catch (Exception e) {}
 
-        // Strategy 1: resource-id / content-desc based locator
+        // Strategy 1: resource-id / hint based locator
         try {
-            List<WebElement> modelFields = driver.findElements(CAR_MODEL_ANY);
+            org.openqa.selenium.By robustModelLocator = org.openqa.selenium.By.xpath("//android.widget.EditText[contains(@hint, 'Model') or contains(@hint, 'model')]");
+            List<WebElement> modelFields = driver.findElements(robustModelLocator);
             if (!modelFields.isEmpty()) {
                 WebElement mf = modelFields.get(0);
-                System.out.println("[CarModel] Found via CAR_MODEL_ANY locator.");
+                System.out.println("[CarModel] Found via robust hint locator.");
+                
                 mf.click();
-                try { Thread.sleep(1500); } catch (Exception ex) {}
-                return pickFirstDropdownItem();
+                // Wait a full 2 seconds for the keyboard animation to push the screen up and STOP moving
+                try { Thread.sleep(2000); } catch (Exception ex) {}
+                
+                // Re-find element to get its completely settled NEW coordinates
+                modelFields = driver.findElements(robustModelLocator);
+                if (!modelFields.isEmpty()) {
+                    mf = modelFields.get(0);
+                    org.openqa.selenium.Rectangle rect = mf.getRect();
+                    int tapX = rect.getX() + (rect.getWidth() / 2);
+                    // Tap exactly 30 pixels below the text box (80 was too far and hit the background gap, closing the modal!)
+                    int tapY = rect.getY() + rect.getHeight() + 30;
+                    return pickFirstDropdownItem(tapX, tapY);
+                }
             }
         } catch (Exception ignored) {}
 
@@ -128,81 +140,79 @@ public class VehicleDetailsModal extends BasePage {
             List<WebElement> editTexts = driver.findElements(SECOND_EDIT_TEXT);
             if (!editTexts.isEmpty() && editTexts.get(0).isDisplayed()) {
                 System.out.println("[CarModel] Found via second EditText.");
-                editTexts.get(0).click();
-                try { Thread.sleep(1500); } catch (Exception ex) {}
-                return pickFirstDropdownItem();
+                WebElement mf = editTexts.get(0);
+                
+                mf.click();
+                try { Thread.sleep(2000); } catch (Exception ex) {}
+                
+                // Re-find to get new Y coordinate
+                editTexts = driver.findElements(SECOND_EDIT_TEXT);
+                if (!editTexts.isEmpty()) {
+                    mf = editTexts.get(0);
+                    org.openqa.selenium.Rectangle rect = mf.getRect();
+                    int tapX = rect.getX() + (rect.getWidth() / 2);
+                    int tapY = rect.getY() + rect.getHeight() + 30;
+                    return pickFirstDropdownItem(tapX, tapY);
+                }
             }
         } catch (Exception ignored) {}
 
         // Strategy 3: scroll down and retry
-        System.out.println("[CarModel] Not found — scrolling down to reveal...");
+        System.out.println("[CarModel] Not found - scrolling down to reveal...");
         scrollDown();
         try { Thread.sleep(1000); } catch (Exception e) {}
 
         try {
             List<WebElement> modelAfterScroll = driver.findElements(CAR_MODEL_ANY);
             if (!modelAfterScroll.isEmpty()) {
-                modelAfterScroll.get(0).click();
-                try { Thread.sleep(1500); } catch (Exception ex) {}
-                return pickFirstDropdownItem();
+                WebElement mf = modelAfterScroll.get(0);
+                mf.click();
+                try { Thread.sleep(2000); } catch (Exception ex) {}
+                
+                modelAfterScroll = driver.findElements(CAR_MODEL_ANY);
+                if (!modelAfterScroll.isEmpty()) {
+                    mf = modelAfterScroll.get(0);
+                    org.openqa.selenium.Rectangle rect = mf.getRect();
+                    int tapX = rect.getX() + (rect.getWidth() / 2);
+                    int tapY = rect.getY() + rect.getHeight() + 30;
+                    return pickFirstDropdownItem(tapX, tapY);
+                }
             }
         } catch (Exception ignored) {}
 
         try {
             List<WebElement> editTextsAfterScroll = driver.findElements(SECOND_EDIT_TEXT);
             if (!editTextsAfterScroll.isEmpty()) {
-                editTextsAfterScroll.get(0).click();
-                try { Thread.sleep(1500); } catch (Exception ex) {}
-                return pickFirstDropdownItem();
+                WebElement mf = editTextsAfterScroll.get(0);
+                mf.click();
+                try { Thread.sleep(2000); } catch (Exception ex) {}
+                
+                editTextsAfterScroll = driver.findElements(SECOND_EDIT_TEXT);
+                if (!editTextsAfterScroll.isEmpty()) {
+                    mf = editTextsAfterScroll.get(0);
+                    org.openqa.selenium.Rectangle rect = mf.getRect();
+                    int tapX = rect.getX() + (rect.getWidth() / 2);
+                    int tapY = rect.getY() + rect.getHeight() + 30;
+                    return pickFirstDropdownItem(tapX, tapY);
+                }
             }
         } catch (Exception ignored) {}
 
-        // 🔍 DIAGNOSTIC: Dump all visible clickable elements so we can find the real locator
-        System.out.println("[CarModel] ❌ Car Model field not found with any strategy. Dumping visible elements for diagnosis:");
-        dumpVisibleElements();
+        System.out.println("[CarModel] Car Model field not found with any strategy.");
         return false;
     }
 
-    /**
-     * Dumps all visible clickable elements to the console.
-     * Use this to find the exact resource-id or content-desc of the Car Model field.
-     */
-    private void dumpVisibleElements() {
+    // Pick first item from open dropdown using physical coordinates below the text box
+    private boolean pickFirstDropdownItem(int tapX, int tapY) {
         try {
-            System.out.println("════════ VISIBLE ELEMENTS DUMP ════════");
-            List<WebElement> all = driver.findElements(org.openqa.selenium.By.xpath("//*[@clickable='true' or @class='android.widget.EditText']"));
-            for (int i = 0; i < Math.min(all.size(), 30); i++) {
-                WebElement el = all.get(i);
-                try {
-                    String cls    = el.getAttribute("class");
-                    String rid    = el.getAttribute("resource-id");
-                    String cdesc  = el.getAttribute("content-desc");
-                    String txt    = el.getAttribute("text");
-                    boolean shown = el.isDisplayed();
-                    System.out.printf("  [%02d] class=%-45s id=%-55s desc=%-35s text=%-25s visible=%s%n",
-                        i, cls, rid, cdesc, txt, shown);
-                } catch (Exception e) { System.out.println("  [" + i + "] <stale>"); }
-            }
-            System.out.println("════════ END DUMP ════════");
+            System.out.println("[CarModel] Tapping below the text field at X:" + tapX + " Y:" + tapY);
+            tapCoordinates(tapX, tapY);
+            try { Thread.sleep(1000); } catch (Exception e) {}
+            return true;
         } catch (Exception e) {
-            System.out.println("[DOM DUMP] Failed: " + e.getMessage());
+            System.out.println("[CarModel] Failed to tap below text field: " + e.getMessage());
+            return false;
         }
-    }
-
-    // ─── Pick first item from open dropdown ──────────────────────────────────────
-    private boolean pickFirstDropdownItem() {
-        try {
-            List<WebElement> items = driver.findElements(DROPDOWN_FIRST_ITEM);
-            if (!items.isEmpty() && items.get(0).isDisplayed()) {
-                items.get(0).click();
-                System.out.println("[CarModel] ✅ First car model option selected.");
-                try { Thread.sleep(1000); } catch (Exception e) {}
-                return true;
-            }
-        } catch (Exception ignored) {}
-
-        System.out.println("[CarModel] ⚠️ No dropdown items found — model may have auto-selected.");
-        return false;
     }
 
     // ─── Main retry engine ───────────────────────────────────────────────────────
@@ -250,17 +260,41 @@ public class VehicleDetailsModal extends BasePage {
     // ─── clickProceed ────────────────────────────────────────────────────────────
     public void clickProceed() {
         System.out.println("Clicking Proceed button on Vehicle Details modal...");
+        
+        // Check if the modal already auto-closed after selecting the car model
+        try {
+            boolean isStillOpen = false;
+            try {
+                isStillOpen = new org.openqa.selenium.support.ui.WebDriverWait(driver, Duration.ofSeconds(1))
+                    .until(org.openqa.selenium.support.ui.ExpectedConditions.visibilityOf(modalHeader)) != null;
+            } catch (Exception ex) {}
+            
+            if (!isStillOpen) {
+                System.out.println("Modal already disappeared (auto-closed). No need to click Proceed.");
+                return;
+            }
+        } catch (Exception e) {}
+
         for (int i = 0; i < 2; i++) {
             try { if (proceedButton.isDisplayed()) break; } catch (Exception e) {}
             System.out.println("Scrolling down to reveal Proceed button...");
             scrollDown();
             try { Thread.sleep(800); } catch (Exception e) {}
         }
+        
         try {
-            click(proceedButton);
+            if (proceedButton.isDisplayed()) {
+                click(proceedButton);
+            }
         } catch (Exception e) {
-            System.out.println("Standard click on Proceed failed, tapping...");
-            tapElement(proceedButton);
+            System.out.println("Standard click on Proceed failed, attempting physical tap if still visible...");
+            try {
+                if (proceedButton.isDisplayed()) {
+                    tapElement(proceedButton);
+                }
+            } catch (Exception ex) {
+                System.out.println("Proceed button is no longer visible, assuming modal auto-closed.");
+            }
         }
         try { Thread.sleep(3000); } catch (Exception e) {}
     }

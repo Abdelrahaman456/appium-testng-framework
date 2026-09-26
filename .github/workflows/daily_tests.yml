@@ -30,16 +30,22 @@ jobs:
       - name: Run Appium Tests on Android Emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 29
-          target: default
+          api-level: 31
+          target: google_apis
           arch: x86_64
+          profile: pixel_5
           disable-animations: true
           emulator-options: -no-snapshot-save -no-window -noaudio -no-boot-anim -camera-back none
           script: |
             appium --log appium_server.log &
+            
             echo "Waiting for Appium server to start..."
-            sleep 15
-            mvn test -DappPath=app/app-uat-release.apk
+            while ! nc -z 127.0.0.1 4723; do   
+              sleep 1 
+            done
+            echo "Appium server is UP!"
+            
+            mvn clean test -DappPath=app/app-uat-release.apk
 
       - name: Upload Test Reports & Screenshots Artifacts
         if: always()

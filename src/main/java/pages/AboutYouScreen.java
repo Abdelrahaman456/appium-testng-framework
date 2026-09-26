@@ -62,23 +62,85 @@ public class AboutYouScreen extends BasePage {
     private WebElement nextButton;
 
     public void enterSequenceNumber(String sequenceNumber) {
+        // Fix for disappearing text: explicitly click the Sequence Number radio button first
+        // to force the app's frontend state (React/Flutter) to initialize the variable.
+        try {
+            selectSequenceNumberRadio();
+            Thread.sleep(500);
+        } catch (Exception e) {
+            System.out.println("Could not click Sequence radio, continuing...");
+        }
+
         org.openqa.selenium.By locator = org.openqa.selenium.By.xpath("//android.widget.EditText[contains(@resource-id, 'sequence_number')]");
         WebElement field = getVisibleElement(locator);
-        sendKeys(field, sequenceNumber);
+        sendKeys(field, sequenceNumber + "\n");
+        
+        // NUCLEAR OPTION: Force Android to save the text by mimicking the "Done/Check" button on the keyboard
+        try {
+            driver.executeScript("mobile: performEditorAction", com.google.common.collect.ImmutableMap.of("action", "done"));
+        } catch (Exception e) {
+            System.out.println("Failed to perform editor action, attempting to hide keyboard instead...");
+            try {
+                if (driver instanceof io.appium.java_client.android.AndroidDriver) {
+                    ((io.appium.java_client.android.AndroidDriver) driver).hideKeyboard();
+                }
+            } catch (Exception ignore) {}
+        }
     }
 
     public void selectOwnershipTransferTab() {
-        System.out.println("Clicking Ownership Transfer tab (First Click)...");
-        click(ownershipTransferTab);
+        System.out.println("Clicking Ownership Transfer tab...");
         
-        // Wait 2 seconds to let the "flicker" or forced reset happen
-        try { Thread.sleep(2000); } catch (Exception e) {}
+        try {
+            click(ownershipTransferTab);
+        } catch (Exception e) {
+            System.out.println("Standard click on Ownership Transfer tab failed, attempting OS-level clickGesture...");
+            try {
+                driver.executeScript("mobile: clickGesture", com.google.common.collect.ImmutableMap.of(
+                    "elementId", ((org.openqa.selenium.remote.RemoteWebElement) ownershipTransferTab).getId()
+                ));
+            } catch (Exception ex) {
+                tapElement(ownershipTransferTab);
+            }
+        }
         
-        System.out.println("Clicking Ownership Transfer tab (Second Click to lock it in)...");
-        click(ownershipTransferTab);
+        try { Thread.sleep(1500); } catch (Exception e) {}
         
-        // Wait 2 seconds to ensure it is stable before moving on
-        try { Thread.sleep(2000); } catch (Exception e) {}
+        // Self-verification: check if Seller ID text field is visible (it only exists on Ownership Transfer). 
+        // If not, the React Native click was ignored and we must re-tap!
+        try {
+            org.openqa.selenium.By sellerLocator = org.openqa.selenium.By.xpath("//android.widget.EditText[contains(@resource-id, 'seller')]");
+            if (driver.findElements(sellerLocator).isEmpty()) {
+                System.out.println("Seller ID field not visible yet. Re-tapping Ownership Transfer tab...");
+                
+                // RE-FIND the tab to prevent StaleElementReferenceException!
+                WebElement freshTab = driver.findElement(org.openqa.selenium.By.xpath("//*[@resource-id='tgl_about_you_page_motor_ownershipTransfer']"));
+                
+                try {
+                    driver.executeScript("mobile: clickGesture", com.google.common.collect.ImmutableMap.of(
+                        "elementId", ((org.openqa.selenium.remote.RemoteWebElement) freshTab).getId()
+                    ));
+                } catch (Exception ex) {
+                    tapElement(freshTab);
+                }
+                try { Thread.sleep(1500); } catch (Exception e) {}
+            }
+        } catch (Exception e) {
+            System.out.println("Error during verification, re-attempting tap on Ownership Transfer tab...");
+            try {
+                WebElement freshTab = driver.findElement(org.openqa.selenium.By.xpath("//*[@resource-id='tgl_about_you_page_motor_ownershipTransfer']"));
+                try {
+                    driver.executeScript("mobile: clickGesture", com.google.common.collect.ImmutableMap.of(
+                        "elementId", ((org.openqa.selenium.remote.RemoteWebElement) freshTab).getId()
+                    ));
+                } catch (Exception ex) {
+                    tapElement(freshTab);
+                }
+            } catch (Exception staleEx) {
+                System.out.println("Could not find tab to retry: " + staleEx.getMessage());
+            }
+            try { Thread.sleep(1500); } catch (Exception ex2) {}
+        }
     }
 
     public void selectNewInsuranceTab() {
@@ -127,6 +189,18 @@ public class AboutYouScreen extends BasePage {
         org.openqa.selenium.By locator = org.openqa.selenium.By.xpath("//android.widget.EditText[contains(@resource-id, 'national_id') and not(contains(@resource-id, 'seller'))]");
         WebElement field = getVisibleElement(locator);
         sendKeys(field, nationalId);
+        
+        // NUCLEAR OPTION: Force Android to save the text by mimicking the "Done/Check" button on the keyboard
+        try {
+            driver.executeScript("mobile: performEditorAction", com.google.common.collect.ImmutableMap.of("action", "done"));
+        } catch (Exception e) {
+            System.out.println("Failed to perform editor action, attempting to hide keyboard instead...");
+            try {
+                if (driver instanceof io.appium.java_client.android.AndroidDriver) {
+                    ((io.appium.java_client.android.AndroidDriver) driver).hideKeyboard();
+                }
+            } catch (Exception ignore) {}
+        }
     }
 
     public void selectDob() {
@@ -273,15 +347,73 @@ public class AboutYouScreen extends BasePage {
         }
     }
 
+    private void tapLeftEdge(WebElement element) {
+        org.openqa.selenium.Rectangle rect = element.getRect();
+        // Tap 20 pixels from the left edge, which hits the physical radio button circle instead of the text
+        int leftX = rect.getX() + 20;
+        int centerY = rect.getY() + (rect.getHeight() / 2);
+        tapCoordinates(leftX, centerY);
+    }
+
     public void selectCustomCardRadio() {
-        org.openqa.selenium.By locator = org.openqa.selenium.By.xpath("//*[contains(@resource-id, 'custom_card') and contains(@resource-id, 'radio')]");
+        System.out.println("Selecting Custom Card radio button...");
+        org.openqa.selenium.By locator = org.openqa.selenium.By.xpath("//*[@resource-id='radio_btn_about_you_page_motor_custom_card'] | //*[contains(@resource-id, 'custom_card') and contains(@resource-id, 'radio')]");
         WebElement radio = getVisibleElement(locator);
-        click(radio);
+        
+        try {
+            click(radio);
+        } catch (Exception e) {
+            System.out.println("Standard click on Custom Card radio failed, attempting physical tap...");
+            tapElement(radio);
+        }
+        
+        try { Thread.sleep(1000); } catch (Exception e) {}
+        
+        // Self-verification: check if custom card text field is visible. If not, re-tap radio button!
+        try {
+            org.openqa.selenium.By customFieldLocator = org.openqa.selenium.By.xpath("//android.widget.EditText[contains(@resource-id, 'custom_card')]");
+            if (driver.findElements(customFieldLocator).isEmpty()) {
+                System.out.println("Custom Card text field not visible yet. Re-tapping radio button...");
+                
+                WebElement freshRadio = driver.findElement(locator);
+                try {
+                    driver.executeScript("mobile: clickGesture", com.google.common.collect.ImmutableMap.of(
+                        "elementId", ((org.openqa.selenium.remote.RemoteWebElement) freshRadio).getId()
+                    ));
+                } catch (Exception ex) {
+                    tapElement(freshRadio);
+                }
+                try { Thread.sleep(1000); } catch (Exception e) {}
+            }
+        } catch (Exception e) {
+            System.out.println("Re-attempting tap on Custom Card radio...");
+            try {
+                WebElement freshRadio = driver.findElement(locator);
+                try {
+                    driver.executeScript("mobile: clickGesture", com.google.common.collect.ImmutableMap.of(
+                        "elementId", ((org.openqa.selenium.remote.RemoteWebElement) freshRadio).getId()
+                    ));
+                } catch (Exception ex) {
+                    tapElement(freshRadio);
+                }
+            } catch (Exception staleEx) {
+                System.out.println("Failed to find radio for retry: " + staleEx.getMessage());
+            }
+        }
     }
 
     public void enterCustomCard(String customCard) {
         org.openqa.selenium.By locator = org.openqa.selenium.By.xpath("//android.widget.EditText[contains(@resource-id, 'custom_card')]");
         WebElement field = getVisibleElement(locator);
+        
         sendKeys(field, customCard);
+        
+        // Hide keyboard after typing to ensure the state saves
+        try {
+            if (driver instanceof io.appium.java_client.android.AndroidDriver) {
+                ((io.appium.java_client.android.AndroidDriver) driver).hideKeyboard();
+            }
+            Thread.sleep(500);
+        } catch (Exception ignore) {}
     }
 }

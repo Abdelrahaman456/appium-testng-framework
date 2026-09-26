@@ -72,7 +72,7 @@ public class SampleTest extends BaseTest {
         coverageScreen.clickInsureNow();
         
         AboutYouScreen aboutYouScreen = new AboutYouScreen();
-        aboutYouScreen.selectNewInsuranceTab();
+        // Removed selectNewInsuranceTab() because it is already default, and clicking it might trigger an async state reset that wipes the custom card click!
         aboutYouScreen.selectCustomCardRadio();
         aboutYouScreen.enterCustomCard(utils.TestDataBuilder.DEFAULT_CUSTOM_CARD);
         aboutYouScreen.selectCarModelYear(utils.TestDataBuilder.DEFAULT_CAR_YEAR);
@@ -131,6 +131,10 @@ public class SampleTest extends BaseTest {
         aboutYouScreen.scrollDown(); 
         
         fillRemainingFields(aboutYouScreen);
+
+        // Handle Vehicle Details modal ("We need more details about your vehicle") for Flow 4
+        VehicleDetailsModal vehicleDetailsModal = new VehicleDetailsModal();
+        vehicleDetailsModal.handleVehicleDetailsIfPresent();
 
         QuoteScreen quoteScreen = new QuoteScreen();
         Assert.assertTrue(quoteScreen.isPageLoaded(), "Quote screen did not display after OTP in Flow 4.");
