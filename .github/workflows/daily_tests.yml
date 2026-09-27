@@ -26,16 +26,11 @@ jobs:
         with:
           maven-version: 3.9.6
 
-      - name: Start Appium Server (Background)
+      - name: Run Appium and Maven Tests
         run: |
-          echo "Starting Appium Server locally..."
-          # Use Start-Job to run Appium natively in the background in PowerShell
-          Start-Job -ScriptBlock { appium --log appium_server.log }
+          echo "Starting Appium Server locally via npx..."
+          Start-Process -FilePath "npx.cmd" -ArgumentList "appium --log appium_server.log" -WindowStyle Hidden
           Start-Sleep -Seconds 10
-        shell: powershell
-
-      - name: Run Appium Tests
-        run: |
           echo "Executing Maven tests..."
           mvn clean test "-DappPath=app/app-uat-release.apk"
         shell: powershell
