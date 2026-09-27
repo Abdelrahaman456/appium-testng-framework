@@ -44,7 +44,7 @@ public class DriverManager {
                     
                     // HIGH-PERFORMANCE OPTIMIZATION (Rec 2): Skip redundant checks & compress accessibility tree
                     options.setSkipUnlock(true);
-                    options.setSkipServerInstallation(true);
+                    // options.setSkipServerInstallation(true); // Must be disabled so Appium installs UiAutomator2 on fresh emulators
                     options.setCapability("appium:ignoreUnimportantViews", true);
                     options.setNewCommandTimeout(Duration.ofSeconds(120));
                     
