@@ -26,11 +26,18 @@ jobs:
         with:
           maven-version: 3.9.6
 
+      - name: Install Appium & UiAutomator2
+        run: |
+          npm install -g appium
+          appium driver install uiautomator2
+        shell: powershell
+
       - name: Start Appium Server (Background)
         run: |
           echo "Starting Appium Server locally..."
-          Start-Process -NoNewWindow -FilePath "cmd.exe" -ArgumentList "/c appium --log appium_server.log"
-          Start-Sleep -Seconds 5
+          # Use Start-Job to run Appium natively in the background in PowerShell
+          Start-Job -ScriptBlock { appium --log appium_server.log }
+          Start-Sleep -Seconds 10
         shell: powershell
 
       - name: Run Appium Tests
