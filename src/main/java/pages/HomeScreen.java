@@ -30,11 +30,26 @@ public class HomeScreen extends BasePage {
     @AndroidFindBy(xpath = "//*[@resource-id='btn_home_product_pet']")
     private WebElement petButton;
 
+    @AndroidFindBy(xpath = "//android.widget.Button[contains(@content-desc, 'Travel')]")
+    private WebElement travelButton;
+
     @AndroidFindBy(accessibility = "Login")
     private WebElement loginButton;
 
     public HomeScreen clickMotorProduct() {
+        System.out.println("Waiting 2 seconds for Home Page to fully load and settle...");
+        try { Thread.sleep(2000); } catch (Exception e) {}
+        
         click(motorProductButton);
+        return this;
+    }
+
+    public HomeScreen clickTravelProduct() {
+        System.out.println("Waiting 2 seconds for Home Page to fully load and settle...");
+        try { Thread.sleep(2000); } catch (Exception e) {}
+        
+        System.out.println("Clicking Travel Product icon...");
+        click(travelButton);
         return this;
     }
 

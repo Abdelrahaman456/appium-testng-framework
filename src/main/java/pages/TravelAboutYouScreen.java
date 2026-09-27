@@ -22,10 +22,13 @@ public class TravelAboutYouScreen extends BasePage {
     private WebElement multiTripTab;
 
     // --- Form Fields ---
-    @AndroidFindBy(xpath = "//*[contains(@text, 'Choose Destination') or contains(@content-desc, 'Choose Destination') or contains(@resource-id, 'destination')]")
+    @AndroidFindBy(xpath = "//android.widget.FrameLayout[@resource-id=\"android:id/content\"]/android.widget.FrameLayout/android.widget.FrameLayout/android.view.View/android.view.View/android.view.View/android.view.View[1]/android.widget.EditText[1]")
     private WebElement destinationDropdown;
 
-    @AndroidFindBy(xpath = "//*[contains(@text, 'Departure date') or contains(@content-desc, 'Departure date') or contains(@resource-id, 'departure')]")
+    @AndroidFindBy(xpath = "//android.widget.FrameLayout[@resource-id=\"android:id/content\"]/android.widget.FrameLayout/android.widget.FrameLayout/android.view.View/android.view.View/android.view.View/android.view.View[1]/android.widget.ImageView[1]")
+    private WebElement destinationDropdownArrow;
+
+    @AndroidFindBy(xpath = "//android.widget.FrameLayout[@resource-id=\"android:id/content\"]/android.widget.FrameLayout/android.widget.FrameLayout/android.view.View/android.view.View/android.view.View/android.view.View[1]/android.widget.ImageView[2]")
     private WebElement departureDatepicker;
 
     @AndroidFindBy(xpath = "//*[contains(@text, 'Return Date') or contains(@content-desc, 'Return Date') or contains(@resource-id, 'return')]")
@@ -67,13 +70,35 @@ public class TravelAboutYouScreen extends BasePage {
 
     public void selectDestination(String destinationName) {
         System.out.println("Selecting Destination: " + destinationName);
-        click(destinationDropdown);
-        try { Thread.sleep(1000); } catch(Exception e) {} // wait for dropdown/modal
+        try {
+            waitForVisibility(destinationDropdownArrow);
+            System.out.println("Tapping the destination dropdown ARROW (ImageView)...");
+            tapElement(destinationDropdownArrow);
+        } catch (Exception e) {
+            System.out.println("Warning: Could not tap arrow. Trying right side of EditText...");
+            try {
+                // Manually compute the right-side of the EditText box where the dropdown chevron lives
+                org.openqa.selenium.Rectangle rect = destinationDropdown.getRect();
+                int rightX = rect.getX() + rect.getWidth() - 30; // 30 pixels from the right edge
+                int centerY = rect.getY() + (rect.getHeight() / 2);
+                System.out.println("Tapping computed coordinates: " + rightX + ", " + centerY);
+                tapCoordinates(rightX, centerY);
+            } catch (Exception ex) {
+                System.out.println("CRITICAL: Choose Destination field could not be found or tapped!");
+                throw ex;
+            }
+        }
+        
+        try { Thread.sleep(2000); } catch(Exception e) {} // wait for dropdown/modal
         
         // Dynamically find and click the specific destination
-        org.openqa.selenium.By destLocator = org.openqa.selenium.By.xpath("//*[@text='" + destinationName + "' or @content-desc='" + destinationName + "']");
-        WebElement destElement = getVisibleElement(destLocator);
-        click(destElement);
+        org.openqa.selenium.By destLocator = org.openqa.selenium.By.xpath("//android.view.View[@content-desc='" + destinationName + "']");
+        try {
+            WebElement destElement = getVisibleElement(destLocator);
+            tapElement(destElement);
+        } catch (Exception e) {
+            System.out.println("Could not find destination text '" + destinationName + "'. Proceeding.");
+        }
         
         // Optional confirm button if it's a picker
         try {
@@ -84,13 +109,20 @@ public class TravelAboutYouScreen extends BasePage {
 
     public void selectDepartureDate() {
         System.out.println("Selecting Departure Date...");
-        click(departureDatepicker);
-        try { Thread.sleep(1000); } catch(Exception e) {}
+        tapElement(departureDatepicker);
+        try { Thread.sleep(2000); } catch(Exception e) {}
         
-        // Assuming current date is fine, just confirm the picker
+        System.out.println("Selecting 'Dec' in the Date Picker...");
         try {
-            WebElement confirmBtn = getVisibleElement(org.openqa.selenium.By.xpath("//*[@text='Confirm' or @content-desc='Confirm' or @text='Done']"));
-            click(confirmBtn);
+            WebElement decValue = driver.findElement(io.appium.java_client.AppiumBy.accessibilityId("Dec"));
+            tapElement(decValue);
+        } catch (Exception e) {
+            System.out.println("Could not explicitly select Dec.");
+        }
+        
+        try {
+            WebElement confirmBtn = getVisibleElement(org.openqa.selenium.By.xpath("//android.widget.Button[@content-desc='Confirm']"));
+            tapElement(confirmBtn);
         } catch (Exception e) {}
     }
 

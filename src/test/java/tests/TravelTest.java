@@ -38,15 +38,18 @@ public class TravelTest extends BaseTest {
     public void testTravelFlow1_SingleTrip(String travelerType) {
         System.out.println("\n--- [TRAVEL FLOW 1] Single Trip | Traveler: " + travelerType + " ---");
         
-        // 1. Navigate to Travel product (Assume Home Screen has a Travel button)
-        // HomeScreen homeScreen = new HomeScreen();
-        // homeScreen.clickTravelProduct(); 
+        // 1. Navigate to Travel product
+        pages.HomeScreen homeScreen = new pages.HomeScreen();
+        homeScreen.clickTravelProduct(); 
+        
+        pages.MotorCoverageSelectionScreen coverageScreen = new pages.MotorCoverageSelectionScreen();
+        coverageScreen.clickInsureNow();
         
         // 2. Fill About You Screen
         TravelAboutYouScreen travelScreen = new TravelAboutYouScreen();
         
         travelScreen.selectSingleTrip();
-        travelScreen.selectDestination("Worldwide"); // Replace with actual destination text
+        travelScreen.selectDestination("Schengen");
         travelScreen.selectDepartureDate();
         travelScreen.selectReturnDate(); // Specific to Single Trip
         
@@ -66,14 +69,17 @@ public class TravelTest extends BaseTest {
         System.out.println("\n--- [TRAVEL FLOW 2] Multi Trip (1 year) | Traveler: " + travelerType + " ---");
         
         // 1. Navigate to Travel product
-        // HomeScreen homeScreen = new HomeScreen();
-        // homeScreen.clickTravelProduct(); 
+        pages.HomeScreen homeScreen = new pages.HomeScreen();
+        homeScreen.clickTravelProduct(); 
+        
+        pages.MotorCoverageSelectionScreen coverageScreen = new pages.MotorCoverageSelectionScreen();
+        coverageScreen.clickInsureNow();
         
         // 2. Fill About You Screen
         TravelAboutYouScreen travelScreen = new TravelAboutYouScreen();
         
         travelScreen.selectMultiTrip();
-        travelScreen.selectDestination("Worldwide"); 
+        travelScreen.selectDestination("Schengen"); 
         travelScreen.selectDepartureDate();
         // NOTE: Multi trip does NOT have a Return Date picker!
         

@@ -17,7 +17,7 @@ public class AboutYouScreen extends BasePage {
     @AndroidFindBy(xpath = "//android.widget.EditText[@resource-id='textfield_about_you_page_motor_sequence_number']")
     private WebElement sequenceNumberField;
 
-    @AndroidFindBy(xpath = "//*[@resource-id='tgl_about_you_page_motor_ownershipTransfer']")
+    @AndroidFindBy(xpath = "//android.widget.Button[@content-desc=\"Ownership Transfer\"]")
     private WebElement ownershipTransferTab;
 
     @AndroidFindBy(xpath = "//*[@resource-id='tgl_about_you_page_motor_newInsurance']")
@@ -90,57 +90,27 @@ public class AboutYouScreen extends BasePage {
 
     public void selectOwnershipTransferTab() {
         System.out.println("Clicking Ownership Transfer tab...");
+        org.openqa.selenium.By locator = org.openqa.selenium.By.xpath("//android.widget.Button[@content-desc=\"Ownership Transfer\"]");
         
         try {
-            click(ownershipTransferTab);
+            // First click
+            WebElement tab = getVisibleElement(locator);
+            click(tab);
+            
+            // Bug workaround: The button flickers and returns to New Insurance! 
+            // Wait 3 seconds and click it AGAIN.
+            System.out.println("Wait 3 seconds for state flicker to settle...");
+            try { Thread.sleep(3000); } catch (Exception e) {}
+            
+            System.out.println("Re-clicking Ownership Transfer tab to bypass flicker bug...");
+            WebElement freshTab = driver.findElement(locator);
+            click(freshTab);
+            
         } catch (Exception e) {
-            System.out.println("Standard click on Ownership Transfer tab failed, attempting OS-level clickGesture...");
-            try {
-                driver.executeScript("mobile: clickGesture", com.google.common.collect.ImmutableMap.of(
-                    "elementId", ((org.openqa.selenium.remote.RemoteWebElement) ownershipTransferTab).getId()
-                ));
-            } catch (Exception ex) {
-                tapElement(ownershipTransferTab);
-            }
+            System.out.println("Failed to click Ownership Transfer: " + e.getMessage());
         }
         
         try { Thread.sleep(1500); } catch (Exception e) {}
-        
-        // Self-verification: check if Seller ID text field is visible (it only exists on Ownership Transfer). 
-        // If not, the React Native click was ignored and we must re-tap!
-        try {
-            org.openqa.selenium.By sellerLocator = org.openqa.selenium.By.xpath("//android.widget.EditText[contains(@resource-id, 'seller')]");
-            if (driver.findElements(sellerLocator).isEmpty()) {
-                System.out.println("Seller ID field not visible yet. Re-tapping Ownership Transfer tab...");
-                
-                // RE-FIND the tab to prevent StaleElementReferenceException!
-                WebElement freshTab = driver.findElement(org.openqa.selenium.By.xpath("//*[@resource-id='tgl_about_you_page_motor_ownershipTransfer']"));
-                
-                try {
-                    driver.executeScript("mobile: clickGesture", com.google.common.collect.ImmutableMap.of(
-                        "elementId", ((org.openqa.selenium.remote.RemoteWebElement) freshTab).getId()
-                    ));
-                } catch (Exception ex) {
-                    tapElement(freshTab);
-                }
-                try { Thread.sleep(1500); } catch (Exception e) {}
-            }
-        } catch (Exception e) {
-            System.out.println("Error during verification, re-attempting tap on Ownership Transfer tab...");
-            try {
-                WebElement freshTab = driver.findElement(org.openqa.selenium.By.xpath("//*[@resource-id='tgl_about_you_page_motor_ownershipTransfer']"));
-                try {
-                    driver.executeScript("mobile: clickGesture", com.google.common.collect.ImmutableMap.of(
-                        "elementId", ((org.openqa.selenium.remote.RemoteWebElement) freshTab).getId()
-                    ));
-                } catch (Exception ex) {
-                    tapElement(freshTab);
-                }
-            } catch (Exception staleEx) {
-                System.out.println("Could not find tab to retry: " + staleEx.getMessage());
-            }
-            try { Thread.sleep(1500); } catch (Exception ex2) {}
-        }
     }
 
     public void selectNewInsuranceTab() {

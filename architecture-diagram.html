@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Framework - Architecture & Flows</title>
+    <!-- Cytoscape for graph rendering -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.26.0/cytoscape.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #131417; color: #a1a1aa; margin: 0; padding: 0; overflow: hidden; }
+        
+        /* Top Header */
+        #header { position: absolute; top: 0; left: 0; width: calc(100% - 350px); padding: 24px; z-index: 10; pointer-events: none; }
+        h1 { color: #f4f4f5; font-size: 20px; font-weight: 600; margin: 0 0 8px 0; }
+        .subtitle { font-size: 13px; color: #a1a1aa; max-width: 800px; line-height: 1.5; margin: 0 0 16px 0; }
+        
+        /* Legend */
+        #legend { display: flex; gap: 16px; font-size: 12px; font-weight: 500; }
+        .legend-item { display: flex; align-items: center; gap: 6px; }
+        .legend-color { width: 10px; height: 10px; border-radius: 2px; }
+
+        /* Cytoscape Canvas */
+        #cy { width: calc(100% - 350px); height: 100vh; position: absolute; top: 0; left: 0; z-index: 1; }
+        
+        /* Sidebar */
+        #sidebar { 
+            position: absolute; right: 0; top: 0; width: 350px; height: 100vh; 
+            background: #18191c; border-left: 1px solid #27272a; z-index: 10;
+            display: flex; flex-direction: column;
+            overflow-y: auto;
+        }
+        
+        .section-title { font-size: 11px; font-weight: 700; color: #52525b; letter-spacing: 1px; padding: 24px 24px 8px 24px; text-transform: uppercase; }
+        
+        /* Flow Items */
+        .flow-item { padding: 12px 24px; cursor: pointer; transition: background 0.2s; border-bottom: 1px solid #27272a; }
+        .flow-item:hover { background: #27272a; }
+        .flow-item.active { background: #27272a; border-left: 2px solid #fbbf24; padding-left: 22px; }
+        .flow-title { font-size: 13px; font-weight: 600; color: #f4f4f5; margin-bottom: 4px; }
+        .flow-desc { font-size: 11px; color: #71717a; line-height: 1.4; }
+        
+        /* Clear Selection Button */
+        #clear-selection { margin: 16px 24px; padding: 6px 12px; font-size: 12px; color: #a1a1aa; background: #27272a; border-radius: 4px; cursor: pointer; text-align: center; border: 1px solid #3f3f46; display: none; }
+        #clear-selection:hover { color: #f4f4f5; background: #3f3f46; }
+
+        /* Steps */
+        #steps-container { display: none; padding-bottom: 24px; }
+        .step-item { display: flex; gap: 12px; padding: 12px 24px; }
+        .step-number { width: 20px; height: 20px; background: #fbbf24; color: #18191c; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; margin-top: 2px; }
+        .step-node { font-size: 12px; font-weight: 600; color: #f4f4f5; margin-bottom: 4px; }
+        .step-desc { font-size: 12px; color: #a1a1aa; line-height: 1.4; }
+        
+        /* Column Labels */
+        .column-labels { position: absolute; top: 120px; left: 0; width: calc(100% - 350px); display: flex; pointer-events: none; z-index: 5; }
+        .col-label { font-size: 10px; font-weight: 700; color: #3f3f46; text-transform: uppercase; letter-spacing: 1px; position: absolute; transform: translateX(-50%); text-align: center; }
+
+    </style>
+</head>
+<body>
+
+    <div id="header">
+        <h1>Framework — Architecture & Flows</h1>
+        <p class="subtitle">Every component and configuration that powers the Test Automation Framework. Pick a flow on the right to highlight the path through the system and see what happens at each step.</p>
+        <div id="legend"></div>
+    </div>
+    
+    <div class="column-labels" id="column-labels"></div>
+
+    <div id="cy"></div>
+
+    <div id="sidebar">
+        <div class="section-title">Flows</div>
+        <div id="flows-list"></div>
+        <div id="clear-selection">Clear selection</div>
+        
+        <div id="steps-container">
+            <div class="section-title">Steps</div>
+            <div id="steps-list"></div>
+        </div>
+    </div>
+
+    <script>
+        const architectureData = {
+            nodes: [
+                { id: "basetest", label: "BaseTest", layer: "Core" },
+                { id: "drivermanager", label: "DriverManager", layer: "Core" },
+                { id: "basepage", label: "BasePage", layer: "Core" },
+                { id: "testconfig", label: "TestConfig", layer: "Utils" },
+                { id: "testdatabuilder", label: "TestDataBuilder", layer: "Utils" },
+                { id: "nationalidgenerator", label: "NationalIdGenerator", layer: "Utils" },
+                { id: "homescreen", label: "HomeScreen", layer: "Pages" },
+                { id: "motorcoveragescreen", label: "MotorCoverageSelection", layer: "Pages" },
+                { id: "aboutyouscreen", label: "AboutYouScreen", layer: "Pages" },
+                { id: "otpmodal", label: "OtpModal", layer: "Pages" },
+                { id: "policyconfirmationscreen", label: "PolicyConfirmation", layer: "Pages" },
+                { id: "sampletest", label: "SampleTest", layer: "Tests" },
+                { id: "negativevalidationtest", label: "NegativeValidationTest", layer: "Tests" },
+                { id: "properties", label: "*.properties", layer: "Config" },
+                { id: "githubactions", label: "GitHub Actions", layer: "CI/CD" }
+            ],
+            edges: [
+                { source: "sampletest", target: "basetest" },
+                { source: "negativevalidationtest", target: "basetest" },
+                { source: "basetest", target: "drivermanager" },
+                { source: "basetest", target: "testconfig" },
+                { source: "homescreen", target: "basepage" },
+                { source: "motorcoveragescreen", target: "basepage" },
+                { source: "aboutyouscreen", target: "basepage" },
+                { source: "otpmodal", target: "basepage" },
+                { source: "policyconfirmationscreen", target: "basepage" },
+                { source: "sampletest", target: "homescreen" },
+                { source: "sampletest", target: "motorcoveragescreen" },
+                { source: "sampletest", target: "aboutyouscreen" },
+                { source: "sampletest", target: "otpmodal" },
+                { source: "sampletest", target: "policyconfirmationscreen" },
+                { source: "negativevalidationtest", target: "homescreen" },
+                { source: "negativevalidationtest", target: "aboutyouscreen" },
+                { source: "aboutyouscreen", target: "testdatabuilder" },
+                { source: "aboutyouscreen", target: "nationalidgenerator" },
+                { source: "testconfig", target: "properties" },
+                { source: "testdatabuilder", target: "properties" },
+                { source: "githubactions", target: "sampletest" },
+                { source: "githubactions", target: "negativevalidationtest" }
+            ],
+            flows: [
+                {
+                    name: "Driver Setup Flow",
+                    description: "How a test session is initialized from CI to the Appium server.",
+                    steps: [
+                        { node: "githubactions", desc: "GitHub Actions triggers the daily test workflow." },
+                        { node: "sampletest", desc: "TestNG begins executing SampleTest suite." },
+                        { node: "basetest", desc: "BaseTest @BeforeMethod hook is triggered." },
+                        { node: "testconfig", desc: "TestConfig determines the current environment." },
+                        { node: "properties", desc: "Reads environment-specific config properties." },
+                        { node: "drivermanager", desc: "DriverManager initializes the Appium session." }
+                    ]
+                },
+                {
+                    name: "Happy Path UI Flow",
+                    description: "The end-to-end user journey for purchasing a policy.",
+                    steps: [
+                        { node: "sampletest", desc: "Test starts execution." },
+                        { node: "homescreen", desc: "User selects Motor Product on Home Screen." },
+                        { node: "motorcoveragescreen", desc: "User selects desired coverage options." },
+                        { node: "aboutyouscreen", desc: "User navigates to the About You form." },
+                        { node: "testdatabuilder", desc: "Test data is injected into the form fields." },
+                        { node: "nationalidgenerator", desc: "A fresh National ID is generated." },
+                        { node: "otpmodal", desc: "User enters the verification OTP." },
+                        { node: "policyconfirmationscreen", desc: "Policy is confirmed and user closes the modal." }
+                    ]
+                },
+                {
+                    name: "Self-Healing Fallback Flow",
+                    description: "How BasePage intercepts UI failures to clear unexpected popups.",
+                    steps: [
+                        { node: "policyconfirmationscreen", desc: "A click attempt fails on the confirmation screen." },
+                        { node: "basepage", desc: "BasePage catches the exception, searches for active popups, and heals the interaction." }
+                    ]
+                },
+                {
+                    name: "Negative Validation Flow",
+                    description: "How negative tests intentionally fail midway and trigger a reset.",
+                    steps: [
+                        { node: "negativevalidationtest", desc: "Test inputs invalid data." },
+                        { node: "homescreen", desc: "Navigates past the Home Screen." },
+                        { node: "aboutyouscreen", desc: "Form validation blocks progression." },
+                        { node: "basetest", desc: "Test finishes and BaseTest tearDown is called." },
+                        { node: "drivermanager", desc: "Driver is explicitly quit to reset app state." }
+                    ]
+                }
+            ]
+        };
+
+        // UI Columns and Colors
+        const layers = ["CI/CD", "Tests", "Pages", "Core", "Utils", "Config"];
+        const layerColors = {
+            "CI/CD": "#ec4899",     // Pink
+            "Tests": "#38bdf8",     // Light Blue
+            "Pages": "#fbbf24",     // Yellow
+            "Core": "#a78bfa",      // Purple
+            "Utils": "#2dd4bf",     // Teal
+            "Config": "#4ade80"     // Green
+        };
+
+        // Render Legend
+        const legend = document.getElementById("legend");
+        layers.forEach(layer => {
+            legend.innerHTML += `
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: ${layerColors[layer]}"></div>
+                    <span>${layer}</span>
+                </div>
+            `;
+        });
+
+        // Setup Layout & Positions
+        const startX = 150;
+        const spacingX = 220;
+        const startY = 250;
+        const spacingY = 90;
+
+        // Render Column Labels
+        const colLabels = document.getElementById("column-labels");
+        layers.forEach((layer, i) => {
+            const x = startX + (i * spacingX);
+            colLabels.innerHTML += `<div class="col-label" style="left: ${x}px">${layer}</div>`;
+        });
+
+        // Build Elements array
+        const elements = [];
+        const layerCounts = {};
+        
+        architectureData.nodes.forEach(n => {
+            const lIdx = layers.indexOf(n.layer);
+            if (!layerCounts[n.layer]) layerCounts[n.layer] = 0;
+            
+            const x = startX + (lIdx * spacingX);
+            const y = startY + (layerCounts[n.layer] * spacingY);
+            layerCounts[n.layer]++;
+            
+            elements.push({
+                data: { id: n.id, label: n.label, layer: n.layer, color: layerColors[n.layer] },
+                position: { x, y }
+            });
+        });
+
+        architectureData.edges.forEach(e => {
+            elements.push({
+                data: { id: `${e.source}-${e.target}`, source: e.source, target: e.target, label: '' }
+            });
+        });
+
+        // Initialize Cytoscape
+        const cy = cytoscape({
+            container: document.getElementById('cy'),
+            elements: elements,
+            style: [
+                {
+                    selector: 'node',
+                    style: {
+                        'label': 'data(label)',
+                        'color': '#a1a1aa',
+                        'font-family': '-apple-system, BlinkMacSystemFont, sans-serif',
+                        'font-size': '12px',
+                        'font-weight': '600',
+                        'text-valign': 'center',
+                        'text-halign': 'center',
+                        'background-color': '#131417',
+                        'border-width': 1.5,
+                        'border-color': 'data(color)',
+                        'shape': 'round-rectangle',
+                        'width': 160,
+                        'height': 40,
+                        'transition-property': 'background-color, border-width, border-color, color, opacity',
+                        'transition-duration': '0.3s'
+                    }
+                },
+                {
+                    selector: 'edge',
+                    style: {
+                        'width': 1.5,
+                        'line-color': '#27272a',
+                        'target-arrow-color': '#27272a',
+                        'target-arrow-shape': 'triangle',
+                        'curve-style': 'bezier',
+                        'transition-property': 'line-color, target-arrow-color, width, opacity',
+                        'transition-duration': '0.3s'
+                    }
+                },
+                // Dimmed State
+                {
+                    selector: '.dimmed',
+                    style: {
+                        'opacity': 0.15
+                    }
+                },
+                // Highlighted Path State
+                {
+                    selector: 'node.highlighted',
+                    style: {
+                        'border-color': '#fbbf24',
+                        'border-width': 2,
+                        'color': '#f4f4f5',
+                        'background-color': '#27272a',
+                        'opacity': 1
+                    }
+                },
+                {
+                    selector: 'edge.highlighted',
+                    style: {
+                        'line-color': '#fbbf24',
+                        'target-arrow-color': '#fbbf24',
+                        'width': 2.5,
+                        'opacity': 1
+                    }
+                },
+                // Edge Label (Numbered Circles)
+                {
+                    selector: 'edge.numbered',
+                    style: {
+                        'label': 'data(stepNum)',
+                        'font-size': '11px',
+                        'font-weight': 'bold',
+                        'color': '#131417',
+                        'text-background-opacity': 1,
+                        'text-background-color': '#fbbf24',
+                        'text-background-shape': 'round-rectangle',
+                        'text-background-padding': '4px',
+                        'text-border-radius': 10,
+                        'text-margin-y': -10
+                    }
+                }
+            ],
+            layout: { name: 'preset' },
+            userZoomingEnabled: true,
+            userPanningEnabled: true,
+            minZoom: 0.5,
+            maxZoom: 2
+        });
+
+        // UI Interactions
+        const flowsList = document.getElementById("flows-list");
+        const stepsContainer = document.getElementById("steps-container");
+        const stepsList = document.getElementById("steps-list");
+        const clearBtn = document.getElementById("clear-selection");
+        let activeFlowIdx = -1;
+
+        const resetGraph = () => {
+            cy.elements().removeClass('highlighted dimmed numbered');
+            cy.edges().data('stepNum', ''); // Clear labels
+            document.querySelectorAll('.flow-item').forEach(el => el.classList.remove('active'));
+            stepsContainer.style.display = 'none';
+            clearBtn.style.display = 'none';
+            activeFlowIdx = -1;
+            cy.animate({ fit: { padding: 50 }, duration: 400 });
+        };
+
+        clearBtn.addEventListener('click', resetGraph);
+
+        architectureData.flows.forEach((flow, index) => {
+            const btn = document.createElement('div');
+            btn.className = 'flow-item';
+            btn.innerHTML = `
+                <div class="flow-title">${flow.name}</div>
+                <div class="flow-desc">${flow.description}</div>
+            `;
+            
+            btn.addEventListener('click', () => {
+                if (activeFlowIdx === index) return;
+                activeFlowIdx = index;
+                
+                // UI Reset
+                document.querySelectorAll('.flow-item').forEach(el => el.classList.remove('active'));
+                btn.classList.add('active');
+                clearBtn.style.display = 'block';
+                
+                // Graph Reset
+                cy.elements().removeClass('highlighted numbered').addClass('dimmed');
+                cy.edges().data('stepNum', '');
+
+                const highlightEles = cy.collection();
+                stepsList.innerHTML = ''; // Clear old steps
+                stepsContainer.style.display = 'block';
+
+                flow.steps.forEach((step, i) => {
+                    const node = cy.getElementById(step.node);
+                    if (node.length) highlightEles.merge(node);
+                    
+                    // Render step in sidebar
+                    stepsList.innerHTML += `
+                        <div class="step-item">
+                            <div class="step-number">${i + 1}</div>
+                            <div>
+                                <div class="step-node">${node.data('label')}</div>
+                                <div class="step-desc">${step.desc}</div>
+                            </div>
+                        </div>
+                    `;
+
+                    // Highlight directed edge to this node from the previous node
+                    if (i > 0) {
+                        const prevNodeId = flow.steps[i-1].node;
+                        let edge = cy.edges(`[source = "${prevNodeId}"][target = "${step.node}"]`);
+                        
+                        // If no direct edge exists, we try the reverse direction (e.g. extends)
+                        if (!edge.length) {
+                             edge = cy.edges(`[source = "${step.node}"][target = "${prevNodeId}"]`);
+                        }
+                        
+                        if (edge.length) {
+                            highlightEles.merge(edge);
+                            edge.data('stepNum', (i + 1).toString());
+                            edge.addClass('numbered');
+                        }
+                    }
+                });
+
+                highlightEles.removeClass('dimmed').addClass('highlighted');
+                
+                cy.animate({
+                    fit: { eles: highlightEles, padding: 100 },
+                    duration: 500,
+                    easing: 'ease-out'
+                });
+            });
+            
+            flowsList.appendChild(btn);
+        });
+
+        // Ensure nodes can't be dragged to ruin the diagram structure
+        cy.nodes().lock();
+        
+        // Initial fit
+        cy.fit(cy.elements(), 50);
+
+    </script>
+</body>
+</html>

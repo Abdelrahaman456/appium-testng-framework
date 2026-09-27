@@ -150,7 +150,8 @@ public class BasePage {
     }
 
     protected void waitForVisibility(WebElement element) {
-        wait.ignoring(StaleElementReferenceException.class).until(ExpectedConditions.visibilityOf(element));
+        wait.ignoring(StaleElementReferenceException.class, org.openqa.selenium.NoSuchElementException.class)
+            .until(ExpectedConditions.visibilityOf(element));
     }
 
     protected WebElement getVisibleElement(org.openqa.selenium.By locator) {
