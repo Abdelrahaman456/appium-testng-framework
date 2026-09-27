@@ -43,7 +43,7 @@ jobs:
       - name: Run Appium Tests
         run: |
           echo "Executing Maven tests..."
-          mvn clean test
+          mvn clean test -DappPath=app/app-uat-release.apk
         shell: powershell
 
       - name: Upload Test Reports & Screenshots Artifacts
