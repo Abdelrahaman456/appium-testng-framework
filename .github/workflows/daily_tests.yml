@@ -14,8 +14,11 @@ jobs:
     steps:
       - name: Checkout Repository Code
         uses: actions/checkout@v4
-        with:
-          lfs: true
+
+      - name: Copy Local APK to Runner (Bypass LFS Download)
+        run: |
+          Copy-Item -Path "C:\Users\LENOVO\Downloads\appium-testng-framework\app\app-uat-release.apk" -Destination "app\app-uat-release.apk" -Force
+        shell: powershell
 
       - name: Set up JDK 17 (Just to be safe)
         uses: actions/setup-java@v4
