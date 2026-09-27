@@ -25,7 +25,7 @@ jobs:
       - name: Start Appium Server (Background)
         run: |
           echo "Starting Appium Server locally..."
-          Start-Process -NoNewWindow -FilePath "appium" -ArgumentList "--log appium_server.log"
+          Start-Process -NoNewWindow -FilePath "cmd.exe" -ArgumentList "/c appium --log appium_server.log"
           Start-Sleep -Seconds 5
         shell: powershell
 
