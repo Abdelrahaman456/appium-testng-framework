@@ -50,3 +50,102 @@ jobs:
             target/surefire-reports/
             target/screenshots/
             appium_server.log
+
+      - name: Parse TestNG Results
+        if: always()
+        id: results
+        shell: powershell
+        run: |
+          $passed  = 0
+          $failed  = 0
+          $skipped = 0
+          $total   = 0
+          $xmlPath = "target\surefire-reports\testng-results.xml"
+          if (Test-Path $xmlPath) {
+            [xml]$xml = Get-Content $xmlPath
+            $passed  = [int]$xml.'testng-results'.passed
+            $failed  = [int]$xml.'testng-results'.failed
+            $skipped = [int]$xml.'testng-results'.skipped
+            $total   = [int]$xml.'testng-results'.total
+          }
+          echo "passed=$passed"   >> $env:GITHUB_OUTPUT
+          echo "failed=$failed"   >> $env:GITHUB_OUTPUT
+          echo "skipped=$skipped" >> $env:GITHUB_OUTPUT
+          echo "total=$total"     >> $env:GITHUB_OUTPUT
+          Write-Host "Results -> Passed: $passed | Failed: $failed | Skipped: $skipped | Total: $total"
+
+      - name: Send Teams Notification
+        if: always()
+        shell: powershell
+        run: |
+          $passed   = "${{ steps.results.outputs.passed }}"
+          $failed   = "${{ steps.results.outputs.failed }}"
+          $skipped  = "${{ steps.results.outputs.skipped }}"
+          $total    = "${{ steps.results.outputs.total }}"
+          $runUrl   = "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          $actor    = "${{ github.actor }}"
+          $jobStatus = "${{ job.status }}"
+
+          if ($failed -eq "0" -and $total -ne "0") {
+            $statusIcon  = "✅"
+            $statusText  = "ALL TESTS PASSED"
+            $headerColor = "Good"
+          } elseif ($total -eq "0") {
+            $statusIcon  = "⚠️"
+            $statusText  = "NO TESTS RAN"
+            $headerColor = "Warning"
+          } else {
+            $statusIcon  = "❌"
+            $statusText  = "$failed TEST(S) FAILED"
+            $headerColor = "Attention"
+          }
+
+          $body = @{
+            type = "message"
+            attachments = @(
+              @{
+                contentType = "application/vnd.microsoft.card.adaptive"
+                content = @{
+                  '$schema' = "http://adaptivecards.io/schemas/adaptive-card.json"
+                  type    = "AdaptiveCard"
+                  version = "1.4"
+                  body    = @(
+                    @{
+                      type   = "TextBlock"
+                      size   = "Large"
+                      weight = "Bolder"
+                      text   = "$statusIcon  Appium CI Report — $statusText"
+                      wrap   = $true
+                    }
+                    @{
+                      type = "FactSet"
+                      facts = @(
+                        @{ title = "🌍 Environment"; value = "UAT" }
+                        @{ title = "📊 Total Tests";  value = $total }
+                        @{ title = "✅ Passed";       value = $passed }
+                        @{ title = "❌ Failed";       value = $failed }
+                        @{ title = "⏭️ Skipped";     value = $skipped }
+                        @{ title = "👤 Triggered by"; value = $actor }
+                        @{ title = "📅 Date";         value = (Get-Date -Format "yyyy-MM-dd HH:mm") }
+                      )
+                    }
+                  )
+                  actions = @(
+                    @{
+                      type  = "Action.OpenUrl"
+                      title = "📂 View Report & Artifacts"
+                      url   = $runUrl
+                    }
+                  )
+                }
+              }
+            )
+          } | ConvertTo-Json -Depth 15
+
+          try {
+            Invoke-RestMethod -Uri "${{ secrets.TEAMS_WEBHOOK_URL }}" -Method Post -Body $body -ContentType "application/json"
+            Write-Host "✅ Teams notification sent successfully!"
+          } catch {
+            Write-Host "⚠️ Teams notification failed: $($_.Exception.Message)"
+          }
+
