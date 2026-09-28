@@ -199,8 +199,17 @@ public class AboutYouScreen extends BasePage {
         // Wait for the picker dialog to fully animate open
         try { Thread.sleep(1500); } catch (Exception e) {}
         
-        // Scroll Month wheel up to Jan (January)
-        scrollMonthWheelToJan();
+        // Scroll Month wheel up to Jan (January) - skip if already shows 01
+        try {
+            String currentDobText = field.getText();
+            if (currentDobText != null && currentDobText.startsWith("01")) {
+                System.out.println("DOB month already shows 01 (January) - skipping wheel scroll.");
+            } else {
+                scrollMonthWheelToJan();
+            }
+        } catch (Exception e) {
+            scrollMonthWheelToJan();
+        }
         
         // Confirm the selection
         try {
@@ -281,7 +290,25 @@ public class AboutYouScreen extends BasePage {
     }
 
     public void clickPrivacyCheckbox() {
+        System.out.println("Scrolling to and clicking Privacy checkbox...");
+        try {
+            // Scroll the checkbox into view before clicking (it's below the fold)
+            driver.executeScript("mobile: scroll", com.google.common.collect.ImmutableMap.of(
+                "strategy", "accessibility id",
+                "selector", "tgl_about_you_page_motor_checkbox",
+                "direction", "down"
+            ));
+        } catch (Exception e) {
+            // Fallback: generic scroll to bottom of page
+            try {
+                org.openqa.selenium.Dimension size = driver.manage().window().getSize();
+                int startX = size.width / 2;
+                scrollWheel(startX, (int)(size.height * 0.8), (int)(size.height * 0.2));
+                Thread.sleep(500);
+            } catch (Exception ignore) {}
+        }
         click(privacyCheckbox);
+        System.out.println("Privacy checkbox clicked.");
     }
 
     public void clickNext() {
