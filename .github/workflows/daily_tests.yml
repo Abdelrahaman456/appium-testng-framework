@@ -84,68 +84,66 @@ jobs:
           $total    = "${{ steps.results.outputs.total }}"
           $runUrl   = "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           $actor    = "${{ github.actor }}"
-          $jobStatus = "${{ job.status }}"
+          $date     = (Get-Date -Format "yyyy-MM-dd HH:mm")
 
           if ($failed -eq "0" -and $total -ne "0") {
-            $statusIcon  = "✅"
-            $statusText  = "ALL TESTS PASSED"
-            $headerColor = "Good"
+            $statusLabel = "[PASSED] ALL TESTS PASSED"
+            $cardColor   = "Good"
           } elseif ($total -eq "0") {
-            $statusIcon  = "⚠️"
-            $statusText  = "NO TESTS RAN"
-            $headerColor = "Warning"
+            $statusLabel = "[WARNING] NO TESTS RAN"
+            $cardColor   = "Warning"
           } else {
-            $statusIcon  = "❌"
-            $statusText  = "$failed TEST(S) FAILED"
-            $headerColor = "Attention"
+            $statusLabel = "[FAILED] $failed TEST(S) FAILED"
+            $cardColor   = "Attention"
           }
 
-          $body = @{
+          $bodyObj = [ordered]@{
             type = "message"
             attachments = @(
-              @{
+              [ordered]@{
                 contentType = "application/vnd.microsoft.card.adaptive"
-                content = @{
-                  '$schema' = "http://adaptivecards.io/schemas/adaptive-card.json"
+                content = [ordered]@{
                   type    = "AdaptiveCard"
                   version = "1.4"
                   body    = @(
-                    @{
+                    [ordered]@{
                       type   = "TextBlock"
                       size   = "Large"
                       weight = "Bolder"
-                      text   = "$statusIcon  Appium CI Report — $statusText"
+                      text   = "Appium CI Report - $statusLabel"
                       wrap   = $true
                     }
-                    @{
+                    [ordered]@{
                       type = "FactSet"
                       facts = @(
-                        @{ title = "🌍 Environment"; value = "UAT" }
-                        @{ title = "📊 Total Tests";  value = $total }
-                        @{ title = "✅ Passed";       value = $passed }
-                        @{ title = "❌ Failed";       value = $failed }
-                        @{ title = "⏭️ Skipped";     value = $skipped }
-                        @{ title = "👤 Triggered by"; value = $actor }
-                        @{ title = "📅 Date";         value = (Get-Date -Format "yyyy-MM-dd HH:mm") }
+                        [ordered]@{ title = "Environment";  value = "UAT" }
+                        [ordered]@{ title = "Total Tests";  value = "$total" }
+                        [ordered]@{ title = "Passed";       value = "$passed" }
+                        [ordered]@{ title = "Failed";       value = "$failed" }
+                        [ordered]@{ title = "Skipped";      value = "$skipped" }
+                        [ordered]@{ title = "Triggered by"; value = "$actor" }
+                        [ordered]@{ title = "Date";         value = "$date" }
                       )
                     }
                   )
                   actions = @(
-                    @{
+                    [ordered]@{
                       type  = "Action.OpenUrl"
-                      title = "📂 View Report & Artifacts"
-                      url   = $runUrl
+                      title = "View Report and Artifacts"
+                      url   = "$runUrl"
                     }
                   )
                 }
               }
             )
-          } | ConvertTo-Json -Depth 15
+          }
+
+          $body = $bodyObj | ConvertTo-Json -Depth 15
 
           try {
-            Invoke-RestMethod -Uri "${{ secrets.TEAMS_WEBHOOK_URL }}" -Method Post -Body $body -ContentType "application/json"
-            Write-Host "✅ Teams notification sent successfully!"
+            Invoke-RestMethod -Uri "${{ secrets.TEAMS_WEBHOOK_URL }}" -Method Post -Body $body -ContentType "application/json; charset=utf-8"
+            Write-Host "Teams notification sent successfully!"
           } catch {
-            Write-Host "⚠️ Teams notification failed: $($_.Exception.Message)"
+            Write-Host "Teams notification failed: $($_.Exception.Message)"
           }
 
