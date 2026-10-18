@@ -33,9 +33,11 @@ public class PolicyConfirmationScreen extends BasePage {
      * Fails fast with a meaningful error instead of cryptic NoSuchElementException.
      */
     public boolean isLoaded() {
+        int maxWaitSec = Math.max(45, utils.TestConfig.policyTimeout());
+        System.out.println("Polling dynamically (up to " + maxWaitSec + "s) for Policy Confirmation Screen...");
         boolean loaded = waitUntil(() -> isElementVisible(readyToRollHeader) || isElementVisible(viewPolicyButton),
-                utils.TestConfig.policyTimeout());
-        if (!loaded) System.out.println("[PageValidation] PolicyConfirmationScreen did NOT load within " + utils.TestConfig.policyTimeout() + "s!");
+                maxWaitSec);
+        if (!loaded) System.out.println("[PageValidation] PolicyConfirmationScreen did NOT load within " + maxWaitSec + "s!");
         return loaded;
     }
 

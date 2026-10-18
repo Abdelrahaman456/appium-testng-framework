@@ -85,6 +85,9 @@ public class TestListener implements ITestListener {
         double durationSec = durationMs / 1000.0;
         System.out.println("[TEST PASSED] " + result.getName() + " (Duration: " + durationSec + "s)");
         
+        // Discard video recording buffer on pass to save disk space
+        DriverManager.stopVideoRecording();
+        
         getTest().log(Status.PASS, MarkupHelper.createLabel("PASSED: " + result.getName() + " (" + durationSec + "s)", ExtentColor.GREEN));
     }
 
@@ -97,13 +100,14 @@ public class TestListener implements ITestListener {
         getTest().log(Status.FAIL, MarkupHelper.createLabel("FAILED: " + result.getName() + " (" + durationSec + "s)", ExtentColor.RED));
         getTest().fail(result.getThrowable());
 
-        // Capture both Base64 inline screenshot & File screenshot for 100% portable reporting
+        // Capture Base64 screenshot, File screenshot, DOM XML, and MP4 Video Recording
         captureAndAttachScreenshots(result);
     }
 
     @Override
     public void onTestSkipped(ITestResult result) {
         System.out.println("[TEST SKIPPED] " + result.getName());
+        DriverManager.stopVideoRecording();
         getTest().log(Status.SKIP, MarkupHelper.createLabel("SKIPPED: " + result.getName(), ExtentColor.ORANGE));
         if (result.getThrowable() != null) {
             getTest().skip(result.getThrowable());
@@ -130,18 +134,24 @@ public class TestListener implements ITestListener {
             String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
             String fileName = result.getName() + "_" + timeStamp;
 
-            // 1. Base64 Screenshot (Embedded directly inside HTML report for portability)
+            // 1. Save Failure Video Recording (.mp4)
+            File videoFile = DriverManager.stopAndSaveVideoRecording(SCREENSHOT_DIR + fileName + ".mp4");
+            if (videoFile != null && videoFile.exists()) {
+                getTest().info("🎥 <b>Failure Video Replay:</b> <a href='../screenshots/" + videoFile.getName() + "' target='_blank'>" + videoFile.getName() + "</a>");
+            }
+
+            // 2. Base64 Screenshot (Embedded directly inside HTML report for portability)
             String base64Screenshot = ((TakesScreenshot) driver).getScreenshotAs(OutputType.BASE64);
             getTest().fail("<b>Failure Screenshot (Embedded Base64):</b>",
                     MediaEntityBuilder.createScreenCaptureFromBase64String("data:image/png;base64," + base64Screenshot).build());
 
-            // 2. High-Res File Screenshot on Disk
+            // 3. High-Res File Screenshot on Disk
             File scrFile = ((TakesScreenshot) driver).getScreenshotAs(OutputType.FILE);
             File destFile = new File(SCREENSHOT_DIR + fileName + ".png");
             java.nio.file.Files.copy(scrFile.toPath(), destFile.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
             System.out.println("[FAILURE ARTIFACT] Screenshot saved to: " + destFile.getAbsolutePath());
 
-            // 3. Dump Page Source XML (DOM Tree)
+            // 4. Dump Page Source XML (DOM Tree)
             String pageSource = driver.getPageSource();
             File xmlFile = new File(SCREENSHOT_DIR + fileName + "_DOM.xml");
             try (FileWriter writer = new FileWriter(xmlFile)) {
@@ -161,6 +171,7 @@ public class TestListener implements ITestListener {
         if (methodName.contains("Flow2")) return "Flow 2: New Insurance (Custom Card)";
         if (methodName.contains("Flow3")) return "Flow 3: Ownership Transfer (Sequence)";
         if (methodName.contains("Flow4")) return "Flow 4: Ownership Transfer (Custom Card)";
+        if (methodName.contains("Travel")) return "Travel Insurance Suite";
         if (methodName.contains("Negative") || methodName.contains("Invalid") || methodName.contains("Incorrect") || methodName.contains("Empty")) return "Negative Validation Suite";
         return "General E2E Suite";
     }

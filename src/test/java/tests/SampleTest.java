@@ -57,8 +57,8 @@ public class SampleTest extends BaseTest {
         QuoteScreen quoteScreen = new QuoteScreen();
         System.out.println("Waiting for Quote Screen to load...");
         Assert.assertTrue(quoteScreen.isPageLoaded(), "Quote screen did not display after OTP in Flow 1.");
-        System.out.println("Quote screen displayed! Waiting 5 seconds...");
-        try { Thread.sleep(5000); } catch (InterruptedException e) {}
+        System.out.println("Quote screen displayed!");
+        try { Thread.sleep(1000); } catch (InterruptedException e) {}
         
         return quoteScreen;
     }
@@ -85,7 +85,7 @@ public class SampleTest extends BaseTest {
 
         QuoteScreen quoteScreen = new QuoteScreen();
         Assert.assertTrue(quoteScreen.isPageLoaded(), "Quote screen did not display after OTP in Flow 2.");
-        try { Thread.sleep(5000); } catch (InterruptedException e) {}
+        try { Thread.sleep(1000); } catch (InterruptedException e) {}
         return quoteScreen;
     }
 
@@ -107,7 +107,7 @@ public class SampleTest extends BaseTest {
 
         QuoteScreen quoteScreen = new QuoteScreen();
         Assert.assertTrue(quoteScreen.isPageLoaded(), "Quote screen did not display after OTP in Flow 3.");
-        try { Thread.sleep(5000); } catch (InterruptedException e) {}
+        try { Thread.sleep(1000); } catch (InterruptedException e) {}
         return quoteScreen;
     }
 
@@ -138,7 +138,7 @@ public class SampleTest extends BaseTest {
 
         QuoteScreen quoteScreen = new QuoteScreen();
         Assert.assertTrue(quoteScreen.isPageLoaded(), "Quote screen did not display after OTP in Flow 4.");
-        try { Thread.sleep(5000); } catch (InterruptedException e) {}
+        try { Thread.sleep(1000); } catch (InterruptedException e) {}
         return quoteScreen;
     }
 
@@ -149,8 +149,8 @@ public class SampleTest extends BaseTest {
         System.out.println("Handling potential Upsell popup...");
         quoteScreen.clickSkipUpsell();
         
-        System.out.println("Waiting 5 seconds for Checkout Screen to load...");
-        try { Thread.sleep(5000); } catch (Exception e) {}
+        System.out.println("Waiting for Checkout Screen to load...");
+        try { Thread.sleep(1500); } catch (Exception e) {}
         
         System.out.println("Auto-filling Checkout Screen details...");
         CheckoutScreen checkoutScreen = new CheckoutScreen();
@@ -163,19 +163,19 @@ public class SampleTest extends BaseTest {
         
         System.out.println("Entering Card Number...");
         cardModal.enterCardNumber(card.number);
-        try { Thread.sleep(1000); } catch (Exception e) {}
+        try { Thread.sleep(300); } catch (Exception e) {}
         
         System.out.println("Entering Expiry Date...");
         cardModal.enterExpiryDate(card.expiry);
-        try { Thread.sleep(1000); } catch (Exception e) {}
+        try { Thread.sleep(300); } catch (Exception e) {}
         
         System.out.println("Entering CVV...");
         cardModal.enterCvv(card.cvv);
-        try { Thread.sleep(1000); } catch (Exception e) {}
+        try { Thread.sleep(300); } catch (Exception e) {}
         
         System.out.println("Entering Cardholder Name...");
         cardModal.enterCardHolderName(card.holderName);
-        try { Thread.sleep(1000); } catch (Exception e) {}
+        try { Thread.sleep(300); } catch (Exception e) {}
         
         System.out.println("Clicking Save...");
         cardModal.clickSave();

@@ -107,13 +107,13 @@ public class AddNewCardModal extends BasePage {
 
     public void clickSave() {
         System.out.println("Clicking Save Button...");
-        try { Thread.sleep(3000); } catch (Exception e) {}
+        try { Thread.sleep(1000); } catch (Exception e) {}
         try {
             saveButton.click();
         } catch (Exception e) {
             tapElement(saveButton);
         }
-        System.out.println("Card saved! Waiting 30 seconds for payment processing...");
-        try { Thread.sleep(30000); } catch (Exception e) {}
+        System.out.println("Card saved! Handing off to dynamic Policy Confirmation polling...");
+        try { Thread.sleep(2000); } catch (Exception e) {}
     }
 }

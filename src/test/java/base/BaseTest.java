@@ -52,6 +52,9 @@ public class BaseTest {
         } else {
             System.out.println("[SESSION REUSE] Appium session active. Reusing current app session for fast execution!");
         }
+
+        // Start screen recording for failure replay (discarded automatically if test passes)
+        DriverManager.startVideoRecording();
     }
 
     @AfterMethod(alwaysRun = true)

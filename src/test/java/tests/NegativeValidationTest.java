@@ -42,7 +42,7 @@ public class NegativeValidationTest extends BaseTest {
         System.out.println("[PASS] Short National ID validation check verified!");
         
         // Reset app state for the next test
-        utils.DriverManager.quitDriver();
+        utils.DriverManager.resetAppToHome();
     }
 
     @Test
@@ -59,7 +59,7 @@ public class NegativeValidationTest extends BaseTest {
         System.out.println("[PASS] Non-numeric Sequence Number validation check verified!");
         
         // Reset app state for the next test
-        utils.DriverManager.quitDriver();
+        utils.DriverManager.resetAppToHome();
     }
 
     @Test
@@ -88,7 +88,7 @@ public class NegativeValidationTest extends BaseTest {
         System.out.println("[PASS] Incorrect OTP validation check verified!");
         
         // Reset app state for the next test
-        utils.DriverManager.quitDriver();
+        utils.DriverManager.resetAppToHome();
     }
 
     @Test
@@ -107,7 +107,7 @@ public class NegativeValidationTest extends BaseTest {
         System.out.println("[PASS] Invalid Seller ID validation check verified!");
         
         // Reset app state for the next test
-        utils.DriverManager.quitDriver();
+        utils.DriverManager.resetAppToHome();
     }
 
     @Test
@@ -124,6 +124,6 @@ public class NegativeValidationTest extends BaseTest {
         System.out.println("[PASS] Empty mandatory fields validation check verified!");
         
         // Reset app state for the next test
-        utils.DriverManager.quitDriver();
+        utils.DriverManager.resetAppToHome();
     }
 }

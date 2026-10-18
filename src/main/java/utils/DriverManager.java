@@ -83,8 +83,84 @@ public class DriverManager {
 
     public static void quitDriver() {
         if (getDriver() != null) {
+            try {
+                stopVideoRecording();
+            } catch (Exception ignored) {}
             getDriver().quit();
             driver.remove();
         }
+    }
+
+    /**
+     * Fast App Reset (~2 seconds): Restarts the app to the Home screen without destroying the UiAutomator2 session.
+     * Saves ~25 seconds per test compared to quitDriver() + initializeDriver().
+     */
+    public static void resetAppToHome() {
+        AppiumDriver currentDriver = getDriver();
+        if (currentDriver instanceof io.appium.java_client.InteractsWithApps) {
+            try {
+                String appPackage = TestConfig.appPackage();
+                System.out.println("[FAST RESET] Restarting app (" + appPackage + ") while keeping Appium session alive...");
+                io.appium.java_client.InteractsWithApps appController = (io.appium.java_client.InteractsWithApps) currentDriver;
+                appController.terminateApp(appPackage);
+                Thread.sleep(500);
+                appController.activateApp(appPackage);
+                Thread.sleep(2000);
+            } catch (Exception e) {
+                System.out.println("[FAST RESET] Soft restart failed (" + e.getMessage() + "). Falling back to full session reset...");
+                quitDriver();
+            }
+        } else {
+            quitDriver();
+        }
+    }
+
+    /**
+     * Starts Appium screen recording for the current test case.
+     */
+    public static void startVideoRecording() {
+        AppiumDriver currentDriver = getDriver();
+        if (currentDriver instanceof io.appium.java_client.screenrecording.CanRecordScreen) {
+            try {
+                ((io.appium.java_client.screenrecording.CanRecordScreen) currentDriver).startRecordingScreen();
+            } catch (Exception e) {
+                System.out.println("[VIDEO RECORDER] Could not start screen recording: " + e.getMessage());
+            }
+        }
+    }
+
+    /**
+     * Stops screen recording and discards the buffer (used when a test passes to save disk space).
+     */
+    public static void stopVideoRecording() {
+        AppiumDriver currentDriver = getDriver();
+        if (currentDriver instanceof io.appium.java_client.screenrecording.CanRecordScreen) {
+            try {
+                ((io.appium.java_client.screenrecording.CanRecordScreen) currentDriver).stopRecordingScreen();
+            } catch (Exception ignored) {}
+        }
+    }
+
+    /**
+     * Stops screen recording and writes the .mp4 video file to disk (used when a test fails).
+     */
+    public static java.io.File stopAndSaveVideoRecording(String targetFilePath) {
+        AppiumDriver currentDriver = getDriver();
+        if (currentDriver instanceof io.appium.java_client.screenrecording.CanRecordScreen) {
+            try {
+                String base64Video = ((io.appium.java_client.screenrecording.CanRecordScreen) currentDriver).stopRecordingScreen();
+                if (base64Video != null && !base64Video.isEmpty()) {
+                    byte[] decodedBytes = java.util.Base64.getDecoder().decode(base64Video);
+                    java.io.File videoFile = new java.io.File(targetFilePath);
+                    videoFile.getParentFile().mkdirs();
+                    java.nio.file.Files.write(videoFile.toPath(), decodedBytes);
+                    System.out.println("[FAILURE ARTIFACT] Screen recording video saved to: " + videoFile.getAbsolutePath());
+                    return videoFile;
+                }
+            } catch (Exception e) {
+                System.out.println("[VIDEO RECORDER] Could not save failure video: " + e.getMessage());
+            }
+        }
+        return null;
     }
 }
