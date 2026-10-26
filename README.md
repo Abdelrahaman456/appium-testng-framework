@@ -1,28 +1,27 @@
-# 🚀 Tree Digital Insurance -  Appium Mobile Automation Framework
+# 🚀 Tree Digital Insurance — Appium Mobile Automation Framework
 
-An end-to-end, self-healing mobile test automation framework built for **Tree Digital Insurance (UAT)** Android app using **Appium 2.x**, **Java 17**, **TestNG**, and **GitHub Actions**.
+An end-to-end, self-healing mobile test automation framework built for the **Tree Digital Insurance (UAT / PROD)** Android app using **Appium 2.x**, **Java 17**, **TestNG**, **ExtentReports 5**, and **GitHub Actions** with **Microsoft Teams** reporting.
 
 ---
 
 ## 📋 Table of Contents
 1. [Business Overview & E2E Flows](#-business-overview--e2e-flows)
-2. [Technical Architecture](#️-technical-architecture)
-3. [High-Performance Data Structure Architecture](#-high-performance-data-structure-architecture)
+2. [High-Performance Data Structure Architecture](#-high-performance-data-structure-architecture)
+3. [Technical Architecture](#️-technical-architecture)
 4. [Key Framework Innovations](#-key-framework-innovations)
-5. [Advanced Algorithm Upgrades](#-advanced-algorithm-upgrades)
-6. [Project Directory Structure](#-project-directory-structure)
-7. [Test Data Configuration](#️-test-data-configuration)
-8. [Prerequisites & Local Setup](#️-prerequisites--local-setup)
-9. [Running the Test Suite](#-running-the-test-suite)
-10. [CI/CD Daily Automation (GitHub Actions)](#-cicd-daily-automation-github-actions)
+5. [Project Directory Structure](#-project-directory-structure)
+6. [Test Data & Web Config Dashboard](#️-test-data--web-config-dashboard)
+7. [Prerequisites & Local Setup](#️-prerequisites--local-setup)
+8. [Running the Test Suite](#-running-the-test-suite)
+9. [CI/CD Daily Automation & Teams Reporting](#-cicd-daily-automation--teams-reporting)
 
 ---
 
 ## 🏢 Business Overview & E2E Flows
 
-This framework automates the full end-to-end customer journey for purchasing motor insurance policies on the Tree Digital Insurance mobile app, covering quote generation, vehicle selection, checkout, payment processing, and policy confirmation.
+This framework automates the full end-to-end customer journey for purchasing **Motor** and **Travel** insurance policies on the Tree Digital Insurance mobile app, covering quote generation, vehicle/trip selection, checkout, payment processing, and policy confirmation.
 
-### Automated Business Flows:
+### Automated Motor Business Flows:
 
 ```
                   ┌─────────────────────────────────────────────────────────┐
@@ -48,36 +47,40 @@ This framework automates the full end-to-end customer journey for purchasing mot
                                 "All set! You're ready to roll!"
 ```
 
-1. **Flow 1 (New Insurance + Sequence Number)**:
+1. **Motor Flow 1 (New Insurance + Sequence Number)**:
    - Dynamic National ID & Sequence Number via timestamp-based generator.
    - Native OTP verification injection.
    - Comprehensive, Smart, and Saver Cover selection.
    - Checkout auto-filling (Email, IBAN) and Credit Card entry with wheel picker date calibration.
    - Policy confirmation assertion (`"All set! You're ready to roll!"`).
 
-2. **Flow 2 (New Insurance + Custom Card)**:
+2. **Motor Flow 2 (New Insurance + Custom Card)**:
    - Custom vehicle registration with model year selection.
    - Dynamic vehicle make & model search inside the *"We need more details"* modal.
    - Full checkout, payment, and policy confirmation across all 3 cover types.
 
-3. **Flow 3 (Ownership Transfer + Sequence Number)**:
-   - Transfer tab activation, Seller ID entry, and Sequence Number radio button selection.
+3. **Motor Flow 3 (Ownership Transfer + Sequence Number)**:
+   - Transfer tab activation (with anti-flicker stabilization), Seller ID entry, and Sequence Number radio button selection.
    - OTP processing, quote selection, payment, and policy confirmation.
 
-4. **Flow 4 (Ownership Transfer + Custom Card)**:
+4. **Motor Flow 4 (Ownership Transfer + Custom Card)**:
    - Transfer tab, Seller ID, Custom Card, and Model Year.
    - Direct quote selection, payment, and policy confirmation.
 
-### 🧪 Total Test Suite: 17 Automated Test Cases
+5. **Travel Insurance Flows (Single Trip & Multi-Trip)**:
+   - Covers **Single Trip** and **Multi-Trip (1 Year)** journeys across **Individual**, **With Family**, and **Group** traveler types (`TravelTest.java` & `TravelAboutYouScreen.java`).
+
+### 🧪 Automated Test Coverage
 
 | Suite | Count | Description |
 |---|---|---|
-| Flow 1 (New Insurance + Sequence) | 3 | Comprehensive, Smart, Saver |
-| Flow 2 (New Insurance + Custom Card) | 3 | Comprehensive, Smart, Saver |
-| Flow 3 (Transfer + Sequence) | 3 | Comprehensive, Smart, Saver |
-| Flow 4 (Transfer + Custom Card) | 3 | Comprehensive, Smart, Saver |
-| Negative Validation Suite | 5 | Edge cases & invalid input tests |
-| **Total** | **17** | **Full regression coverage** |
+| Motor Flow 1 (New Insurance + Sequence) | 3 | Comprehensive, Smart, Saver |
+| Motor Flow 2 (New Insurance + Custom Card) | 3 | Comprehensive, Smart, Saver |
+| Motor Flow 3 (Transfer + Sequence) | 3 | Comprehensive, Smart, Saver |
+| Motor Flow 4 (Transfer + Custom Card) | 3 | Comprehensive, Smart, Saver |
+| Motor Negative Validation Suite | 5 | Edge cases & invalid input tests (`Motor_Error_Messages_Sheet.csv`) |
+| Travel Product Suite | 6 | Single Trip & Multi-Trip × Individual, Family, Group |
+| **Total** | **23** | **Full E2E + Negative Regression Coverage** |
 
 ---
 
@@ -95,22 +98,20 @@ The framework incorporates specialized **Data Structures** to guarantee $O(1)$ h
 
 3. **Strongly-Typed Enums (`CoverType.java` & `InsuranceFlow.java`)**:
    - Replaces fragile String comparisons with type-safe Enums (`COMPREHENSIVE`, `SMART`, `SAVER`).
-   - Provides $O(1)$ direct array index memory access.
 
 4. **`ThreadLocal` Isolation Pattern (`DriverManager.java`)**:
    - Enforces thread-isolated `ThreadLocal<AppiumDriver>` and `ThreadLocal<ExtentTest>` instances.
-   - Enables zero-lock parallel test execution without thread contention.
 
 ---
 
 ## 🛠️ Technical Architecture
 
 - **Core Engine**: Appium 2.x Java Client (`io.appium:java-client 9.2.2`) with `UiAutomator2` driver.
-- **Test Runner**: TestNG (`7.9.0`) with parallel execution configuration.
+- **Test Runner**: TestNG (`7.9.0`).
 - **Design Pattern**: Page Object Model (POM) with PageFactory lazy element initialization.
 - **Build System**: Apache Maven (`pom.xml`).
-- **Reporting Engine**: ExtentReports 5.x Dark-Mode Visual Dashboard.
-- **CI/CD Engine**: GitHub Actions with daily scheduled runs.
+- **Reporting Engine**: ExtentReports 5.x Dark-Mode Visual Dashboard + Microsoft Teams Adaptive Cards.
+- **CI/CD Engine**: GitHub Actions (`.github/workflows/daily_tests.yml`).
 
 ---
 
@@ -118,197 +119,134 @@ The framework incorporates specialized **Data Structures** to guarantee $O(1)$ h
 
 ### 1. 📊 ExtentReports 5.x Dark-Mode Visual Dashboard
 - Generates interactive dark-mode HTML reports at `target/extent-reports/ExtentReport.html`.
-- Displays real-time test execution analytics, pass/fail badges, execution duration, and inline Base64 failure screenshots.
+- Displays real-time test execution analytics, pass/fail badges, execution duration, inline Base64 failure screenshots, and clickable failure video replays.
 
-### 2. 🛡️ Self-Healing Popup Interceptor Engine
-- Automatically intercepts and dismisses unexpected popups (system permissions, upsell banners, "Skip", "Dismiss", "Not now") whenever an element click fails.
-- Once auto-dismissed, retries the primary operation smoothly without failing the test.
+### 2. 🎥 Automatic Failure Video Recording & Artifacts Collector
+- Records the device screen during every test execution via Appium's `CanRecordScreen`.
+- **When a test passes:** Discards the video buffer automatically so disk space is never wasted.
+- **When a test fails:** Saves and attaches:
+  - **MP4 Video Replay** → `target/screenshots/{TestName}_{Timestamp}.mp4`
+  - **High-res PNG Screenshot** → `target/screenshots/{TestName}_{Timestamp}.png`
+  - **Complete Appium DOM XML** → `target/screenshots/{TestName}_{Timestamp}_DOM.xml`
 
-### 3. 🔢 Timestamp-Based Zero-Duplicate ID Generators
-- `NationalIdGenerator.java` & `SequenceNumberGenerator.java` generate unique IDs using:
-```
-System.currentTimeMillis() → last 4 digits → appended to prefix
-National ID  = 135454 + last 4 digits of timestamp  → e.g. 1354547891
-Sequence No  = 70484  + last 4 digits of timestamp  → e.g. 704847892
-```
-- **Zero file I/O** — no disk reads/writes needed.
-- **Zero duplicate risk** across parallel runs, multiple machines, and CI/CD environments.
-- **Last 4 digits** guarantee uniqueness every millisecond.
+### 3. ⚡ Continuous Session Reuse & Fast App Reset
+- Passing E2E tests click the top-right Close (`✕`) button on the Policy Confirmation screen to return directly to the Home landing page, reusing the active Appium session without reinstalling the app.
+- Negative tests use `DriverManager.resetAppToHome()` (`terminateApp` + `activateApp`) to reset the app in `~2.5 seconds` instead of a full `~25-second` session teardown.
 
-### 4. 📝 Failure Artifacts Collector
-- Upon test failure, automatically captures:
-  - High-res PNG Screenshot → `target/screenshots/{TestName}_{Timestamp}.png`
-  - Complete Appium DOM XML → `target/screenshots/{TestName}_{Timestamp}_DOM.xml`
+### 4. 🛡️ Self-Healing Popup Interceptor Engine
+- Automatically intercepts and dismisses unexpected popups (system permissions, upsell banners, "Skip", "Dismiss", "Not now") whenever an element click fails, then retries the primary operation seamlessly.
 
-### 5. 🔄 Flaky Test Retry Engine
-- Implements `IRetryAnalyzer` to automatically retry transient failures once before declaring a final failure.
+### 5. 🔢 Timestamp-Based Zero-Duplicate ID Generators
+- `NationalIdGenerator.java` & `SequenceNumberGenerator.java` generate unique IDs using `System.currentTimeMillis()` suffixes (`135454XXXX` / `70484XXXX`) with zero duplicate risk.
 
-### 6. ⚡ Smart Dynamic Wait (`BasePage.java`)
-- Replaces all fixed `Thread.sleep()` with intelligent condition polling:
-```java
-// OLD — wastes time or fails under load:
-Thread.sleep(5000);
-
-// NEW — polls every 500ms, exits immediately when element is ready:
-waitUntil(() -> isElementVisible(someElement), 10);
-```
-- `waitUntil(condition, timeoutSec)` — polls a condition every 500ms.
-- `isElementVisible(element)` — instant check with no exceptions thrown.
-
-### 7. ✅ Page Load Validation
-- Every screen now exposes an `isLoaded()` method that validates the screen is fully rendered before interacting:
-```java
-public boolean isLoaded() {
-    boolean loaded = waitUntil(
-        () -> isElementVisible(readyToRollHeader) || isElementVisible(viewPolicyButton),
-        TestConfig.policyTimeout()
-    );
-    if (!loaded) System.out.println("[PageValidation] Screen did NOT load!");
-    return loaded;
-}
-```
-- Produces meaningful error messages: `[PageValidation] PolicyConfirmationScreen did NOT load within 30s!`
-- Instead of cryptic `NoSuchElementException` crashes.
-
-### 8. 🗂️ Centralized Test Data Config (`testdata.properties`)
-- All test data and timeouts are stored in a single config file:
-```properties
-default.phone=500421222
-default.iban=SA6530400108071059170014
-default.card.number=5123456789012346
-timeout.payment.processing=30
-timeout.policy.confirmation=30
-```
-- Change any test data or timeout **without recompiling Java code**.
-- `TestConfig.java` loads the file once at startup and caches all values.
-- `TestDataBuilder.java` reads all values from `TestConfig`.
-
-### 9. 🧠 IBAN Self-Healing Input
-- The UAT app pre-renders a `SA` country code label inside the IBAN text field.
-- The framework automatically strips `SA` prefix before typing and sends only the 22 numeric digits:
-```java
-String numericOnly = iban.startsWith("SA") ? iban.substring(2) : iban;
-sendKeys(ibanField, numericOnly); // UI combines SA + 22 digits = SA + 6530400108071059170014
-```
+### 6. 🌐 Web Configuration Portal (`ConfigServer.java`)
+- Built-in web UI at `http://localhost:8080` for viewing/editing `config/uat.properties` and `config/prod.properties` and triggering test runs from a browser.
 
 ---
 
 ## 📁 Project Directory Structure
 
 ```text
-appium-testng-framework/
+Mobile_Automation_Testing/
 ├── .github/workflows/
-│   └── daily_tests.yml                  # Daily CI/CD pipeline (no auto push trigger)
+│   └── daily_tests.yml                  # Daily CI/CD pipeline + Emulator Auto-Boot + Teams Report
 ├── src/
 │   ├── main/java/
 │   │   ├── enums/
 │   │   │   ├── CoverType.java           # Type-safe cover Enum (COMPREHENSIVE, SMART, SAVER)
 │   │   │   └── InsuranceFlow.java       # Insurance flow Enum (FLOW_1 → FLOW_4)
 │   │   ├── pages/
-│   │   │   ├── BasePage.java            # Core: ConcurrentHashMap cache, ArrayDeque queue,
-│   │   │   │                            #       Smart Dynamic Wait, isElementVisible
-│   │   │   ├── HomeScreen.java          # Home screen navigation
+│   │   │   ├── BasePage.java            # Core wait engine, self-healing queue, W3C gestures
+│   │   │   ├── HomeScreen.java          # Home screen navigation (Motor & Travel)
 │   │   │   ├── MotorCoverageSelectionScreen.java
-│   │   │   ├── AboutYouScreen.java      # Customer info, tab switching, keyboard dismissal
+│   │   │   ├── AboutYouScreen.java      # Motor form, DOB/Year pickers, privacy scroll
+│   │   │   ├── TravelAboutYouScreen.java# Travel form (Single/Multi Trip, Destination, Dates)
 │   │   │   ├── VehicleDetailsModal.java # Vehicle make/model search modal
 │   │   │   ├── OtpModal.java            # OTP native digit injection
 │   │   │   ├── QuoteScreen.java         # Cover card selection & Buy Now scroll
 │   │   │   ├── CheckoutScreen.java      # Email, IBAN (SA-prefix self-healing)
 │   │   │   ├── AddNewCardModal.java     # Credit card entry & wheel pickers
-│   │   │   └── PolicyConfirmationScreen.java  # isLoaded() page validation
+│   │   │   └── PolicyConfirmationScreen.java  # Dynamic polling confirmation check
 │   │   └── utils/
-│   │       ├── DriverManager.java       # ThreadLocal AppiumDriver + fast session flags
-│   │       ├── NationalIdGenerator.java # Timestamp-based 4-digit suffix (zero duplicates)
-│   │       ├── SequenceNumberGenerator.java # Timestamp-based 4-digit suffix (zero duplicates)
-│   │       ├── TestConfig.java          # testdata.properties loader & cache
-│   │       └── TestDataBuilder.java     # Data profiles (reads from TestConfig)
+│   │       ├── ConfigServer.java        # Web Dashboard at http://localhost:8080
+│   │       ├── DriverManager.java       # ThreadLocal AppiumDriver, video recorder, fast reset
+│   │       ├── ExtentManager.java       # Dark-mode ExtentReports 5.x manager
+│   │       ├── NationalIdGenerator.java # Timestamp-based unique National ID generator
+│   │       ├── SequenceNumberGenerator.java # Timestamp-based unique Sequence generator
+│   │       ├── TestConfig.java          # Multi-env (uat/prod) config loader & cache
+│   │       ├── TestDataBuilder.java     # Data profiles (reads from TestConfig)
+│   │       └── TestListener.java        # Screenshots, MP4 video, DOM capture & report logger
 │   └── test/java/
 │       ├── base/
-│       │   └── BaseTest.java            # TestNG setup/teardown with CI detection
+│       │   └── BaseTest.java            # TestNG setup/teardown with continuous session reuse
 │       ├── tests/
-│       │   ├── SampleTest.java          # 12 positive E2E test cases (Flows 1-4)
-│       │   └── NegativeValidationTest.java # 5 negative edge-case test cases
+│       │   ├── SampleTest.java          # 12 positive Motor E2E test cases (Flows 1-4)
+│       │   ├── NegativeValidationTest.java # 5 negative Motor edge-case test cases
+│       │   └── TravelTest.java          # 6 Travel E2E test cases (Single & Multi-Trip)
 │       └── utils/
-│           ├── ExtentManager.java       # Dark-mode ExtentReports 5.x manager
-│           ├── TestListener.java        # Screenshots, DOM capture & report logger
 │           ├── RetryAnalyzer.java       # Automatic test retry logic
 │           └── AnnotationTransformer.java # TestNG retry listener injector
 ├── src/test/resources/
-│   ├── testng.xml                       # Suite XML runner configuration
-│   └── testdata.properties              # ⭐ Centralized test data config (no recompile needed!)
+│   ├── config/
+│   │   ├── uat.properties               # UAT environment configuration
+│   │   └── prod.properties              # PROD environment configuration
+│   ├── testng.xml                       # Suite XML runner configuration (Motor & Travel)
+│   └── testdata.properties              # Default fallback test data properties
+├── Motor_Error_Messages_Sheet.csv       # Comprehensive Motor negative & validation error matrix
+├── Test_Flows_Matrix.csv                # E2E test flows tracking matrix
 ├── pom.xml                              # Maven project configuration
 └── README.md                            # Project documentation
 ```
 
 ---
 
-## 🗂️ Test Data Configuration
+## 🗂️ Test Data & Web Config Dashboard
 
-All test data is centralized in **[`src/test/resources/testdata.properties`](src/test/resources/testdata.properties)**.
+Environment-specific configurations live in:
+- `src/test/resources/config/uat.properties` (Default)
+- `src/test/resources/config/prod.properties`
 
-To change any value — **edit the file directly, no Java recompilation needed**:
-
-```properties
-# Customer Data
-default.phone=500421222
-default.email=aashraf@tree.com.sa
-default.iban=SA6530400108071059170014
-
-# Credit Card Data
-default.card.number=5123456789012346
-default.card.expiry=01/2031
-default.card.cvv=100
-default.card.holder=Tree User
-
-# Timeouts (seconds)
-timeout.element.visible=10
-timeout.payment.processing=30
-timeout.policy.confirmation=30
+You can also launch the interactive **Web Config Portal** at `http://localhost:8080`:
+```bash
+mvn compile exec:java -Dexec.mainClass="utils.ConfigServer"
 ```
 
 ---
 
 ## ⚙️ Prerequisites & Local Setup
 
-1. **Java JDK**: Version 17 or higher.
-2. **Appium Server**: Appium 2.x installed globally (`npm install -g appium`).
-3. **Appium Android Driver**: `appium driver install uiautomator2`.
-4. **Android Device / Emulator**: USB Debugging enabled (physical) or active AVD.
+1. **Java JDK**: Version 17 (`JAVA_HOME` configured).
+2. **Apache Maven**: Version 3.9+.
+3. **Node.js & Appium 2.x**:
+   ```bash
+   npm install -g appium
+   appium driver install uiautomator2
+   ```
+4. **Android Emulator / Device**: Google Play Store system image (API 33 or 34 recommended to pass RootBeer integrity checks).
 
 ---
 
 ## 🧪 Running the Test Suite
 
-### Option 1: Run via IntelliJ IDEA
-- Open `src/test/resources/testng.xml`.
-- Right-click `testng.xml` ➔ **Run '.../testng.xml'**.
-- Or click the green ▶️ play button next to any `@Test` method.
-
-### Option 2: Run via Command Line (Maven)
 ```bash
-# Start Appium Server in a separate terminal
-appium
+# Run UAT suite (default)
+mvn clean test "-DappPath=app/app-uat-release.apk"
 
-# Run the complete test suite
-mvn test
+# Switch environment via -Denv
+mvn clean test -Denv=uat "-DappPath=app/app-uat-release.apk"
 ```
 
 ---
 
-## ⏰ CI/CD Daily Automation (GitHub Actions)
+## ⏰ CI/CD Daily Automation & Teams Reporting
 
-The GitHub Actions workflow (**`daily_tests.yml`**) is configured as:
+The GitHub Actions workflow (**`.github/workflows/daily_tests.yml`**) runs automatically every morning at **11:00 AM KSA (8:00 AM UTC)** and supports one-click manual triggers (`workflow_dispatch`):
 
-| Trigger | Details |
-|---|---|
-| ⏰ **Daily Schedule** | Every day at 8:00 AM UTC (11:00 AM local time) |
-| 🖱️ **Manual Trigger** | GitHub Actions tab ➔ **"Run workflow"** button |
-| 🚫 **Push Trigger** | **Disabled** — pushes do NOT auto-trigger runs |
-
-- Boots a cloud Android Emulator, installs Appium, runs all 17 test cases.
-- Uploads HTML report, screenshots, and server logs as a downloadable ZIP artifact.
+1. **Auto-Boot & Health-Check Emulator**: Checks `adb devices`; if no emulator is running, automatically boots the Google Play AVD, waits for `sys.boot_completed=1`, and unlocks the screen.
+2. **Execute TestNG Suites**: Runs the configured suites in `testng.xml` and captures HTML reports, screenshots, DOM trees, and failure `.mp4` videos.
+3. **Microsoft Teams Adaptive Card**: Parses `testng-results.xml` and posts a summary card (with per-suite breakdown, execution duration, failed test details, and artifact link) to the configured Teams channel via `TEAMS_WEBHOOK_URL`.
 
 ---
 
 ### 👤 Author & Support
-Automated for **Tree Digital Insurance** UAT Environment. Built with ❤️ for robust, scalable QA engineering.
+Automated for **Tree Digital Insurance** QA Engineering.
