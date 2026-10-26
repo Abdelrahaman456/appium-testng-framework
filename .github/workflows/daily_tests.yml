@@ -1,0 +1,244 @@
+name: Daily Appium Mobile Tests
+
+on:
+  schedule:
+    # Runs every day at 8:00 AM UTC (11:00 AM local time)
+    - cron: '0 8 * * *'
+  workflow_dispatch: # Allows manual one-click trigger from GitHub UI anytime!
+
+jobs:
+  test:
+    timeout-minutes: 90
+    runs-on: self-hosted # <--- This tells GitHub to ping your local machine!
+
+    steps:
+      - name: Checkout Repository Code
+        uses: actions/checkout@v4
+
+      - name: Copy Local APK to Runner (Bypass LFS Download)
+        run: |
+          Copy-Item -Path "C:\Users\LENOVO\Downloads\appium-testng-framework\app\app-uat-release.apk" -Destination "app\app-uat-release.apk" -Force
+        shell: powershell
+
+      - name: Set up JDK 17 (Just to be safe)
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Install Maven
+        uses: stCarolas/setup-maven@v5
+        with:
+          maven-version: 3.9.6
+
+      - name: Ensure Android Emulator is Booted and Healthy
+        shell: powershell
+        run: |
+          $sdk = if ($env:ANDROID_HOME) { $env:ANDROID_HOME } else { "$env:LOCALAPPDATA\Android\Sdk" }
+          $adb = "$sdk\platform-tools\adb.exe"
+          $emulator = "$sdk\emulator\emulator.exe"
+
+          Write-Host "Checking connected Android devices via ADB..."
+          $devicesOutput = & $adb devices
+          $onlineDevices = $devicesOutput | Select-String "\tdevice$"
+
+          if (-not $onlineDevices) {
+            Write-Host "No active emulator/device detected! Auto-booting Android Emulator..."
+            $avds = & $emulator -list-avds
+            $targetAvd = if ($avds -contains "Pixel_7") { "Pixel_7" } else { ($avds | Select-Object -First 1) }
+            if (-not $targetAvd) {
+              throw "No Android AVD found on this machine! Please create a Google Play AVD."
+            }
+            Write-Host "Launching AVD: $targetAvd ..."
+            Start-Process -FilePath $emulator -ArgumentList "-avd $targetAvd -no-snapshot-load -no-boot-anim" -WindowStyle Minimized
+
+            Write-Host "Waiting for emulator to finish booting (up to 180 seconds)..."
+            & $adb wait-for-device
+            $bootTimeout = (Get-Date).AddSeconds(180)
+            while ((Get-Date) -lt $bootTimeout) {
+              $booted = (& $adb shell getprop sys.boot_completed 2>$null).Trim()
+              if ($booted -eq "1") {
+                Write-Host "Emulator boot completed!"
+                break
+              }
+              Start-Sleep -Seconds 3
+            }
+            Start-Sleep -Seconds 5
+            & $adb shell input keyevent 82
+            Write-Host "Emulator unlocked and ready!"
+          } else {
+            Write-Host "Active device/emulator already online: $onlineDevices"
+            & $adb shell input keyevent 82
+          }
+
+      - name: Run Appium and Maven Tests
+        run: |
+          Write-Host "Checking for stale processes on port 4723..."
+          $staleConn = Get-NetTCPConnection -LocalPort 4723 -State Listen -ErrorAction SilentlyContinue
+          if ($staleConn) {
+            foreach ($conn in $staleConn) {
+              Stop-Process -Id $conn.OwningProcess -Force -ErrorAction SilentlyContinue
+            }
+          }
+          Write-Host "Starting Appium Server locally via npx..."
+          $appiumProc = Start-Process -FilePath "npx.cmd" -ArgumentList "appium --log appium_server.log" -WindowStyle Hidden -PassThru
+          Start-Sleep -Seconds 10
+          try {
+            Write-Host "Executing Maven tests..."
+            mvn clean test "-DappPath=app/app-uat-release.apk"
+          } finally {
+            if ($appiumProc -and -not $appiumProc.HasExited) {
+              Stop-Process -Id $appiumProc.Id -Force -ErrorAction SilentlyContinue
+            }
+          }
+        shell: powershell
+
+      - name: Upload Test Reports & Screenshots Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: appium-test-reports
+          path: |
+            target/extent-reports/
+            target/surefire-reports/
+            target/screenshots/
+            appium_server.log
+
+      - name: Parse TestNG Results and Send Teams Notification
+        if: always()
+        shell: powershell
+        run: |
+          $passed   = 0
+          $failed   = 0
+          $skipped  = 0
+          $total    = 0
+          $durationStr = "N/A"
+          $suiteBreakdown = "N/A"
+          $failureDetails = "None"
+
+          $xmlPath = "target\surefire-reports\testng-results.xml"
+          if (Test-Path $xmlPath) {
+            [xml]$xml = Get-Content $xmlPath
+            $passed  = [int]$xml.'testng-results'.passed
+            $failed  = [int]$xml.'testng-results'.failed
+            $skipped = [int]$xml.'testng-results'.skipped
+            $total   = [int]$xml.'testng-results'.total
+
+            $durationMs = [long]$xml.'testng-results'.suite.'duration-ms'
+            if ($durationMs -gt 0) {
+              $ts = [TimeSpan]::FromMilliseconds($durationMs)
+              $durationStr = "{0}m {1}s" -f [int]$ts.TotalMinutes, $ts.Seconds
+            }
+
+            # Per-suite breakdown (Motor vs Travel)
+            $suiteLines = @()
+            foreach ($t in $xml.'testng-results'.suite.test) {
+              $tName = $t.name
+              $methods = @($t.class.'test-method' | Where-Object { $_.'is-config' -ne "true" })
+              $tPass = @($methods | Where-Object { $_.status -eq "PASS" }).Count
+              $tFail = @($methods | Where-Object { $_.status -eq "FAIL" }).Count
+              $tTotal = $methods.Count
+              if ($tTotal -gt 0) {
+                $suiteLines += "$tName ($tPass/$tTotal passed, $tFail failed)"
+              }
+            }
+            if ($suiteLines.Count -gt 0) {
+              $suiteBreakdown = $suiteLines -join " | "
+            }
+
+            # Collect failed test names and short error messages
+            $failedNodes = @($xml.SelectNodes("//test-method[@status='FAIL' and not(@is-config='true')]"))
+            if ($failedNodes.Count -gt 0) {
+              $failList = @()
+              foreach ($fn in $failedNodes) {
+                $mName = $fn.name
+                $errMsg = ""
+                if ($fn.exception -and $fn.exception.message) {
+                  $rawMsg = ($fn.exception.message -replace '\s+', ' ').Trim()
+                  $errMsg = if ($rawMsg.Length -gt 90) { $rawMsg.Substring(0, 90) + "..." } else { $rawMsg }
+                }
+                $failList += "- $mName : $errMsg"
+              }
+              $failureDetails = $failList -join "`n"
+            }
+          }
+
+          $runUrl = "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          $actor  = "${{ github.actor }}"
+          $date   = (Get-Date -Format "yyyy-MM-dd HH:mm")
+
+          if ($failed -eq 0 -and $total -gt 0) {
+            $statusLabel = "[PASSED] ALL TESTS PASSED"
+          } elseif ($total -eq 0) {
+            $statusLabel = "[WARNING] NO TESTS RAN"
+          } else {
+            $statusLabel = "[FAILED] $failed TEST(S) FAILED"
+          }
+
+          $cardBody = @(
+            [ordered]@{
+              type   = "TextBlock"
+              size   = "Large"
+              weight = "Bolder"
+              text   = "Appium CI Report - $statusLabel"
+              wrap   = $true
+            }
+            [ordered]@{
+              type = "FactSet"
+              facts = @(
+                [ordered]@{ title = "Environment";     value = "UAT" }
+                [ordered]@{ title = "Suite Breakdown"; value = "$suiteBreakdown" }
+                [ordered]@{ title = "Total Tests";     value = "$total" }
+                [ordered]@{ title = "Passed";          value = "$passed" }
+                [ordered]@{ title = "Failed";          value = "$failed" }
+                [ordered]@{ title = "Skipped";         value = "$skipped" }
+                [ordered]@{ title = "Duration";        value = "$durationStr" }
+                [ordered]@{ title = "Triggered by";    value = "$actor" }
+                [ordered]@{ title = "Date";            value = "$date" }
+              )
+            }
+          )
+
+          if ($failed -gt 0) {
+            $cardBody += [ordered]@{
+              type   = "TextBlock"
+              weight = "Bolder"
+              text   = "Failed Test Details:"
+              wrap   = $true
+            }
+            $cardBody += [ordered]@{
+              type = "TextBlock"
+              text = "$failureDetails"
+              wrap = $true
+            }
+          }
+
+          $bodyObj = [ordered]@{
+            type = "message"
+            attachments = @(
+              [ordered]@{
+                contentType = "application/vnd.microsoft.card.adaptive"
+                content = [ordered]@{
+                  type    = "AdaptiveCard"
+                  version = "1.4"
+                  body    = $cardBody
+                  actions = @(
+                    [ordered]@{
+                      type  = "Action.OpenUrl"
+                      title = "View Report, Screenshots and Failure Videos"
+                      url   = "$runUrl"
+                    }
+                  )
+                }
+              }
+            )
+          }
+
+          $body = $bodyObj | ConvertTo-Json -Depth 15
+
+          try {
+            Invoke-RestMethod -Uri "${{ secrets.TEAMS_WEBHOOK_URL }}" -Method Post -Body $body -ContentType "application/json; charset=utf-8"
+            Write-Host "Teams notification sent successfully!"
+          } catch {
+            Write-Host "Teams notification failed: $($_.Exception.Message)"
+          }

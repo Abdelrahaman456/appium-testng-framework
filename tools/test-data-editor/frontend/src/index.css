@@ -1,0 +1,46 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-treeDark text-treeWhite font-sans antialiased selection:bg-treeNeon/30;
+    
+    /* Wavy background mimicking the Tree brand */
+    background-color: #0f2b25;
+    background-image: 
+      radial-gradient(ellipse at top right, rgba(125, 250, 184, 0.15), transparent 50%),
+      radial-gradient(ellipse at bottom left, rgba(0, 230, 150, 0.15), transparent 50%);
+    background-attachment: fixed;
+    min-height: 100vh;
+  }
+}
+
+@layer components {
+  /* Glassmorphism Card Style */
+  .glass-card {
+    @apply bg-treeDark/60 backdrop-blur-xl border border-treeNeon/20 rounded-3xl shadow-[0_8px_32px_rgba(0,0,0,0.4)];
+  }
+  
+  /* Input styling */
+  .glass-input {
+    @apply w-full bg-[#0a1f1b]/70 border border-treeNeon/30 rounded-xl px-4 py-3 text-treeWhite placeholder-[#5c8b7e] focus:outline-none focus:ring-2 focus:ring-treeNeon/50 focus:border-treeNeon transition-all duration-300;
+  }
+  
+  /* Button styling */
+  .btn-primary {
+    @apply bg-treeNeon hover:bg-[#1ef2a7] text-[#0f2b25] font-bold py-3 px-8 rounded-xl shadow-[0_0_20px_rgba(0,230,150,0.3)] hover:shadow-[0_0_30px_rgba(0,230,150,0.6)] transition-all duration-300 active:scale-95 tracking-wide;
+  }
+}
+
+/* Micro-animations */
+.fade-in {
+  animation: fadeIn 0.4s ease-out forwards;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}

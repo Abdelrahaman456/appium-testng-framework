@@ -1,0 +1,90 @@
+{
+  "nodes": [
+    { "id": "basetest", "label": "BaseTest", "layer": "Core", "description": "Base class for all test classes. Handles driver init and teardown." },
+    { "id": "drivermanager", "label": "DriverManager", "layer": "Core", "description": "Manages ThreadLocal AppiumDriver instances and capabilities." },
+    { "id": "basepage", "label": "BasePage", "layer": "Core", "description": "Base class for Page Objects. Provides click interception, locator caching, and self-healing." },
+    { "id": "testconfig", "label": "TestConfig", "layer": "Utils", "description": "Reads properties files to configure environments." },
+    { "id": "testdatabuilder", "label": "TestDataBuilder", "layer": "Utils", "description": "Reads testdata.properties for dynamic form filling." },
+    { "id": "nationalidgenerator", "label": "NationalIdGenerator", "layer": "Utils", "description": "Generates and persists unique National IDs." },
+    { "id": "homescreen", "label": "HomeScreen", "layer": "Pages", "description": "Home Page Object handling initial product selection." },
+    { "id": "motorcoveragescreen", "label": "MotorCoverageSelectionScreen", "layer": "Pages", "description": "Selects Motor Coverage options." },
+    { "id": "aboutyouscreen", "label": "AboutYouScreen", "layer": "Pages", "description": "Main data entry form for Customer/Vehicle info." },
+    { "id": "otpmodal", "label": "OtpModal", "layer": "Pages", "description": "Handles 4-digit OTP verification." },
+    { "id": "policyconfirmationscreen", "label": "PolicyConfirmationScreen", "layer": "Pages", "description": "Final success screen. Has close button fallback." },
+    { "id": "sampletest", "label": "SampleTest", "layer": "Tests", "description": "End-to-End happy path test suite." },
+    { "id": "negativevalidationtest", "label": "NegativeValidationTest", "layer": "Tests", "description": "Suite testing form validations and failure states." },
+    { "id": "properties", "label": "*.properties", "layer": "Config", "description": "Configuration and Test Data files." },
+    { "id": "githubactions", "label": "GitHub Actions", "layer": "CI/CD", "description": "Runs daily tests on MacOS runners." }
+  ],
+  "edges": [
+    { "source": "sampletest", "target": "basetest", "type": "extends" },
+    { "source": "negativevalidationtest", "target": "basetest", "type": "extends" },
+    { "source": "basetest", "target": "drivermanager", "type": "uses" },
+    { "source": "basetest", "target": "testconfig", "type": "reads" },
+    { "source": "homescreen", "target": "basepage", "type": "extends" },
+    { "source": "motorcoveragescreen", "target": "basepage", "type": "extends" },
+    { "source": "aboutyouscreen", "target": "basepage", "type": "extends" },
+    { "source": "otpmodal", "target": "basepage", "type": "extends" },
+    { "source": "policyconfirmationscreen", "target": "basepage", "type": "extends" },
+    { "source": "sampletest", "target": "homescreen", "type": "uses" },
+    { "source": "sampletest", "target": "motorcoveragescreen", "type": "uses" },
+    { "source": "sampletest", "target": "aboutyouscreen", "type": "uses" },
+    { "source": "sampletest", "target": "otpmodal", "type": "uses" },
+    { "source": "sampletest", "target": "policyconfirmationscreen", "type": "uses" },
+    { "source": "negativevalidationtest", "target": "homescreen", "type": "uses" },
+    { "source": "negativevalidationtest", "target": "aboutyouscreen", "type": "uses" },
+    { "source": "aboutyouscreen", "target": "testdatabuilder", "type": "reads" },
+    { "source": "aboutyouscreen", "target": "nationalidgenerator", "type": "reads" },
+    { "source": "testconfig", "target": "properties", "type": "parses" },
+    { "source": "testdatabuilder", "target": "properties", "type": "parses" },
+    { "source": "githubactions", "target": "sampletest", "type": "executes" },
+    { "source": "githubactions", "target": "negativevalidationtest", "type": "executes" }
+  ],
+  "flows": [
+    {
+      "name": "Driver Setup Flow",
+      "description": "How a test session is initialized from CI to the Appium server.",
+      "steps": [
+        { "node": "githubactions", "desc": "GitHub Actions triggers the daily test workflow." },
+        { "node": "sampletest", "desc": "TestNG begins executing SampleTest suite." },
+        { "node": "basetest", "desc": "BaseTest @BeforeMethod hook is triggered." },
+        { "node": "testconfig", "desc": "TestConfig determines the current environment." },
+        { "node": "properties", "desc": "Reads environment-specific config properties." },
+        { "node": "drivermanager", "desc": "DriverManager initializes the Appium session." }
+      ]
+    },
+    {
+      "name": "Happy Path UI Flow",
+      "description": "The end-to-end user journey for purchasing a policy.",
+      "steps": [
+        { "node": "sampletest", "desc": "Test starts execution." },
+        { "node": "homescreen", "desc": "User selects Motor Product on Home Screen." },
+        { "node": "motorcoveragescreen", "desc": "User selects desired coverage options." },
+        { "node": "aboutyouscreen", "desc": "User navigates to the About You form." },
+        { "node": "testdatabuilder", "desc": "Test data is injected into the form fields." },
+        { "node": "nationalidgenerator", "desc": "A fresh National ID is generated." },
+        { "node": "otpmodal", "desc": "User enters the verification OTP." },
+        { "node": "policyconfirmationscreen", "desc": "Policy is confirmed and user closes the modal." }
+      ]
+    },
+    {
+      "name": "Self-Healing Fallback Flow",
+      "description": "How BasePage intercepts UI failures to clear unexpected popups.",
+      "steps": [
+        { "node": "policyconfirmationscreen", "desc": "A click attempt fails on the confirmation screen." },
+        { "node": "basepage", "desc": "BasePage catches the exception, searches for active popups, and heals the interaction." }
+      ]
+    },
+    {
+      "name": "Negative Validation Flow",
+      "description": "How negative tests intentionally fail midway and trigger a reset.",
+      "steps": [
+        { "node": "negativevalidationtest", "desc": "Test inputs invalid data." },
+        { "node": "homescreen", "desc": "Navigates past the Home Screen." },
+        { "node": "aboutyouscreen", "desc": "Form validation blocks progression." },
+        { "node": "basetest", "desc": "Test finishes and BaseTest tearDown is called." },
+        { "node": "drivermanager", "desc": "Driver is explicitly quit to reset app state." }
+      ]
+    }
+  ]
+}

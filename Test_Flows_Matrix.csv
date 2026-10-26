@@ -1,0 +1,11 @@
+Product,Flow Name,Insurance Type / Trip,Card / Traveler Type,Test Cases,Status,Steps Outline
+Motor,Flow 1,New Insurance,Sequence Number,Comp & TPL,Finished,1. Enter Sequence No & National ID -> 2. OTP -> 3. Select Cover Type -> 4. Checkout
+Motor,Flow 2,New Insurance,Custom Card,Comp & TPL,Finished,1. Enter Custom Card & National ID -> 2. OTP -> 3. Vehicle Details Modal -> 4. Select Cover Type -> 5. Checkout
+Motor,Flow 3,Ownership Transfer,Sequence Number,Comp & TPL,Finished,1. Enter Sequence No & Seller ID -> 2. OTP -> 3. Select Cover Type -> 4. Checkout
+Motor,Flow 4,Ownership Transfer,Custom Card,Comp & TPL,Finished,1. Enter Custom Card & Seller ID -> 2. OTP -> 3. Select Cover Type -> 4. Checkout
+Travel,Flow 1,Single Trip,Individual,1 test,In Progress,1. Select Single Trip -> 2. Set Destination & Dates (Dep/Ret) -> 3. Enter Phone -> 4. Select 'Individual' -> 5. Next
+Travel,Flow 1,Single Trip,With Family,1 test,Later,1. Select Single Trip -> 2. Set Destination & Dates (Dep/Ret) -> 3. Enter Phone -> 4. Select 'With Family' -> 5. Next
+Travel,Flow 1,Single Trip,Group,1 test,Later,1. Select Single Trip -> 2. Set Destination & Dates (Dep/Ret) -> 3. Enter Phone -> 4. Select 'Group' -> 5. Next
+Travel,Flow 2,Multi Trip (1 year),Individual,1 test,Later,1. Select Multi Trip -> 2. Set Destination & Dep Date (No Return Date) -> 3. Enter Phone -> 4. Select 'Individual' -> 5. Next
+Travel,Flow 2,Multi Trip (1 year),With Family,1 test,Later,1. Select Multi Trip -> 2. Set Destination & Dep Date (No Return Date) -> 3. Enter Phone -> 4. Select 'With Family' -> 5. Next
+Travel,Flow 2,Multi Trip (1 year),Group,1 test,Later,1. Select Multi Trip -> 2. Set Destination & Dep Date (No Return Date) -> 3. Enter Phone -> 4. Select 'Group' -> 5. Next
