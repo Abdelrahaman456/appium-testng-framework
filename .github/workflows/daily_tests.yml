@@ -9,7 +9,7 @@ on:
 jobs:
   test:
     timeout-minutes: 90
-    runs-on: self-hosted # <--- This tells GitHub to ping your local machine!
+    runs-on: [appium-vm]
 
     steps:
       - name: Checkout Repository Code
