@@ -15,9 +15,20 @@ jobs:
       - name: Checkout Repository Code
         uses: actions/checkout@v4
 
-      - name: Copy Local APK to Runner (Bypass LFS Download)
+      - name: Locate or Copy UAT APK (If Available Locally on Runner)
         run: |
-          Copy-Item -Path "C:\Users\LENOVO\Downloads\appium-testng-framework\app\app-uat-release.apk" -Destination "app\app-uat-release.apk" -Force
+          if (Test-Path "C:\appium-apk\app-uat-release.apk") {
+            Write-Host "Copying APK from C:\appium-apk\app-uat-release.apk ..."
+            Copy-Item -Path "C:\appium-apk\app-uat-release.apk" -Destination "app\app-uat-release.apk" -Force
+          } elseif (Test-Path "C:\Users\LENOVO\Downloads\appium-testng-framework\app\app-uat-release.apk") {
+            Write-Host "Copying APK from local Downloads folder..."
+            Copy-Item -Path "C:\Users\LENOVO\Downloads\appium-testng-framework\app\app-uat-release.apk" -Destination "app\app-uat-release.apk" -Force
+          } elseif ((Test-Path "app\app-uat-release.apk") -and ((Get-Item "app\app-uat-release.apk").Length -gt 1000000)) {
+            Write-Host "Using APK from repository checkout (app\app-uat-release.apk)."
+          } else {
+            Write-Host "No local APK binary found (>1MB). Appium will launch the pre-installed app package (sa.com.tree.digital.insurance.uat) on the emulator."
+            Remove-Item "app\app-uat-release.apk" -ErrorAction SilentlyContinue
+          }
         shell: powershell
 
       - name: Set up JDK 17 (Just to be safe)
