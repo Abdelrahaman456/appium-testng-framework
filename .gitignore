@@ -16,3 +16,6 @@ Thumbs.db
 
 # Temporary files
 *.tmp
+
+# APK binaries (managed outside Git LFS to prevent checkout 404 errors)
+app/*.apk

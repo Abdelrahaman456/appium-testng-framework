@@ -27,10 +27,13 @@ jobs:
       - name: Checkout Repository Code
         uses: actions/checkout@v4
         with:
-          lfs: true
+          lfs: false
+          clean: false
 
       - name: Ensure Real APK at VM Path
         shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           APK_VM_PATH="/opt/actions-runner-mobile/_work/Mobile_Automation_Testing/Mobile_Automation_Testing/app/app-uat-release.apk"
           mkdir -p "$(dirname "$APK_VM_PATH")"
@@ -40,9 +43,39 @@ jobs:
             cp -f /tmp/app-uat-release.apk "$APK_VM_PATH"
           fi
 
+          FILE_SIZE=0
           if [ -f "$APK_VM_PATH" ]; then
             FILE_SIZE=$(stat -c%s "$APK_VM_PATH" 2>/dev/null || wc -c < "$APK_VM_PATH")
-            echo "APK file at $APK_VM_PATH has size: $FILE_SIZE bytes"
+          fi
+
+          if [ "$FILE_SIZE" -lt 1000000 ]; then
+            echo "APK missing or pointer only ($FILE_SIZE bytes). Downloading real APK from GitHub Release (uat-apk)..."
+            ASSET_ID=$(python3 -c "
+          import urllib.request, json, os
+          req = urllib.request.Request(
+              'https://api.github.com/repos/TreeDigitalInsurance/Mobile_Automation_Testing/releases/tags/uat-apk',
+              headers={'Authorization': 'Bearer ' + os.environ['GH_TOKEN'], 'Accept': 'application/vnd.github+json'}
+          )
+          try:
+              data = json.loads(urllib.request.urlopen(req).read().decode())
+              for a in data.get('assets', []):
+                  if a['name'].endswith('.apk'):
+                      print(a['id'])
+                      break
+          except Exception as e:
+              pass
+          ")
+            if [ -n "$ASSET_ID" ]; then
+              curl -sL -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/octet-stream" \
+                "https://api.github.com/repos/TreeDigitalInsurance/Mobile_Automation_Testing/releases/assets/$ASSET_ID" \
+                -o "$APK_VM_PATH"
+              cp -f "$APK_VM_PATH" /tmp/app-uat-release.apk
+            fi
+          fi
+
+          if [ -f "$APK_VM_PATH" ]; then
+            FILE_SIZE=$(stat -c%s "$APK_VM_PATH" 2>/dev/null || wc -c < "$APK_VM_PATH")
+            echo "APK file ready at $APK_VM_PATH (size: $FILE_SIZE bytes)"
           else
             echo "WARNING: APK not found at $APK_VM_PATH"
           fi
