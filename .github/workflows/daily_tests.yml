@@ -100,6 +100,7 @@ jobs:
           exit 1
 
       - name: Run Maven Tests
+        id: maven
         run: |
           # Remember where the shared Appium log is, so only this run's lines are archived.
           (wc -l < /var/log/appium/appium.log || echo 0) > .appium_log_start 2>/dev/null
@@ -133,6 +134,8 @@ jobs:
           TEAMS_WEBHOOK_URL: ${{ secrets.TEAMS_WEBHOOK_URL }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           ACTOR: ${{ github.actor }}
+          MAVEN_OUTCOME: ${{ steps.maven.outcome }}
+          JOB_STATUS: ${{ job.status }}
         shell: python3 {0}
         run: |
           import json, os, re, urllib.request, xml.etree.ElementTree as ET
@@ -175,7 +178,9 @@ jobs:
               if fails:
                   failure_details = "\n".join(fails)
 
-          if failed == 0 and total > 0:
+          if os.environ.get("MAVEN_OUTCOME") == "cancelled" or os.environ.get("JOB_STATUS") == "cancelled":
+              status = "[CANCELLED] RUN WAS CANCELLED"
+          elif failed == 0 and total > 0:
               status = "[PASSED] ALL TESTS PASSED"
           elif total == 0:
               status = "[WARNING] NO TESTS RAN"
