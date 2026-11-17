@@ -17,5 +17,16 @@ Thumbs.db
 # Temporary files
 *.tmp
 
-# APK binaries (managed outside Git LFS to prevent checkout 404 errors)
+# Scratch analysis scripts and XML/image dumps
+*.py
+*.png
+*.xml.dump
+dump*.xml
+cur*.xml
+live*.xml
+map_state.xml
+after_next*.xml
+
+# Binary application files
 app/*.apk
+*.apk

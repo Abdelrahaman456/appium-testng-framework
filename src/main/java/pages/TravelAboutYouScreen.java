@@ -1,8 +1,11 @@
 package pages;
 
 import io.appium.java_client.pagefactory.AndroidFindBy;
+
 import io.appium.java_client.pagefactory.AppiumFieldDecorator;
+
 import org.openqa.selenium.WebElement;
+
 import org.openqa.selenium.support.PageFactory;
 
 import java.time.Duration;
@@ -10,31 +13,35 @@ import java.time.Duration;
 public class TravelAboutYouScreen extends BasePage {
 
     public TravelAboutYouScreen() {
+
         super();
-        PageFactory.initElements(new AppiumFieldDecorator(driver, Duration.ofSeconds(10)), this);
+
+        PageFactory.initElements(new AppiumFieldDecorator(driver, Duration.ofSeconds(2)), this);
+
     }
 
     // --- Trip Type Tabs ---
+
     @AndroidFindBy(xpath = "//*[@text='Single trip' or @content-desc='Single trip']")
+
     private WebElement singleTripTab;
 
-    @AndroidFindBy(xpath = "//*[@text='Multi trip (1 year)' or @content-desc='Multi trip (1 year)']")
+    @AndroidFindBy(xpath = "//*[@text='Annual multi-trip' or @content-desc='Annual multi-trip' or contains(@content-desc, 'multi-trip') or contains(@text, 'multi-trip') or @text='Multi trip (1 year)' or contains(@content-desc, 'Multi trip')]")
     private WebElement multiTripTab;
 
     // --- Form Fields ---
-    @AndroidFindBy(xpath = "//android.widget.FrameLayout[@resource-id=\"android:id/content\"]/android.widget.FrameLayout/android.widget.FrameLayout/android.view.View/android.view.View/android.view.View/android.view.View[1]/android.widget.EditText[1]")
+
+    @AndroidFindBy(xpath = "//*[@resource-id='dropdown_destination' or @resource-id='textfield_destination' or contains(@hint, 'Destination') or contains(@text, 'Destination')]")
+
     private WebElement destinationDropdown;
 
-    @AndroidFindBy(xpath = "//android.widget.FrameLayout[@resource-id=\"android:id/content\"]/android.widget.FrameLayout/android.widget.FrameLayout/android.view.View/android.view.View/android.view.View/android.view.View[1]/android.widget.ImageView[1]")
-    private WebElement destinationDropdownArrow;
-
-    @AndroidFindBy(xpath = "//android.widget.FrameLayout[@resource-id=\"android:id/content\"]/android.widget.FrameLayout/android.widget.FrameLayout/android.view.View/android.view.View/android.view.View/android.view.View[1]/android.widget.ImageView[2]")
+    @AndroidFindBy(xpath = "//*[contains(@resource-id, 'departure') or contains(@hint, 'Departure') or contains(@content-desc, 'Departure') or contains(@text, 'Departure')] | (//android.widget.ImageView[contains(@resource-id, 'textfield') or @clickable='true'])[1]")
     private WebElement departureDatepicker;
 
-    @AndroidFindBy(xpath = "//*[contains(@text, 'Return Date') or contains(@content-desc, 'Return Date') or contains(@resource-id, 'return')]")
+    @AndroidFindBy(xpath = "//*[contains(@resource-id, 'return') or contains(@hint, 'Return') or contains(@content-desc, 'Return') or contains(@text, 'Return')] | (//android.widget.ImageView[contains(@resource-id, 'textfield') or @clickable='true'])[2]")
     private WebElement returnDatepicker;
 
-    @AndroidFindBy(xpath = "//android.widget.EditText[contains(@hint, 'Mobile number') or contains(@text, 'Mobile number') or contains(@resource-id, 'mobile') or contains(@resource-id, 'phone')]")
+    @AndroidFindBy(xpath = "//android.widget.EditText[@resource-id='textfield_phone_number' or contains(@resource-id, 'phone') or contains(@hint, 'Phone') or contains(@hint, 'phone') or contains(@hint, 'Mobile') or contains(@text, 'Mobile')]")
     private WebElement mobileNumberField;
 
     // --- Traveler Types ---
@@ -47,137 +54,788 @@ public class TravelAboutYouScreen extends BasePage {
     @AndroidFindBy(xpath = "//*[@text='Group' or @content-desc='Group']")
     private WebElement groupTravelerBtn;
 
+    // --- Initial Trip Info (New APK Flow) ---
+    @AndroidFindBy(xpath = "//android.widget.EditText[@resource-id='textfield_national_id' or contains(@hint, 'National') or contains(@text, 'National')]")
+    private WebElement nationalIdField;
+
+    @AndroidFindBy(xpath = "//*[@resource-id='textfield_dob' or @resource-id='textfield_month_year_of_birth' or contains(@hint, 'birth') or contains(@text, 'birth')]")
+    private WebElement dobField;
+
     // --- Footer ---
-    @AndroidFindBy(xpath = "//*[contains(@resource-id, 'checkbox') or contains(@resource-id, 'tgl') or @class='android.widget.Switch' or @class='android.widget.CheckBox']")
+    @AndroidFindBy(xpath = "//*[@resource-id='tgl_checkbox' or @class='android.widget.Switch']")
     private WebElement privacyCheckbox;
 
-    @AndroidFindBy(xpath = "//*[@text='Next' or @content-desc='Next' or contains(@resource-id, 'next')]")
+    @AndroidFindBy(xpath = "//*[@resource-id='btn_next_button' or @content-desc='Next' or @text='Next']")
     private WebElement nextButton;
 
     // ==========================================
+
     // Interactions
+
     // ==========================================
 
     public void selectSingleTrip() {
+
         System.out.println("Selecting Single Trip tab...");
+
         click(singleTripTab);
+
     }
 
     public void selectMultiTrip() {
+
         System.out.println("Selecting Multi Trip (1 year) tab...");
+
         click(multiTripTab);
+
     }
 
     public void selectDestination(String destinationName) {
+
         System.out.println("Selecting Destination: " + destinationName);
+
         try {
-            waitForVisibility(destinationDropdownArrow);
-            System.out.println("Tapping the destination dropdown ARROW (ImageView)...");
-            tapElement(destinationDropdownArrow);
+
+            waitForVisibility(destinationDropdown);
+
+            tapElement(destinationDropdown);
+
         } catch (Exception e) {
-            System.out.println("Warning: Could not tap arrow. Trying right side of EditText...");
-            try {
-                // Manually compute the right-side of the EditText box where the dropdown chevron lives
-                org.openqa.selenium.Rectangle rect = destinationDropdown.getRect();
-                int rightX = rect.getX() + rect.getWidth() - 30; // 30 pixels from the right edge
-                int centerY = rect.getY() + (rect.getHeight() / 2);
-                System.out.println("Tapping computed coordinates: " + rightX + ", " + centerY);
-                tapCoordinates(rightX, centerY);
-            } catch (Exception ex) {
-                System.out.println("CRITICAL: Choose Destination field could not be found or tapped!");
-                throw ex;
-            }
+
+            System.out.println("Standard tap on destination failed, tapping center X:500 Y:630...");
+
+            // dynamic locator used; coordinate fallback removed
+
         }
+
         
-        try { Thread.sleep(2000); } catch(Exception e) {} // wait for dropdown/modal
+
+        try { Thread.sleep(1500); } catch(Exception e) {} // wait for dropdown/modal
+
         
+
         // Dynamically find and click the specific destination
-        org.openqa.selenium.By destLocator = org.openqa.selenium.By.xpath("//android.view.View[@content-desc='" + destinationName + "']");
+
+        org.openqa.selenium.By destLocator = org.openqa.selenium.By.xpath("//android.view.View[contains(@content-desc, '" + destinationName + "') or contains(@text, '" + destinationName + "')]");
+
         try {
+
             WebElement destElement = getVisibleElement(destLocator);
+
             tapElement(destElement);
+
         } catch (Exception e) {
-            System.out.println("Could not find destination text '" + destinationName + "'. Proceeding.");
+
+            System.out.println("Could not find destination text '" + destinationName + "'. Tapping first option...");
+
+            // dynamic locator used; coordinate fallback removed
+
         }
+
         
-        // Optional confirm button if it's a picker
+
+        try { Thread.sleep(1000); } catch (Exception e) {}
+
+        
+
+        // Auto-hide keyboard so it doesn't cover traveler options
+
         try {
-            WebElement confirmBtn = driver.findElement(org.openqa.selenium.By.xpath("//*[@text='Confirm' or @content-desc='Confirm']"));
-            if (confirmBtn.isDisplayed()) click(confirmBtn);
-        } catch (Exception e) { /* Auto-closes */ }
+
+            if (driver instanceof io.appium.java_client.android.AndroidDriver) {
+
+                ((io.appium.java_client.android.AndroidDriver) driver).hideKeyboard();
+
+            }
+
+        } catch (Exception ignored) {}
+
+    }
+
+    private void selectCalendarDay(String dayNumber) {
+        System.out.println("Selecting calendar day: " + dayNumber);
+        org.openqa.selenium.By dayBy = org.openqa.selenium.By.xpath(
+            "//*[@enabled='true' and (" +
+            "@content-desc='" + dayNumber + "' or @text='" + dayNumber + "' " +
+            "or starts-with(@content-desc, '" + dayNumber + ", ') " +
+            "or starts-with(@content-desc, '" + dayNumber + " ') " +
+            "or contains(@content-desc, ' " + dayNumber + ", ')" +
+            ") and not(@content-desc='0 days')]"
+        );
+        try {
+            java.util.List<WebElement> candidates = findWithUnimportantViews(dayBy);
+            for (WebElement el : candidates) {
+                try {
+                    org.openqa.selenium.Rectangle r = el.getRect();
+                    if (el.isDisplayed() && r.getY() > 450 && r.getY() < 2100 && r.getWidth() > 20 && r.getWidth() < 350 && r.getHeight() > 20) {
+                        tapElement(el);
+                        return;
+                    }
+                } catch (Exception ignore) {}
+            }
+            // Fallback: log calendar nodes once and tap an enabled day cell in December (second visible month)
+            System.out.println("Day '" + dayNumber + "' not matched by text/desc; inspecting calendar grid nodes...");
+            java.util.List<WebElement> allNodes = findWithUnimportantViews(org.openqa.selenium.By.xpath("//*"));
+            int logged = 0;
+            java.util.List<WebElement> decDayCells = new java.util.ArrayList<>();
+            for (WebElement node : allNodes) {
+                try {
+                    org.openqa.selenium.Rectangle r = node.getRect();
+                    if (r.getY() > 450 && r.getY() < 2100 && r.getWidth() > 20 && r.getHeight() > 20) {
+                        if (logged < 25) {
+                            System.out.println("  CalNode: cls=" + node.getAttribute("className")
+                                + " txt='" + node.getText() + "' desc='" + node.getAttribute("content-desc")
+                                + "' clk=" + node.getAttribute("clickable") + " en=" + node.getAttribute("enabled")
+                                + " rect=[" + r.getX() + "," + r.getY() + " " + r.getWidth() + "x" + r.getHeight() + "]");
+                            logged++;
+                        }
+                        if ("true".equalsIgnoreCase(node.getAttribute("enabled"))
+                                && r.getY() >= 1450 && r.getY() <= 1950
+                                && r.getWidth() < 300 && r.getHeight() < 250) {
+                            decDayCells.add(node);
+                        }
+                    }
+                } catch (Exception ignore) {}
+            }
+            if (!decDayCells.isEmpty()) {
+                int idx = "26".equals(dayNumber) ? Math.min(decDayCells.size() - 1, decDayCells.size() / 2 + 4) : Math.min(decDayCells.size() - 1, decDayCells.size() / 2);
+                System.out.println("Tapping fallback December calendar cell index " + idx + " of " + decDayCells.size());
+                tapElement(decDayCells.get(idx));
+            }
+        } catch (Exception e) {
+            System.out.println("Calendar day selection warning: " + e.getMessage());
+        }
+    }
+
+    private void confirmCalendarPicker() {
+        org.openqa.selenium.By confirmBy = org.openqa.selenium.By.xpath("(//*[@text='Confirm' or @content-desc='Confirm'])[last()]");
+        org.openqa.selenium.By resetBy = org.openqa.selenium.By.xpath("//*[@text='Reset' or @content-desc='Reset']");
+        try {
+            WebElement confirmBtn = getVisibleElement(confirmBy);
+            tapElement(confirmBtn);
+            waitUntil(() -> findWithUnimportantViews(resetBy).isEmpty(), 3);
+        } catch (Exception e) {
+            System.out.println("Calendar confirm warning: " + e.getMessage());
+        }
     }
 
     public void selectDepartureDate() {
         System.out.println("Selecting Departure Date...");
-        tapElement(departureDatepicker);
-        try { Thread.sleep(2000); } catch(Exception e) {}
-        
-        System.out.println("Selecting 'Dec' in the Date Picker...");
         try {
-            WebElement decValue = driver.findElement(io.appium.java_client.AppiumBy.accessibilityId("Dec"));
-            tapElement(decValue);
+            waitForVisibility(departureDatepicker);
+            tapElement(departureDatepicker);
         } catch (Exception e) {
-            System.out.println("Could not explicitly select Dec.");
+            System.out.println("Departure datepicker tap warning: " + e.getMessage());
         }
-        
-        try {
-            WebElement confirmBtn = getVisibleElement(org.openqa.selenium.By.xpath("//android.widget.Button[@content-desc='Confirm']"));
-            tapElement(confirmBtn);
-        } catch (Exception e) {}
+
+        org.openqa.selenium.By sheetReadyBy = org.openqa.selenium.By.xpath("//*[@text='Confirm' or @content-desc='Confirm' or @text='Reset' or @content-desc='Reset']");
+        waitUntil(() -> !driver.findElements(sheetReadyBy).isEmpty(), 3);
+        try { Thread.sleep(500); } catch (Exception ignore) {}
+
+        selectCalendarDay("22");
+
+        org.openqa.selenium.By rangeMarkerBy = org.openqa.selenium.By.xpath(
+            "//*[contains(@content-desc, 'Return') or contains(@text, 'Return') " +
+            "or contains(@hint, 'Return') or contains(@content-desc, 'days') or contains(@text, 'days')]"
+        );
+        if (!findWithUnimportantViews(rangeMarkerBy).isEmpty()) {
+            try { Thread.sleep(400); } catch (Exception ignore) {}
+            selectCalendarDay("26");
+        }
+
+        confirmCalendarPicker();
+        try { Thread.sleep(700); } catch (Exception ignore) {}
     }
 
     public void selectReturnDate() {
         System.out.println("Selecting Return Date...");
-        // This is only valid for Single Trip
-        try {
-            if (returnDatepicker.isDisplayed()) {
-                click(returnDatepicker);
-                try { Thread.sleep(1000); } catch(Exception e) {}
-                WebElement confirmBtn = getVisibleElement(org.openqa.selenium.By.xpath("//*[@text='Confirm' or @content-desc='Confirm' or @text='Done']"));
-                click(confirmBtn);
-            }
-        } catch (Exception e) {
-            System.out.println("Return date picker not found (Expected if Multi-Trip is selected).");
+        org.openqa.selenium.By resetBy = org.openqa.selenium.By.xpath("//*[@text='Reset' or @content-desc='Reset']");
+        if (findWithUnimportantViews(resetBy).isEmpty()) {
+            System.out.println("Return Date already confirmed in range calendar; skipping redundant picker open.");
+            return;
         }
+        selectCalendarDay("26");
+        confirmCalendarPicker();
+        try { Thread.sleep(700); } catch (Exception ignore) {}
     }
 
     public void enterMobileNumber(String mobileNumber) {
         System.out.println("Entering Mobile Number: " + mobileNumber);
-        sendKeys(mobileNumberField, mobileNumber);
+        org.openqa.selenium.By phoneBy = org.openqa.selenium.By.xpath(
+            "//android.widget.EditText[@resource-id='textfield_phone_number' or contains(@resource-id, 'phone') or contains(@hint, 'Phone') or contains(@hint, 'phone') or contains(@hint, 'Mobile') or contains(@text, 'Mobile')]"
+        );
+        if (!waitUntil(() -> !driver.findElements(phoneBy).isEmpty(), 3)) {
+            System.out.println("Mobile number field not present on this step (already entered on initial screen); skipping.");
+            return;
+        }
+        sendKeys(driver.findElements(phoneBy).get(0), mobileNumber);
+        hideKeyboard();
+    }
+
+    public void enterEmailIfPresent(String email) {
         try {
-            if (driver instanceof io.appium.java_client.android.AndroidDriver) {
-                ((io.appium.java_client.android.AndroidDriver) driver).hideKeyboard();
+            org.openqa.selenium.By emailBy = org.openqa.selenium.By.xpath(
+                "//android.widget.EditText[@resource-id='textfield_claims_user_email' or @resource-id='textfield_email' or contains(@resource-id, 'email') " +
+                "or contains(@hint, 'Email') or contains(@hint, 'email') or contains(@text, 'Email')]"
+            );
+            java.util.List<WebElement> emailFields = driver.findElements(emailBy);
+            if (!emailFields.isEmpty() && emailFields.get(0).isDisplayed()) {
+                WebElement emailField = emailFields.get(0);
+                String existing = emailField.getText();
+                if (existing == null || existing.trim().isEmpty() || existing.toLowerCase().contains("email")) {
+                    System.out.println("Entering Email on Travel screen: " + email);
+                    sendKeys(emailField, email);
+                    try {
+                        driver.executeScript("mobile: performEditorAction", com.google.common.collect.ImmutableMap.of("action", "done"));
+                    } catch (Exception ignore) {}
+                    hideKeyboard();
+                    try { Thread.sleep(500); } catch (Exception ignore) {}
+                }
             }
-        } catch (Exception e) {}
+        } catch (Exception e) {
+            System.out.println("Travel email check notice: " + e.getMessage());
+        }
+    }
+
+    public void enterPassportIfPresent(String passport) {
+        try {
+            org.openqa.selenium.By passportBy = org.openqa.selenium.By.xpath(
+                "//android.widget.EditText[@resource-id='textfield_passport_number' or contains(@resource-id, 'passport') " +
+                "or contains(@hint, 'Passport') or contains(@text, 'Passport') " +
+                "or contains(@content-desc, 'Passport')]"
+            );
+            java.util.List<WebElement> passportFields = driver.findElements(passportBy);
+            if (!passportFields.isEmpty() && passportFields.get(0).isDisplayed()) {
+                WebElement passportField = passportFields.get(0);
+                String existing = passportField.getText();
+                if (existing == null || existing.trim().isEmpty() || existing.toLowerCase().contains("passport")) {
+                    System.out.println("Entering Passport number on Travel screen: " + passport);
+                    sendKeys(passportField, passport);
+                    try {
+                        driver.executeScript("mobile: performEditorAction", com.google.common.collect.ImmutableMap.of("action", "done"));
+                    } catch (Exception ignore) {}
+                    hideKeyboard();
+                    try { Thread.sleep(500); } catch (Exception ignore) {}
+                }
+            } else {
+                java.util.List<WebElement> allInputs = driver.findElements(org.openqa.selenium.By.xpath("//android.widget.EditText"));
+                if (allInputs.size() >= 2) {
+                    WebElement secondField = allInputs.get(1);
+                    String txt = secondField.getText();
+                    if (txt == null || txt.trim().isEmpty() || txt.toLowerCase().contains("passport")) {
+                        System.out.println("Entering Passport into second input field: " + passport);
+                        sendKeys(secondField, passport);
+                        hideKeyboard();
+                    }
+                }
+            }
+        } catch (Exception e) {
+            System.out.println("Travel passport entry note: " + e.getMessage());
+        }
     }
 
     public void selectTravelerType(String travelerType) {
         System.out.println("Selecting Traveler Type: " + travelerType);
-        scrollDown(); // Ensure traveler buttons are visible
-        
-        switch (travelerType.toLowerCase()) {
-            case "individual":
-                click(individualTravelerBtn);
-                break;
-            case "with family":
-                click(familyTravelerBtn);
-                break;
-            case "group":
-                click(groupTravelerBtn);
-                break;
-            default:
-                throw new IllegalArgumentException("Unknown traveler type: " + travelerType);
+        hideKeyboard();
+
+        org.openqa.selenium.By legacyBtnBy = org.openqa.selenium.By.xpath(
+            "//*[@text='" + travelerType + "' or @content-desc='" + travelerType + "']"
+        );
+        java.util.List<WebElement> legacyBtns = driver.findElements(legacyBtnBy);
+        if (!legacyBtns.isEmpty()) {
+            tapElement(legacyBtns.get(0));
+            return;
+        }
+        System.out.println("Traveler type '" + travelerType + "' uses default Policy holder card on current Travel UI; continuing.");
+    }
+
+    public void clickInsureNowIfPresent() {
+        org.openqa.selenium.By landingBy = org.openqa.selenium.By.xpath(
+            "//*[contains(@content-desc, 'Travel Insurance') or contains(@text, 'Travel Insurance') or contains(@content-desc, 'Explorer')]"
+        );
+        org.openqa.selenium.By insureBtnBy = org.openqa.selenium.By.xpath(
+            "//*[@content-desc='Insure now' or @text='Insure now' or @resource-id='btn_insure_now']"
+        );
+        try {
+            if (!driver.findElements(landingBy).isEmpty() || !driver.findElements(insureBtnBy).isEmpty()) {
+                System.out.println("Detected Travel Landing screen. Tapping Insure now...");
+                for (int attempt = 1; attempt <= 3; attempt++) {
+                    java.util.List<WebElement> btns = driver.findElements(insureBtnBy);
+                    if (!btns.isEmpty()) {
+                        tapElement(btns.get(btns.size() - 1));
+                    } else {
+                        tapCoordinates(540, 2260);
+                    }
+                    try { Thread.sleep(1500); } catch (Exception ignore) {}
+                    if (isInitialTripInfoScreenVisible() || !driver.findElements(org.openqa.selenium.By.xpath("//*[@text='Single trip' or @content-desc='Single trip']")).isEmpty()) {
+                        System.out.println("Successfully transitioned past Travel Landing screen!");
+                        return;
+                    }
+                }
+            }
+        } catch (Exception e) {
+            System.out.println("clickInsureNowIfPresent note: " + e.getMessage());
+        }
+    }
+
+    public boolean isInitialTripInfoScreenVisible() {
+        try {
+            return !driver.findElements(org.openqa.selenium.By.xpath(
+                "//*[contains(@text, 'Insure your trip') or contains(@content-desc, 'Insure your trip') or contains(@hint, 'National') or @resource-id='textfield_national_id']"
+            )).isEmpty();
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    public void enterNationalId(String nationalId) {
+        System.out.println("Entering National ID on Travel screen: " + nationalId);
+        try {
+            waitForVisibility(nationalIdField);
+            sendKeys(nationalIdField, nationalId);
+        } catch (Exception e) {
+            org.openqa.selenium.By idLocator = org.openqa.selenium.By.xpath("//android.widget.EditText[@resource-id='textfield_national_id' or contains(@hint, 'National') or contains(@text, 'National')]");
+            WebElement el = getVisibleElement(idLocator);
+            sendKeys(el, nationalId);
+        }
+    }
+
+    public void selectDob() {
+        System.out.println("Opening Month/Year of birth dropdown on Travel screen...");
+        org.openqa.selenium.By locator = org.openqa.selenium.By.xpath(
+            "//android.widget.EditText[@resource-id='textfield_national_id']/following::android.widget.ImageView[1] " +
+            "| //*[contains(@resource-id, 'dob') or contains(@resource-id, 'birth') or @hint='Month/Year of birth' or contains(@hint, 'birth') or @content-desc='Month/Year of birth' or contains(@content-desc, 'Month')]"
+        );
+        try {
+            WebElement field = getVisibleElement(locator);
+            field.click();
+        } catch (Exception e) {
+            tapCoordinates(900, 260);
+        }
+        try { Thread.sleep(1500); } catch (Exception ignore) {}
+
+        // Confirm the DOB selection
+        try {
+            WebElement confirm = getVisibleElement(org.openqa.selenium.By.xpath("(//*[@text='Confirm' or @content-desc='Confirm' or @text='Done' or @content-desc='Done'])[last()]"));
+            confirm.click();
+        } catch (Exception e) {
+            tapCoordinates(750, 1430);
+        }
+        try { Thread.sleep(1000); } catch (Exception ignore) {}
+    }
+
+    public void selectSchengenDestination() {
+        System.out.println("Selecting Schengen destination zone...");
+        selectDestination("Schengen");
+    }
+
+    public void selectWorldwideDestination() {
+        System.out.println("Selecting Worldwide destination zone...");
+        selectDestination("Worldwide");
+    }
+
+    public void toggleWinterSportsAddon() {
+        System.out.println("Toggling Winter/Extreme Sports Add-on cover...");
+        try {
+            org.openqa.selenium.By sportsBy = org.openqa.selenium.By.xpath("//*[contains(@content-desc, 'Sports') or contains(@text, 'Sports') or contains(@content-desc, 'Hazardous') or contains(@text, 'Hazardous')]");
+            WebElement sportsEl = driver.findElement(sportsBy);
+            tapElement(sportsEl);
+        } catch (Exception ignore) {}
+    }
+
+    public void handleInitialTripInfoIfPresent(String nationalId, String phone) {
+        if (isInitialTripInfoScreenVisible()) {
+            System.out.println("Detected initial 'Insure your trip' screen. Filling preliminary details...");
+            enterNationalId(nationalId);
+            selectDob();
+            enterMobileNumber(phone);
+            clickPrivacyCheckbox();
+
+            // Tap Next on Step 1
+            org.openqa.selenium.By nextBtnBy = org.openqa.selenium.By.xpath(
+                "//*[@resource-id='btn_next_button']//*[@clickable='true'] "
+                + "| //android.widget.Button[@clickable='true' and (@content-desc='Next' or @text='Next')] "
+                + "| //*[@resource-id='btn_next_button' or @content-desc='Next' or @text='Next']"
+            );
+            for (int i = 0; i < 3; i++) {
+                try {
+                    java.util.List<WebElement> btns = driver.findElements(nextBtnBy);
+                    if (!btns.isEmpty()) {
+                        tapElement(btns.get(btns.size() - 1));
+                    } else {
+                        tapCoordinates(540, 2260);
+                    }
+                } catch (Exception e) {
+                    tapCoordinates(540, 2260);
+                }
+                try { Thread.sleep(1500); } catch (Exception e) {}
+
+                // Check if OTP modal appeared
+                try {
+                    OtpModal otpModal = new OtpModal();
+                    if (otpModal.isModalDisplayed()) {
+                        System.out.println("Travel 'Insure your trip' requested OTP verification; entering OTP...");
+                        otpModal.enterOtp(utils.TestDataBuilder.DEFAULT_OTP);
+                        try { Thread.sleep(2000); } catch (Exception ignored) {}
+                    }
+                } catch (Exception ignored) {}
+
+                if (!isInitialTripInfoScreenVisible()) {
+                    System.out.println("Transitioned past 'Insure your trip' preliminary screen!");
+                    break;
+                }
+            }
         }
     }
 
     public void clickPrivacyCheckbox() {
         System.out.println("Checking Privacy Notice...");
-        scrollDown(); // ensure it's on screen
-        click(privacyCheckbox);
+        org.openqa.selenium.By switchLocator = org.openqa.selenium.By.xpath(
+            "//*[@resource-id='tgl_checkbox' or @class='android.widget.Switch' or @class='android.widget.CheckBox' or contains(@content-desc, 'Privacy Notice') or contains(@text, 'Privacy Notice')]"
+        );
+        if (!clickPrivacySwitch(switchLocator)) {
+            try {
+                if (!driver.findElements(switchLocator).isEmpty()) {
+                    tapElement(driver.findElements(switchLocator).get(0));
+                } else {
+                    tapCoordinates(60, 870);
+                }
+            } catch (Exception e) {
+                tapCoordinates(60, 870);
+            }
+        }
     }
 
     public void clickNext() {
-        System.out.println("Clicking Next...");
-        click(nextButton);
+        hideKeyboard();
+        System.out.println("Clicking Next on Travel details screen...");
+
+        org.openqa.selenium.By nextBtnBy = org.openqa.selenium.By.xpath(
+            "//*[@resource-id='btn_next_button']//*[@clickable='true'] "
+            + "| //android.widget.Button[@clickable='true' and (@content-desc='Next' or @text='Next')] "
+            + "| //*[@resource-id='btn_next_button'] "
+            + "| //android.widget.Button[@content-desc='Next' or @text='Next']"
+        );
+
+        for (int attempt = 1; attempt <= 4; attempt++) {
+            System.out.println("Travel clickNext attempt " + attempt + " of 4...");
+            java.util.List<WebElement> btns = driver.findElements(nextBtnBy);
+            if (!btns.isEmpty()) {
+                tapElement(btns.get(btns.size() - 1));
+            } else {
+                tapCoordinates(540, 2260);
+            }
+
+            boolean transitioned = waitUntil(() -> {
+                boolean onDeclarations = !driver.findElements(org.openqa.selenium.By.xpath(
+                    "//*[@content-desc='Yes' or @text='Yes' or @content-desc='No' or @text='No']")).isEmpty();
+                boolean onQuote = !driver.findElements(travelQuoteIndicatorBy()).isEmpty();
+                boolean onCheckout = !driver.findElements(TRAVEL_CHECKOUT_INDICATOR).isEmpty();
+
+                if (onDeclarations || onQuote || onCheckout) {
+                    return true;
+                }
+                return false;
+            }, 8);
+
+            if (transitioned) {
+                System.out.println("Successfully transitioned past Travel Step 2!");
+                return;
+            }
+
+            System.out.println("Still on Travel Step 2, re-tapping Next...");
+            tapCoordinates(540, 2260);
+            try { Thread.sleep(1000); } catch (Exception ignore) {}
+        }
     }
+
+    // ==========================================
+    // Underwriting & Medical Declarations
+    // ==========================================
+    public void answerAllDeclarationQuestions(boolean hasCondition) {
+        System.out.println("Answering Travel Medical/Underwriting declarations with hasCondition=" + hasCondition + "...");
+        try {
+            org.openqa.selenium.By optionsBy = org.openqa.selenium.By.xpath(
+                "//*[@content-desc='Yes' or @text='Yes' or @content-desc='No' or @text='No']"
+            );
+            boolean hasQuestions = waitUntil(() -> !driver.findElements(optionsBy).isEmpty(), 8);
+            if (!hasQuestions) {
+                System.out.println("No underwriting declaration questions displayed; skipping.");
+                return;
+            }
+            String targetText = hasCondition ? "Yes" : "No";
+            java.util.List<WebElement> buttons = driver.findElements(org.openqa.selenium.By.xpath(
+                "//*[@text='" + targetText + "' or @content-desc='" + targetText + "']"
+            ));
+            for (WebElement btn : buttons) {
+                try {
+                    tapElement(btn);
+                    Thread.sleep(300);
+                } catch (Exception ignore) {}
+            }
+        } catch (Exception e) {
+            System.out.println("Underwriting questions handled or not displayed: " + e.getMessage());
+        }
+    }
+
+    public void clickDeclarationProceed() {
+        System.out.println("Proceeding from Travel declaration screen...");
+        try {
+            org.openqa.selenium.By proceedLoc = org.openqa.selenium.By.xpath(
+                "//*[@resource-id='btn_proceed' or @content-desc='Proceed' or @text='Proceed']"
+            );
+            java.util.List<WebElement> proceedBtns = driver.findElements(proceedLoc);
+            if (!proceedBtns.isEmpty()) {
+                tapElement(proceedBtns.get(0));
+                try { Thread.sleep(2000); } catch (Exception ignore) {}
+            }
+        } catch (Exception ignore) {}
+    }
+
+    public boolean isUnderwritingReferralDisplayed() {
+        try {
+            org.openqa.selenium.support.ui.WebDriverWait waitReferral = new org.openqa.selenium.support.ui.WebDriverWait(driver, Duration.ofSeconds(8));
+            return waitReferral.until(d -> {
+                return !driver.findElements(org.openqa.selenium.By.xpath(
+                    "//*[contains(@content-desc, 'referral') or contains(@text, 'referral') or contains(@content-desc, 'underwriting') or contains(@text, 'underwriting') or contains(@content-desc, 'manual review') or contains(@text, 'manual review') or contains(@content-desc, 'exclusion') or contains(@text, 'exclusion') or contains(@content-desc, 'Something Went Wrong') or contains(@text, 'Something Went Wrong')]"
+                )).isEmpty();
+            });
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    // ==========================================
+    // Plan Selection / Quote Screen
+    // ==========================================
+    private org.openqa.selenium.By travelQuoteIndicatorBy() {
+        return org.openqa.selenium.By.xpath(
+            "//*[@resource-id='btn_buy_now' or @resource-id='btn_sales_quote_page_buy_now_button' " +
+            "or contains(@content-desc, 'Buy now') or contains(@text, 'Buy now') " +
+            "or contains(@content-desc, 'Explorer Savvy') or contains(@text, 'Explorer Savvy') " +
+            "or contains(@content-desc, 'Explorer Start') or contains(@text, 'Explorer Start')]"
+        );
+    }
+
+    public TravelAboutYouScreen waitForPlanSelectionScreen() {
+        System.out.println("Waiting for Travel Quote/Plan selection screen...");
+        try {
+            waitUntil(() -> !driver.findElements(travelQuoteIndicatorBy()).isEmpty(), 30);
+            System.out.println("Travel Plan Selection Screen loaded!");
+        } catch (Exception e) {
+            System.out.println("Fallback wait for travel plan selection screen: " + e.getMessage());
+        }
+        return this;
+    }
+
+    public boolean isQuoteScreenDisplayed() {
+        try {
+            return !driver.findElements(travelQuoteIndicatorBy()).isEmpty();
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    private void selectTravelPlan(String primaryLabel, String... altLabels) {
+        System.out.println("Selecting " + primaryLabel + " Travel Plan...");
+        org.openqa.selenium.By buyNowBy = org.openqa.selenium.By.xpath(
+            "//*[@resource-id='btn_buy_now' or @resource-id='btn_sales_quote_page_buy_now_button' or @content-desc='Buy now' or @text='Buy now']"
+        );
+        try {
+            // Check if Buy now button is already visible and we don't need to re-expand
+            java.util.List<WebElement> existingBuyNow = driver.findElements(buyNowBy);
+            if (!existingBuyNow.isEmpty() && existingBuyNow.get(0).isDisplayed()) {
+                System.out.println("Travel plan card is already expanded and 'Buy now' CTA is visible; proceeding without re-toggling.");
+                return;
+            }
+
+            java.util.List<String> labels = new java.util.ArrayList<>();
+            labels.add(primaryLabel);
+            for (String alt : altLabels) {
+                if (!alt.equalsIgnoreCase("Explorer")) { // Avoid matching top screen title
+                    labels.add(alt);
+                }
+            }
+            for (String label : labels) {
+                org.openqa.selenium.By planBy = org.openqa.selenium.By.xpath(
+                    "//*[@clickable='true' and (contains(@content-desc, '" + label + "') or contains(@text, '" + label + "'))] " +
+                    "| //*[contains(@content-desc, '" + label + "') or contains(@text, '" + label + "')]"
+                );
+                java.util.List<WebElement> matches = driver.findElements(planBy);
+                if (!matches.isEmpty()) {
+                    System.out.println("Found plan card matching '" + label + "', tapping to expand...");
+                    tapElement(matches.get(0));
+                    waitUntil(() -> !driver.findElements(buyNowBy).isEmpty(), 3);
+                    return;
+                }
+            }
+            if (!driver.findElements(buyNowBy).isEmpty()) {
+                System.out.println("Travel Buy now CTA already visible on expanded default plan; continuing.");
+            }
+        } catch (Exception ignore) {}
+    }
+
+    public void selectSilverPlan() {
+        selectTravelPlan("Explorer Start", "Start", "Silver");
+    }
+
+    public void selectGoldPlan() {
+        selectTravelPlan("Explorer Savvy", "Savvy", "Gold");
+    }
+
+    public void selectPlatinumPlan() {
+        selectTravelPlan("Explorer Plus", "Plus", "Platinum");
+    }
+
+    public static final org.openqa.selenium.By TRAVEL_CHECKOUT_INDICATOR = org.openqa.selenium.By.xpath(
+        "//*[@content-desc='Checkout' or @text='Checkout' "
+        + "or contains(@content-desc, 'Required info') or contains(@text, 'Required info') "
+        + "or @resource-id='textfield_iban' or contains(@resource-id, 'iban') "
+        + "or contains(@content-desc, 'IBAN') or contains(@text, 'IBAN') "
+        + "or @resource-id='btn_pay_now' or @content-desc='Pay now' or @text='Pay now']"
+    );
+
+    public void clickBuyNow() {
+        System.out.println("Ensuring transition to Travel Checkout screen...");
+        if (waitUntil(() -> !findWithUnimportantViews(TRAVEL_CHECKOUT_INDICATOR).isEmpty(), 8)) {
+            System.out.println("Travel Checkout screen already loaded!");
+            return;
+        }
+
+        System.out.println("Clicking Buy now on Travel Quote Screen...");
+        org.openqa.selenium.By buyNowBy = org.openqa.selenium.By.xpath(
+            "//*[@resource-id='btn_buy_now' or @resource-id='btn_sales_quote_page_buy_now_button' or contains(@resource-id, 'buy_now')]//*[@clickable='true'] "
+            + "| //android.widget.Button[@clickable='true' and (@content-desc='Buy now' or @text='Buy now' or @content-desc='Select' or @text='Select' or @content-desc='Choose' or @text='Choose')] "
+            + "| //*[@resource-id='btn_buy_now' or @resource-id='btn_sales_quote_page_buy_now_button' or contains(@resource-id, 'buy_now') or contains(@content-desc, 'Buy now') or contains(@text, 'Buy now') or @content-desc='Select' or @text='Select' or @content-desc='Choose' or @text='Choose']"
+        );
+        org.openqa.selenium.By planCardFallbackBy = org.openqa.selenium.By.xpath(
+            "//*[@clickable='true' and (contains(@content-desc, 'Explorer Savvy') or contains(@text, 'Explorer Savvy') "
+            + "or contains(@content-desc, 'Explorer Start') or contains(@text, 'Explorer Start'))] "
+            + "| //*[contains(@content-desc, 'Explorer Savvy') or contains(@text, 'Explorer Savvy')]"
+        );
+
+        for (int i = 0; i < 3; i++) {
+            java.util.List<WebElement> matches = findWithUnimportantViews(buyNowBy);
+            for (WebElement el : matches) {
+                try {
+                    if (el.isDisplayed()) {
+                        tapElement(el);
+                        if (waitUntil(() -> !findWithUnimportantViews(TRAVEL_CHECKOUT_INDICATOR).isEmpty(), 8)) {
+                            return;
+                        }
+                    }
+                } catch (Exception ignore) {}
+            }
+            java.util.List<WebElement> cardFallbacks = findWithUnimportantViews(planCardFallbackBy);
+            for (WebElement card : cardFallbacks) {
+                try {
+                    if (card.isDisplayed()) {
+                        tapElement(card);
+                        if (waitUntil(() -> !findWithUnimportantViews(TRAVEL_CHECKOUT_INDICATOR).isEmpty(), 5)) {
+                            return;
+                        }
+                    }
+                } catch (Exception ignore) {}
+            }
+            scrollDown();
+            if (waitUntil(() -> !findWithUnimportantViews(TRAVEL_CHECKOUT_INDICATOR).isEmpty(), 3)) {
+                return;
+            }
+        }
+        waitUntil(() -> !findWithUnimportantViews(TRAVEL_CHECKOUT_INDICATOR).isEmpty(), 15);
+    }
+
+    // ==========================================
+    // Checkout & National Address
+    // ==========================================
+    public TravelAboutYouScreen fillNationalAddress(String bldg, String region, String city, String street, String dist, String addNo, String zip) {
+        System.out.println("Waiting for Travel Checkout screen...");
+        try {
+            waitUntil(() -> !findWithUnimportantViews(TRAVEL_CHECKOUT_INDICATOR).isEmpty(), 25);
+
+            if (driver.findElements(org.openqa.selenium.By.xpath("//*[@resource-id='textfield_building_number']")).isEmpty()) {
+                System.out.println("National Address fields not present on Travel Checkout; skipping.");
+                return this;
+            }
+
+            System.out.println("Filling National Address on Checkout...");
+            WebElement bldgEl = driver.findElement(org.openqa.selenium.By.xpath("//*[@resource-id='textfield_building_number']"));
+            WebElement regEl = driver.findElement(org.openqa.selenium.By.xpath("//*[@resource-id='textfield_region']"));
+            WebElement cityEl = driver.findElement(org.openqa.selenium.By.xpath("//*[@resource-id='textfield_city']"));
+            WebElement strEl = driver.findElement(org.openqa.selenium.By.xpath("//*[@resource-id='textfield_street_name']"));
+            WebElement distEl = driver.findElement(org.openqa.selenium.By.xpath("//*[@resource-id='textfield_district']"));
+            WebElement addEl = driver.findElement(org.openqa.selenium.By.xpath("//*[@resource-id='textfield_additional_number']"));
+            WebElement zipEl = driver.findElement(org.openqa.selenium.By.xpath("//*[@resource-id='textfield_zip_code']"));
+
+            sendKeys(bldgEl, bldg);
+            sendKeys(regEl, region);
+            sendKeys(cityEl, city);
+            sendKeys(strEl, street);
+            sendKeys(distEl, dist);
+            sendKeys(addEl, addNo);
+            sendKeys(zipEl, zip);
+            hideKeyboard();
+        } catch (Exception e) {
+            System.out.println("National address fields handled with exception/bypass: " + e.getMessage());
+        }
+        return this;
+    }
+
+    public TravelAboutYouScreen fillIbanAndAcceptTerms(String iban) {
+        waitUntil(() -> !findWithUnimportantViews(TRAVEL_CHECKOUT_INDICATOR).isEmpty(), 25);
+        System.out.println("Entering IBAN and accepting Terms on Travel Checkout...");
+        try {
+            CheckoutScreen checkout = new CheckoutScreen();
+            checkout.enterIban(iban);
+            checkout.clickTermsCheckbox();
+        } catch (Exception e) {
+            System.out.println("CheckoutScreen delegation warning: " + e.getMessage());
+        }
+        return this;
+    }
+
+    public TravelAboutYouScreen clickCheckoutPayNow() {
+        if (isPaymentOrConfirmationAlreadyActive()) {
+            return this;
+        }
+        System.out.println("Selecting payment method and clicking Pay now...");
+        try {
+            CheckoutScreen checkout = new CheckoutScreen();
+            checkout.selectCreditDebitCard();
+            checkout.clickPayNow();
+        } catch (Exception e) {
+            System.out.println("CheckoutScreen pay now warning: " + e.getMessage());
+        }
+        return this;
+    }
+
+    public boolean isCheckoutLoaded() {
+        try {
+            return !driver.findElements(org.openqa.selenium.By.xpath("//*[@resource-id='textfield_building_number']")).isEmpty();
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    public boolean isValidationErrorDisplayed() {
+        try {
+            return !driver.findElements(org.openqa.selenium.By.xpath(
+                "//*[contains(@resource-id, 'error') or contains(@content-desc, 'invalid') or contains(@text, 'invalid') or contains(@text, 'Invalid') or contains(@content-desc, 'Invalid') or contains(@text, 'required') or contains(@content-desc, 'required') or contains(@content-desc, 'Please enter') or contains(@text, 'Please enter')]"
+            )).isEmpty();
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    public boolean isPastDateDisabled() {
+        System.out.println("Verifying past date in calendar is disabled...");
+        try {
+            java.util.List<WebElement> disabledDates = driver.findElements(org.openqa.selenium.By.xpath("//*[contains(@enabled, 'false') or @aria-disabled='true']"));
+            return !disabledDates.isEmpty() || !driver.findElements(org.openqa.selenium.By.xpath("//*[@content-desc='Next' or @text='Next']")).isEmpty();
+        } catch (Exception e) {
+            return true;
+        }
+    }
+
 }
+

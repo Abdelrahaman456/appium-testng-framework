@@ -67,6 +67,8 @@ public class TestListener implements ITestListener {
         }
 
         System.out.println("[TEST STARTED] " + methodName);
+        PerformanceBenchmark.setTestContext(methodName);
+        PerformanceBenchmark.startStage("E2E_Journey");
         ExtentTest test = extent.createTest(methodName, description);
         
         // Assign Category based on method name
@@ -81,6 +83,7 @@ public class TestListener implements ITestListener {
 
     @Override
     public void onTestSuccess(ITestResult result) {
+        PerformanceBenchmark.stopStage("E2E_Journey", PerformanceBenchmark.SLA_E2E_JOURNEY);
         long durationMs = result.getEndMillis() - result.getStartMillis();
         double durationSec = durationMs / 1000.0;
         System.out.println("[TEST PASSED] " + result.getName() + " (Duration: " + durationSec + "s)");
@@ -93,6 +96,7 @@ public class TestListener implements ITestListener {
 
     @Override
     public void onTestFailure(ITestResult result) {
+        PerformanceBenchmark.stopStage("E2E_Journey", PerformanceBenchmark.SLA_E2E_JOURNEY);
         long durationMs = result.getEndMillis() - result.getStartMillis();
         double durationSec = durationMs / 1000.0;
         System.out.println("[TEST FAILED] " + result.getName() + " - Reason: " + result.getThrowable().getMessage());
@@ -117,6 +121,7 @@ public class TestListener implements ITestListener {
     @Override
     public void onFinish(ITestContext context) {
         System.out.println("=== TEST SUITE RUN FINISHED ===");
+        PerformanceBenchmark.saveReportToDisk();
         if (extent != null) {
             extent.flush();
             System.out.println("[EXTENT REPORT] Visual HTML Report generated at: target/extent-reports/ExtentReport.html");

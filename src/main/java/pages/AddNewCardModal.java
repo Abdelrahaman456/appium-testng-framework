@@ -9,24 +9,38 @@ import java.time.Duration;
 
 public class AddNewCardModal extends BasePage {
 
-    public AddNewCardModal() {
-        super();
-        PageFactory.initElements(new AppiumFieldDecorator(driver, Duration.ofSeconds(10)), this);
+    public boolean isModalDisplayed() {
+        if (BasePage.uatElmDependentBlocked) {
+            System.out.println("[UAT Elm Notice] Skipping AddNewCardModal display check due to blocked dependent step.");
+            return false;
+        }
+        org.openqa.selenium.By modalBy = org.openqa.selenium.By.xpath(
+            "//*[@resource-id='textfield_credit_debit_card_bottom_sheet_card_number' or @resource-id='textfield_card_number' " +
+            "or contains(@resource-id, 'card_number') or contains(@content-desc, 'Card number') or contains(@text, 'Card number') " +
+            "or contains(@hint, 'Card number') or contains(@resource-id, 'card_bottom_sheet') " +
+            "or @resource-id='btn_credit_debit_card_bottom_sheet_save']"
+        );
+        return waitUntil(() -> !driver.findElements(modalBy).isEmpty(), 10);
     }
 
-    @AndroidFindBy(xpath = "//android.widget.EditText[@resource-id='textfield_credit_debit_card_bottom_sheet_card_number' or contains(@resource-id, 'card_number')]")
+    public AddNewCardModal() {
+        super();
+        PageFactory.initElements(new AppiumFieldDecorator(driver, Duration.ofSeconds(2)), this);
+    }
+
+    @AndroidFindBy(xpath = "//*[@resource-id='textfield_credit_debit_card_bottom_sheet_card_number' or @resource-id='textfield_card_number' or contains(@resource-id, 'card_number') or contains(@hint, 'Card number') or contains(@hint, 'Card Number') or contains(@content-desc, 'Card number') or contains(@text, 'Card number')]")
     private WebElement cardNumberField;
 
-    @AndroidFindBy(xpath = "//android.widget.ImageView[@resource-id='textfield_credit_debit_card_bottom_sheet_expiry_date' or contains(@resource-id, 'expiry_date')]")
+    @AndroidFindBy(xpath = "//*[@resource-id='textfield_credit_debit_card_bottom_sheet_expiry_date' or @resource-id='textfield_expiry_date' or contains(@resource-id, 'expiry_date') or contains(@hint, 'Expiry') or contains(@hint, 'MM') or contains(@content-desc, 'Expiry') or contains(@text, 'Expiry')]")
     private WebElement expiryDateField;
 
-    @AndroidFindBy(xpath = "//android.widget.EditText[@resource-id='textfield_credit_debit_card_bottom_sheet_cvv' or contains(@resource-id, 'cvv')]")
+    @AndroidFindBy(xpath = "//*[@resource-id='textfield_credit_debit_card_bottom_sheet_cvv' or @resource-id='textfield_cvv' or contains(@resource-id, 'cvv') or contains(@hint, 'CVV') or contains(@content-desc, 'CVV') or contains(@text, 'CVV')]")
     private WebElement cvvField;
 
-    @AndroidFindBy(xpath = "//android.widget.EditText[@resource-id='textfield_credit_debit_card_bottom_sheet_card_holder_name' or contains(@resource-id, 'card_holder_name')]")
+    @AndroidFindBy(xpath = "//*[@resource-id='textfield_credit_debit_card_bottom_sheet_card_holder_name' or @resource-id='textfield_card_holder_name' or contains(@resource-id, 'card_holder_name') or contains(@hint, 'Card holder') or contains(@hint, 'Name') or contains(@content-desc, 'Card holder') or contains(@text, 'Card holder')]")
     private WebElement cardHolderNameField;
 
-    @AndroidFindBy(xpath = "//android.widget.Button[@resource-id='btn_credit_debit_card_bottom_sheet_save' or contains(@resource-id, 'save')]")
+    @AndroidFindBy(xpath = "//*[@resource-id='btn_credit_debit_card_bottom_sheet_save' or @resource-id='btn_save_button' or contains(@resource-id, 'card_bottom_sheet_save') or contains(@resource-id, 'save') or @content-desc='Save' or @text='Save']")
     private WebElement saveButton;
 
     public void enterCardNumber(String cardNumber) {
@@ -42,57 +56,107 @@ public class AddNewCardModal extends BasePage {
             tapElement(expiryDateField);
         }
         try { Thread.sleep(1500); } catch (Exception e) {}
-        
+
         try {
-            WebElement yearPicker = getVisibleElement(org.openqa.selenium.By.xpath("(//android.widget.SeekBar)[1]"));
-            WebElement monthPicker = getVisibleElement(org.openqa.selenium.By.xpath("(//android.widget.SeekBar)[2]"));
-            
-            org.openqa.selenium.Rectangle yearRect = yearPicker.getRect();
-            org.openqa.selenium.Rectangle monthRect = monthPicker.getRect();
-            
-            int yearX = yearRect.getX() + (yearRect.getWidth() / 2);
-            int yearBottomY = yearRect.getY() + (int)(yearRect.getHeight() * 0.9);
-            int yearTopY = yearRect.getY() + (int)(yearRect.getHeight() * 0.1);
-            scrollWheel(yearX, yearBottomY, yearTopY);
-            
-            int yearMidBottomY = yearRect.getY() + (int)(yearRect.getHeight() * 0.7);
-            int yearMidTopY = yearRect.getY() + (int)(yearRect.getHeight() * 0.5);
-            scrollWheel(yearX, yearMidBottomY, yearMidTopY);
-            
-            // --- Month Wheel: Scroll UP to 01 (January) ---
-            System.out.println("Scrolling Expiry Month wheel to 01 (January)...");
-            int monthX = monthRect.getX() + (monthRect.getWidth() / 2);
-            int monthTopY = monthRect.getY() + (int)(monthRect.getHeight() * 0.15);
-            int monthBottomY = monthRect.getY() + (int)(monthRect.getHeight() * 0.85);
+            org.openqa.selenium.By seek1By = org.openqa.selenium.By.xpath("(//android.widget.SeekBar)[1]");
+            org.openqa.selenium.By seek2By = org.openqa.selenium.By.xpath("(//android.widget.SeekBar)[2]");
+            WebElement s1 = getVisibleElement(seek1By);
+            WebElement s2 = getVisibleElement(seek2By);
+            String d1 = getWheelValue(s1);
+            String d2 = getWheelValue(s2);
 
-            // Swipe DOWN to pull the list upward to 01
-            for (int i = 1; i <= 3; i++) {
-                try {
-                    java.util.List<WebElement> monthCheck = driver.findElements(
-                        org.openqa.selenium.By.xpath("//*[contains(@content-desc,'01') or contains(@text,'01') or contains(@content-desc,'Jan') or contains(@text,'Jan')]")
-                    );
-                    if (!monthCheck.isEmpty() && monthCheck.get(0).isDisplayed()) {
-                        System.out.println("Expiry Month '01' (January) is selected!");
-                        break;
-                    }
-                } catch (Exception ignored) {}
+            boolean s2IsYear = !d1.matches("\\d{4}") && d2.matches("\\d{4}");
+            org.openqa.selenium.By yearBy = s2IsYear ? seek2By : seek1By;
+            org.openqa.selenium.By monthBy = s2IsYear ? seek1By : seek2By;
+            System.out.println("Expiry wheels initial state -> Year=" + (s2IsYear ? d2 : d1) + ", Month=" + (s2IsYear ? d1 : d2));
 
-                System.out.println("Swiping DOWN on Expiry Month wheel (attempt " + i + "/3)...");
-                scrollWheel(monthX, monthTopY, monthBottomY);
-                try { Thread.sleep(500); } catch (Exception e) {}
+            int targetYear = 2030;
+            if (expiry != null && expiry.contains("/")) {
+                String[] parts = expiry.split("/");
+                if (parts.length == 2 && parts[1].trim().matches("\\d{2,4}")) {
+                    int parsed = Integer.parseInt(parts[1].trim());
+                    targetYear = parsed < 100 ? 2000 + parsed : parsed;
+                    if (targetYear < 2028) targetYear = 2030;
+                }
             }
-            
+            boolean swipeUpToIncreaseYear = true;
+            Integer lastYear = null;
+            for (int attempt = 0; attempt < 8; attempt++) {
+                WebElement yearPicker = getVisibleElement(yearBy);
+                String yearVal = getWheelValue(yearPicker);
+                if (!yearVal.matches("\\d{4}")) {
+                    org.openqa.selenium.Rectangle yr = yearPicker.getRect();
+                    int yearX = yr.getX() + (yr.getWidth() / 2);
+                    scrollWheel(yearX, yr.getY() + (int) (yr.getHeight() * 0.70), yr.getY() + (int) (yr.getHeight() * 0.45));
+                    Thread.sleep(500);
+                    continue;
+                }
+                int currentYear = Integer.parseInt(yearVal);
+                System.out.println("Expiry Year wheel attempt " + (attempt + 1) + ": current=" + currentYear + ", target=" + targetYear);
+                if (currentYear >= 2028 && currentYear <= 2035) {
+                    System.out.println("Expiry Year '" + currentYear + "' selected!");
+                    break;
+                }
+                if (lastYear != null && ((targetYear > lastYear && currentYear < lastYear) || (targetYear < lastYear && currentYear > lastYear))) {
+                    swipeUpToIncreaseYear = !swipeUpToIncreaseYear;
+                }
+                lastYear = currentYear;
+
+                org.openqa.selenium.Rectangle yr = yearPicker.getRect();
+                int yearX = yr.getX() + (yr.getWidth() / 2);
+                int centerY = yr.getY() + (yr.getHeight() / 2);
+                int deltaY = Math.min(180, Math.max(60, Math.abs(targetYear - currentYear) * 30));
+                boolean needHigher = currentYear < targetYear;
+                boolean moveUp = needHigher ? swipeUpToIncreaseYear : !swipeUpToIncreaseYear;
+                if (moveUp) {
+                    scrollWheel(yearX, centerY + (deltaY / 2), centerY - (deltaY / 2));
+                } else {
+                    scrollWheel(yearX, centerY - (deltaY / 2), centerY + (deltaY / 2));
+                }
+                Thread.sleep(500);
+            }
+
+            for (int i = 1; i <= 4; i++) {
+                WebElement monthPicker = getVisibleElement(monthBy);
+                String monthVal = getWheelValue(monthPicker);
+                if (monthVal.contains("01") || monthVal.toLowerCase().contains("jan")
+                        || monthVal.contains("12") || monthVal.toLowerCase().contains("dec")) {
+                    System.out.println("Expiry Month '" + monthVal + "' selected!");
+                    break;
+                }
+                System.out.println("Adjusting Expiry Month wheel (attempt " + i + "/4, current='" + monthVal + "')...");
+                org.openqa.selenium.Rectangle mr = monthPicker.getRect();
+                int monthX = mr.getX() + (mr.getWidth() / 2);
+                int centerY = mr.getY() + (mr.getHeight() / 2);
+                scrollWheel(monthX, centerY - 60, centerY + 60);
+                Thread.sleep(500);
+            }
+
             try {
-                WebElement confirmBtn = driver.findElement(org.openqa.selenium.By.xpath("//*[@text='Confirm' or @content-desc='Confirm' or @text='Done' or @content-desc='Done' or @text='Select']"));
-                confirmBtn.click();
+                WebElement confirmBtn = driver.findElement(org.openqa.selenium.By.xpath(
+                    "(//*[@text='Confirm' or @content-desc='Confirm' or @text='Done' or @content-desc='Done' or @text='Select'])[last()]"));
+                tapElement(confirmBtn);
             } catch (Exception ex) {
                 System.out.println("Confirm button not found, picker auto-confirmed.");
             }
         } catch (Exception e) {
             System.out.println("Date picker wheel interaction completed/skipped: " + e.getMessage());
         }
-        
+
         try { Thread.sleep(1000); } catch (Exception e) {}
+    }
+
+    private String getWheelValue(WebElement wheel) {
+        try {
+            String desc = wheel.getAttribute("content-desc");
+            if (desc != null && !desc.trim().isEmpty()) {
+                return desc.trim();
+            }
+            String txt = wheel.getText();
+            return txt != null ? txt.trim() : "";
+        } catch (Exception e) {
+            return "";
+        }
     }
 
     public void enterCvv(String cvv) {
@@ -107,12 +171,21 @@ public class AddNewCardModal extends BasePage {
 
     public void clickSave() {
         System.out.println("Clicking Save Button...");
-        try { Thread.sleep(1000); } catch (Exception e) {}
-        try {
-            saveButton.click();
-        } catch (Exception e) {
-            tapElement(saveButton);
+        org.openqa.selenium.By saveBy = org.openqa.selenium.By.xpath(
+            "//*[@resource-id='btn_credit_debit_card_bottom_sheet_save' or @resource-id='btn_save_button']//*[@clickable='true']"
+            + " | //*[@clickable='true' and (@resource-id='btn_credit_debit_card_bottom_sheet_save' or @resource-id='btn_save_button' or @content-desc='Save' or @text='Save')]"
+        );
+        if (findWithUnimportantViews(saveBy).isEmpty()) {
+            try {
+                java.util.List<WebElement> titles = driver.findElements(org.openqa.selenium.By.xpath(
+                    "//*[contains(@content-desc, 'Add new card') or contains(@text, 'Add new card')]"));
+                if (!titles.isEmpty()) {
+                    tapElement(titles.get(0));
+                    waitUntil(() -> !findWithUnimportantViews(saveBy).isEmpty(), 2);
+                }
+            } catch (Exception ignore) {}
         }
+        tapPreferredButton(saveBy, saveButton);
         System.out.println("Card saved! Handing off to dynamic Policy Confirmation polling...");
         try { Thread.sleep(2000); } catch (Exception e) {}
     }

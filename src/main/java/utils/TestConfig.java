@@ -112,4 +112,7 @@ public class TestConfig {
 
     // ─── Misc ─────────────────────────────────────────────────────────────────────
     public static String targetDevice() { return get("default.target.device", "Android Device"); }
+    public static boolean recordVideo() {
+        return Boolean.parseBoolean(System.getProperty("record.video", get("record.video", "false")));
+    }
 }

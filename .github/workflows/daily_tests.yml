@@ -1,157 +1,97 @@
 name: Daily Appium Mobile Tests
 
 on:
+  push:
+    branches: [ main ]
   schedule:
     # Runs every day at 8:00 AM UTC (11:00 AM local time)
     - cron: '0 8 * * *'
   workflow_dispatch: # Allows manual one-click trigger from GitHub UI anytime!
 
+# One emulator on the VM: never let two runs drive it at the same time.
+concurrency:
+  group: appium-vm-emulator
+  cancel-in-progress: false
+
 jobs:
   test:
     timeout-minutes: 90
+    # Linux test VM vm-cmn-appium-01 (GCP prj-cmn-platform-tree). It already runs:
+    #   - Android emulator  (systemd: android-emulator@pixel_api34, API 34 Google Play x86_64, KVM)
+    #   - Appium 2.19 + UiAutomator2 + Inspector plugin on 127.0.0.1:4723 (systemd: appium)
+    # JDK 17, Maven 3.9.9, Android SDK and git-lfs are preinstalled; the runner sets
+    # JAVA_HOME / ANDROID_HOME / M2_HOME / PATH.
     runs-on: [appium-vm]
 
     steps:
-      - name: Preserve Existing VM APK Before Checkout
-        shell: bash
-        run: |
-          APK_VM_PATH="/opt/actions-runner-mobile/_work/Mobile_Automation_Testing/Mobile_Automation_Testing/app/app-uat-release.apk"
-          if [ -f "$APK_VM_PATH" ]; then
-            FILE_SIZE=$(stat -c%s "$APK_VM_PATH" 2>/dev/null || wc -c < "$APK_VM_PATH")
-            if [ "$FILE_SIZE" -gt 1000000 ]; then
-              echo "Found real APK ($FILE_SIZE bytes) at $APK_VM_PATH — backing up to /tmp/app-uat-release.apk before git checkout..."
-              cp -f "$APK_VM_PATH" /tmp/app-uat-release.apk
-            fi
-          fi
-
-      - name: Checkout Repository Code
+      - name: Checkout Repository Code (with LFS APK)
         uses: actions/checkout@v4
         with:
-          lfs: false
-          clean: false
+          lfs: true
 
-      - name: Ensure Real APK at VM Path
-        shell: bash
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Verify APK is the real file, not an LFS pointer
         run: |
-          APK_VM_PATH="/opt/actions-runner-mobile/_work/Mobile_Automation_Testing/Mobile_Automation_Testing/app/app-uat-release.apk"
-          mkdir -p "$(dirname "$APK_VM_PATH")"
-
-          if [ -f "/tmp/app-uat-release.apk" ]; then
-            echo "Restoring backed-up real APK to $APK_VM_PATH ..."
-            cp -f /tmp/app-uat-release.apk "$APK_VM_PATH"
+          APK=app/app-uat-release.apk
+          SIZE=$(stat -c %s "$APK")
+          echo "APK size: $SIZE bytes"
+          if [ "$SIZE" -lt 1000000 ] || ! unzip -tq "$APK" >/dev/null 2>&1; then
+            echo "::error::$APK is not a valid APK (LFS pointer not resolved?)"
+            exit 1
           fi
 
-          FILE_SIZE=0
-          if [ -f "$APK_VM_PATH" ]; then
-            FILE_SIZE=$(stat -c%s "$APK_VM_PATH" 2>/dev/null || wc -c < "$APK_VM_PATH")
-          fi
-
-          if [ "$FILE_SIZE" -lt 1000000 ]; then
-            echo "APK missing or pointer only ($FILE_SIZE bytes). Downloading real APK from GitHub Release (uat-apk)..."
-            ASSET_ID=$(python3 -c "
-          import urllib.request, json, os
-          req = urllib.request.Request(
-              'https://api.github.com/repos/TreeDigitalInsurance/Mobile_Automation_Testing/releases/tags/uat-apk',
-              headers={'Authorization': 'Bearer ' + os.environ['GH_TOKEN'], 'Accept': 'application/vnd.github+json'}
-          )
-          try:
-              data = json.loads(urllib.request.urlopen(req).read().decode())
-              for a in data.get('assets', []):
-                  if a['name'].endswith('.apk'):
-                      print(a['id'])
-                      break
-          except Exception as e:
-              pass
-          ")
-            if [ -n "$ASSET_ID" ]; then
-              curl -sL -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/octet-stream" \
-                "https://api.github.com/repos/TreeDigitalInsurance/Mobile_Automation_Testing/releases/assets/$ASSET_ID" \
-                -o "$APK_VM_PATH"
-              cp -f "$APK_VM_PATH" /tmp/app-uat-release.apk
-            fi
-          fi
-
-          if [ -f "$APK_VM_PATH" ]; then
-            FILE_SIZE=$(stat -c%s "$APK_VM_PATH" 2>/dev/null || wc -c < "$APK_VM_PATH")
-            echo "APK file ready at $APK_VM_PATH (size: $FILE_SIZE bytes)"
-          else
-            echo "WARNING: APK not found at $APK_VM_PATH"
-          fi
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-
-      - name: Install Maven
-        uses: stCarolas/setup-maven@v5
-        with:
-          maven-version: 3.9.6
+      - name: Show toolchain
+        run: |
+          java -version 2>&1 | head -1
+          mvn -version | head -1
+          adb version | head -1
 
       - name: Ensure Android Emulator is Booted and Healthy
-        shell: bash
         run: |
-          export ANDROID_HOME="${ANDROID_HOME:-$HOME/Android/Sdk}"
-          if [ ! -d "$ANDROID_HOME" ] && [ -d "/opt/android-sdk" ]; then
-            export ANDROID_HOME="/opt/android-sdk"
-          elif [ ! -d "$ANDROID_HOME" ] && [ -d "/usr/lib/android-sdk" ]; then
-            export ANDROID_HOME="/usr/lib/android-sdk"
-          fi
-          export PATH="$PATH:$ANDROID_HOME/platform-tools:$ANDROID_HOME/emulator"
-
           echo "Checking connected Android devices via ADB..."
-          adb start-server || true
-          ONLINE_DEVICES=$(adb devices | grep -w "device" | grep -v "List of devices" || true)
-
-          if [ -z "$ONLINE_DEVICES" ]; then
-            echo "No active emulator/device detected! Auto-booting Android Emulator..."
-            TARGET_AVD=$(emulator -list-avds | head -n 1)
-            if [ -z "$TARGET_AVD" ]; then
-              echo "WARNING: No AVD found via 'emulator -list-avds'. Proceeding in case device attaches dynamically..."
-            else
-              echo "Launching AVD: $TARGET_AVD ..."
-              nohup emulator -avd "$TARGET_AVD" -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect > emulator.log 2>&1 &
-              echo "Waiting up to 180 seconds for emulator to finish booting..."
-              adb wait-for-device
-              for i in $(seq 1 60); do
-                BOOTED=$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')
-                if [ "$BOOTED" = "1" ]; then
-                  echo "Emulator boot completed!"
-                  break
-                fi
-                sleep 3
-              done
-              sleep 5
-              adb shell input keyevent 82 || true
-              echo "Emulator unlocked and ready!"
-            fi
-          else
-            echo "Active device/emulator already online:"
-            echo "$ONLINE_DEVICES"
-            adb shell input keyevent 82 || true
+          adb start-server >/dev/null 2>&1 || true
+          DEV=""
+          for i in $(seq 1 36); do
+            DEV=$(adb devices | awk 'NR>1 && $2=="device" {print $1}' | head -1)
+            [ -n "$DEV" ] && break
+            sleep 5
+          done
+          if [ -z "$DEV" ]; then
+            echo "::error::No online emulator. On the VM: sudo systemctl restart android-emulator@pixel_api34"
+            adb devices
+            exit 1
           fi
+          echo "Device online: $DEV"
+          for i in $(seq 1 60); do
+            [ "$(adb -s "$DEV" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ] && break
+            sleep 3
+          done
+          adb -s "$DEV" shell input keyevent 82 || true
+          echo "Emulator ready: Android $(adb -s "$DEV" shell getprop ro.build.version.release | tr -d '\r')"
 
-      - name: Run Appium and Maven Tests
-        shell: bash
+      - name: Ensure Appium server is up
         run: |
-          APK_VM_PATH="/opt/actions-runner-mobile/_work/Mobile_Automation_Testing/Mobile_Automation_Testing/app/app-uat-release.apk"
+          for i in $(seq 1 20); do
+            if curl -fsS http://127.0.0.1:4723/status >/dev/null; then
+              curl -s http://127.0.0.1:4723/status; echo
+              exit 0
+            fi
+            sleep 3
+          done
+          echo "::error::Appium is not answering on 127.0.0.1:4723. On the VM: sudo systemctl restart appium"
+          exit 1
 
-          echo "Cleaning any stale Appium process on port 4723..."
-          fuser -k 4723/tcp 2>/dev/null || pkill -f "appium" 2>/dev/null || true
+      - name: Run Maven Tests
+        run: |
+          # Remember where the shared Appium log is, so only this run's lines are archived.
+          (wc -l < /var/log/appium/appium.log || echo 0) > .appium_log_start 2>/dev/null
+          mvn -B clean test "-DappPath=${GITHUB_WORKSPACE}/app/app-uat-release.apk"
 
-          echo "Starting Appium Server in background..."
-          nohup npx appium --log appium_server.log > appium_stdout.log 2>&1 &
-          APPIUM_PID=$!
-          sleep 10
-
-          echo "Executing Maven tests with APK path: $APK_VM_PATH"
-          mvn clean test "-DappPath=$APK_VM_PATH" || true
-
-          echo "Stopping Appium Server..."
-          kill -9 $APPIUM_PID 2>/dev/null || true
+      - name: Collect Appium server log for this run
+        if: always()
+        run: |
+          START=$(cat .appium_log_start 2>/dev/null || echo 0)
+          tail -n +"$((START + 1))" /var/log/appium/appium.log > appium_server.log 2>/dev/null || true
+          echo "appium_server.log: $(wc -l < appium_server.log) lines"
 
       - name: Upload Test Reports & Screenshots Artifacts
         if: always()
@@ -166,122 +106,96 @@ jobs:
 
       - name: Parse TestNG Results and Send Teams Notification
         if: always()
-        shell: bash
         env:
           TEAMS_WEBHOOK_URL: ${{ secrets.TEAMS_WEBHOOK_URL }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           ACTOR: ${{ github.actor }}
+        shell: python3 {0}
         run: |
-          python3 - << 'EOF'
-          import os, json, datetime, urllib.request
-          import xml.etree.ElementTree as ET
+          import json, os, re, urllib.request, xml.etree.ElementTree as ET
+          from datetime import datetime, timezone
+
+          passed = failed = skipped = total = 0
+          duration_str, suite_breakdown, failure_details = "N/A", "N/A", "None"
 
           xml_path = "target/surefire-reports/testng-results.xml"
-          passed = failed = skipped = total = 0
-          duration_str = "N/A"
-          suite_breakdown = "N/A"
-          failure_details = "None"
-
           if os.path.exists(xml_path):
-              tree = ET.parse(xml_path)
-              root = tree.getroot()
-              passed = int(root.attrib.get("passed", 0))
-              failed = int(root.attrib.get("failed", 0))
-              skipped = int(root.attrib.get("skipped", 0))
-              total = int(root.attrib.get("total", 0))
+              root = ET.parse(xml_path).getroot()
+              passed, failed = int(root.get("passed", 0)), int(root.get("failed", 0))
+              skipped, total = int(root.get("skipped", 0)), int(root.get("total", 0))
 
               suite = root.find("suite")
-              if suite is not None:
-                  dur_ms = int(suite.attrib.get("duration-ms", 0))
-                  if dur_ms > 0:
-                      secs = dur_ms // 1000
-                      duration_str = f"{secs // 60}m {secs % 60}s"
+              duration_ms = int(suite.get("duration-ms", 0)) if suite is not None else 0
+              if duration_ms > 0:
+                  secs = duration_ms // 1000
+                  duration_str = f"{secs // 60}m {secs % 60}s"
 
-                  suite_lines = []
-                  fail_list = []
-                  for test in suite.findall("test"):
-                      t_name = test.attrib.get("name", "Suite")
-                      methods = [
-                          m for c in test.findall("class")
-                          for m in c.findall("test-method")
-                          if m.attrib.get("is-config") != "true"
-                      ]
-                      t_pass = sum(1 for m in methods if m.attrib.get("status") == "PASS")
-                      t_fail = sum(1 for m in methods if m.attrib.get("status") == "FAIL")
-                      if methods:
-                          suite_lines.append(f"{t_name} ({t_pass}/{len(methods)} passed, {t_fail} failed)")
-                      for m in methods:
-                          if m.attrib.get("status") == "FAIL":
-                              m_name = m.attrib.get("name", "Test")
-                              exc = m.find("exception/message")
-                              msg = " ".join(exc.text.split())[:90] if (exc is not None and exc.text) else "Assertion/Timeout failure"
-                              fail_list.append(f"- {m_name}: {msg}")
+              # Per-suite breakdown (Motor vs Travel)
+              lines = []
+              for t in root.iter("test"):
+                  methods = [m for m in t.iter("test-method") if m.get("is-config") != "true"]
+                  if methods:
+                      t_pass = sum(1 for m in methods if m.get("status") == "PASS")
+                      t_fail = sum(1 for m in methods if m.get("status") == "FAIL")
+                      lines.append(f"{t.get('name')} ({t_pass}/{len(methods)} passed, {t_fail} failed)")
+              if lines:
+                  suite_breakdown = " | ".join(lines)
 
-                  if suite_lines:
-                      suite_breakdown = " | ".join(suite_lines)
-                  if fail_list:
-                      failure_details = "\n".join(fail_list)
+              # Failed test names and short error messages
+              fails = []
+              for m in root.iter("test-method"):
+                  if m.get("status") == "FAIL" and m.get("is-config") != "true":
+                      msg_el = m.find("exception/message")
+                      raw = re.sub(r"\s+", " ", (msg_el.text or "") if msg_el is not None else "").strip()
+                      short = raw[:90] + "..." if len(raw) > 90 else raw
+                      fails.append(f"- {m.get('name')} : {short}")
+              if fails:
+                  failure_details = "\n".join(fails)
 
           if failed == 0 and total > 0:
-              status_label = "[PASSED] ALL TESTS PASSED"
+              status = "[PASSED] ALL TESTS PASSED"
           elif total == 0:
-              status_label = "[WARNING] NO TESTS RAN"
+              status = "[WARNING] NO TESTS RAN"
           else:
-              status_label = f"[FAILED] {failed} TEST(S) FAILED"
+              status = f"[FAILED] {failed} TEST(S) FAILED"
 
-          card_body = [
-              {
-                  "type": "TextBlock",
-                  "size": "Large",
-                  "weight": "Bolder",
-                  "text": f"Appium CI Report - {status_label}",
-                  "wrap": True
-              },
-              {
-                  "type": "FactSet",
-                  "facts": [
-                      {"title": "Environment", "value": "UAT (appium-vm)"},
-                      {"title": "Suite Breakdown", "value": suite_breakdown},
-                      {"title": "Total Tests", "value": str(total)},
-                      {"title": "Passed", "value": str(passed)},
-                      {"title": "Failed", "value": str(failed)},
-                      {"title": "Skipped", "value": str(skipped)},
-                      {"title": "Duration", "value": duration_str},
-                      {"title": "Triggered by", "value": os.environ.get("ACTOR", "CI")},
-                      {"title": "Date", "value": datetime.datetime.now().strftime("%Y-%m-%d %H:%M")}
-                  ]
-              }
+          facts = [
+              ("Environment", "UAT"), ("Suite Breakdown", suite_breakdown),
+              ("Total Tests", total), ("Passed", passed), ("Failed", failed),
+              ("Skipped", skipped), ("Duration", duration_str),
+              ("Triggered by", os.environ.get("ACTOR", "")),
+              ("Date", datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M") + " UTC"),
           ]
-
+          body = [
+              {"type": "TextBlock", "size": "Large", "weight": "Bolder",
+               "text": f"Appium CI Report - {status}", "wrap": True},
+              {"type": "FactSet", "facts": [{"title": k, "value": str(v)} for k, v in facts]},
+          ]
           if failed > 0:
-              card_body.append({"type": "TextBlock", "weight": "Bolder", "text": "Failed Test Details:", "wrap": True})
-              card_body.append({"type": "TextBlock", "text": failure_details, "wrap": True})
+              body.append({"type": "TextBlock", "weight": "Bolder", "text": "Failed Test Details:", "wrap": True})
+              body.append({"type": "TextBlock", "text": failure_details, "wrap": True})
 
           payload = {
               "type": "message",
               "attachments": [{
                   "contentType": "application/vnd.microsoft.card.adaptive",
                   "content": {
-                      "type": "AdaptiveCard",
-                      "version": "1.4",
-                      "body": card_body,
-                      "actions": [{
-                          "type": "Action.OpenUrl",
-                          "title": "View Report, Screenshots and Failure Videos",
-                          "url": os.environ.get("RUN_URL", "")
-                      }]
-                  }
-              }]
+                      "type": "AdaptiveCard", "version": "1.4", "body": body,
+                      "actions": [{"type": "Action.OpenUrl",
+                                   "title": "View Report, Screenshots and Failure Videos",
+                                   "url": os.environ.get("RUN_URL", "")}],
+                  },
+              }],
           }
 
-          webhook = os.environ.get("TEAMS_WEBHOOK_URL", "")
-          if webhook:
-              req = urllib.request.Request(
-                  webhook,
-                  data=json.dumps(payload).encode("utf-8"),
-                  headers={"Content-Type": "application/json; charset=utf-8"},
-                  method="POST"
-              )
-              urllib.request.urlopen(req)
-              print("Teams notification sent successfully!")
-          EOF
+          url = os.environ.get("TEAMS_WEBHOOK_URL", "")
+          if not url:
+              print("TEAMS_WEBHOOK_URL not set; skipping notification")
+          else:
+              try:
+                  req = urllib.request.Request(url, data=json.dumps(payload).encode("utf-8"),
+                                               headers={"Content-Type": "application/json; charset=utf-8"})
+                  urllib.request.urlopen(req, timeout=30)
+                  print("Teams notification sent successfully!")
+              except Exception as e:
+                  print(f"Teams notification failed: {e}")

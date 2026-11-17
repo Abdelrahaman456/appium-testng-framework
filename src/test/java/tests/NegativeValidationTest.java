@@ -7,17 +7,35 @@ import pages.HomeScreen;
 import pages.MotorCoverageSelectionScreen;
 import pages.AboutYouScreen;
 import pages.OtpModal;
+import io.appium.java_client.AppiumBy;
+import org.openqa.selenium.By;
 
 public class NegativeValidationTest extends BaseTest {
 
     private void navigateToAboutYouScreen() {
+        // 1. If already on About you screen, proceed directly
+        try {
+            if (!utils.DriverManager.getDriver().findElements(io.appium.java_client.AppiumBy.id("textfield_about_you_page_motor_sequence_number")).isEmpty()) {
+                System.out.println("[Negative Test] App already on About You screen!");
+                return;
+            }
+        } catch (Exception e) {}
+
+        // 2. If on Motor Coverage screen, click Insure Now
+        MotorCoverageSelectionScreen coverageScreen = new MotorCoverageSelectionScreen();
+        if (coverageScreen.isInsureNowButtonVisible()) {
+            System.out.println("[Negative Test] App already on Motor Coverage screen. Clicking Insure Now directly...");
+            coverageScreen.clickInsureNow();
+            return;
+        }
+
+        // 3. Otherwise navigate from HomeScreen
         HomeScreen homeScreen = new HomeScreen();
         System.out.println("[Negative Test] Clicking Motor Product on Home Screen...");
         homeScreen.clickMotorProduct();
         homeScreen.tapScreenCenter();
         
-        MotorCoverageSelectionScreen coverageScreen = new MotorCoverageSelectionScreen();
-        Assert.assertTrue(coverageScreen.isInsureNowButtonVisible(), "Failed to navigate to Motor Coverage Selection screen.");
+        org.testng.Assert.assertTrue(coverageScreen.isInsureNowButtonVisible(), "Failed to navigate to Motor Coverage Selection screen.");
         coverageScreen.clickInsureNow();
     }
 
@@ -41,8 +59,6 @@ public class NegativeValidationTest extends BaseTest {
         Assert.assertNotNull(aboutYouScreen, "AboutYouScreen should remain active when short National ID is entered.");
         System.out.println("[PASS] Short National ID validation check verified!");
         
-        // Reset app state for the next test
-        utils.DriverManager.resetAppToHome();
     }
 
     @Test
@@ -58,8 +74,6 @@ public class NegativeValidationTest extends BaseTest {
         Assert.assertNotNull(aboutYouScreen, "AboutYouScreen should remain active when non-numeric Sequence Number is entered.");
         System.out.println("[PASS] Non-numeric Sequence Number validation check verified!");
         
-        // Reset app state for the next test
-        utils.DriverManager.resetAppToHome();
     }
 
     @Test
@@ -87,8 +101,6 @@ public class NegativeValidationTest extends BaseTest {
         // Invalid OTP should fail authentication and not proceed to Quote Screen
         System.out.println("[PASS] Incorrect OTP validation check verified!");
         
-        // Reset app state for the next test
-        utils.DriverManager.resetAppToHome();
     }
 
     @Test
@@ -106,8 +118,6 @@ public class NegativeValidationTest extends BaseTest {
         Assert.assertNotNull(aboutYouScreen, "AboutYouScreen should remain active when short Seller ID is entered.");
         System.out.println("[PASS] Invalid Seller ID validation check verified!");
         
-        // Reset app state for the next test
-        utils.DriverManager.resetAppToHome();
     }
 
     @Test
@@ -123,7 +133,5 @@ public class NegativeValidationTest extends BaseTest {
         Assert.assertNotNull(aboutYouScreen, "Form submission should be blocked when mandatory fields are empty.");
         System.out.println("[PASS] Empty mandatory fields validation check verified!");
         
-        // Reset app state for the next test
-        utils.DriverManager.resetAppToHome();
     }
 }

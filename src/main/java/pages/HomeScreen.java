@@ -2,8 +2,8 @@ package pages;
 
 import io.appium.java_client.pagefactory.AndroidFindBy;
 import io.appium.java_client.pagefactory.AppiumFieldDecorator;
+import org.openqa.selenium.By;
 import org.openqa.selenium.WebElement;
-import org.openqa.selenium.support.CacheLookup;
 import org.openqa.selenium.support.PageFactory;
 
 import java.time.Duration;
@@ -12,59 +12,175 @@ public class HomeScreen extends BasePage {
 
     public HomeScreen() {
         super();
-        // Set decorator timeout to 0 so explicit wait handles polling efficiently without double-waiting
-        PageFactory.initElements(new AppiumFieldDecorator(driver, Duration.ofSeconds(0)), this);
+        PageFactory.initElements(new AppiumFieldDecorator(driver, Duration.ofSeconds(2)), this);
     }
 
-    // Using uiAutomator instead of XPath! Native uiAutomator searches the screen in milliseconds.
-    @CacheLookup
-    @AndroidFindBy(uiAutomator = "new UiSelector().resourceId(\"btn_home_product_motor\")")
+    @AndroidFindBy(xpath = "//*[@resource-id='btn_home_product_motor' or contains(@content-desc, 'Motor')]")
     private WebElement motorProductButton;
 
-    @AndroidFindBy(uiAutomator = "new UiSelector().resourceId(\"btn_home_product_individualHealthInsurance\")")
+    @AndroidFindBy(xpath = "//*[@resource-id='btn_home_product_individualHealthInsurance' or contains(@content-desc, 'Individual\nHealth Insurance')]")
     private WebElement healthInsuranceButton;
 
-    @AndroidFindBy(xpath = "//*[@resource-id='btn_home_product_income']")
+    @AndroidFindBy(xpath = "//*[@resource-id='btn_home_product_familyHealth' or contains(@content-desc, 'Family\nHealth Insurance')]")
+    private WebElement familyHealthButton;
+
+    @AndroidFindBy(xpath = "//*[@resource-id='btn_home_product_travel' or contains(@content-desc, 'Travel')]")
+    private WebElement travelButton;
+
+    @AndroidFindBy(xpath = "//*[@resource-id='btn_home_product_homeInsurance' or (contains(@content-desc, 'Home') and contains(@content-desc, 'Insurance'))]")
+    private WebElement homeInsuranceButton;
+
+    @AndroidFindBy(xpath = "//*[@resource-id='btn_home_product_domesticWorker' or contains(@content-desc, 'Domestic Worker')]")
+    private WebElement domesticWorkerButton;
+
+    @AndroidFindBy(xpath = "//*[@resource-id='btn_home_product_medical' or contains(@content-desc, 'Malpractice')]")
+    private WebElement malpracticeButton;
+
+    @AndroidFindBy(xpath = "//*[@resource-id='btn_home_product_income' or contains(@content-desc, 'Income')]")
     private WebElement incomeButton;
 
-    @AndroidFindBy(xpath = "//*[@resource-id='btn_home_product_pet']")
+    @AndroidFindBy(xpath = "//*[@resource-id='btn_home_product_pet' or contains(@content-desc, 'Pet')]")
     private WebElement petButton;
-
-    @AndroidFindBy(xpath = "//android.widget.Button[contains(@content-desc, 'Travel')]")
-    private WebElement travelButton;
 
     @AndroidFindBy(accessibility = "Login")
     private WebElement loginButton;
 
-    public HomeScreen clickMotorProduct() {
-        System.out.println("Waiting 2 seconds for Home Page to fully load and settle...");
-        try { Thread.sleep(2000); } catch (Exception e) {}
-        
-        click(motorProductButton);
-        return this;
+    private void clickElReliably(WebElement el) {
+        try {
+            tapElement(el);
+        } catch (Exception e) {
+            try {
+                el.click();
+            } catch (Exception ignore) {}
+        }
     }
 
-    public HomeScreen clickTravelProduct() {
-        System.out.println("Waiting 2 seconds for Home Page to fully load and settle...");
-        try { Thread.sleep(2000); } catch (Exception e) {}
-        
-        System.out.println("Clicking Travel Product icon...");
-        click(travelButton);
+    private void clickProductWithScroll(WebElement element, String productName, By fallbackLocator) {
+        System.out.println("Navigating to " + productName + " Product via dynamic locator...");
+        By homeSignals = By.xpath("//*[@resource-id='btn_home_product_motor']");
+        try {
+            if (isElementVisible(element) || isElementVisible(fallbackLocator)) {
+                WebElement el = isElementVisible(element) ? element : getVisibleElement(fallbackLocator);
+                clickElReliably(el);
+                try { Thread.sleep(2000); } catch (Exception ignore) {}
+                if (driver.findElements(homeSignals).isEmpty()) {
+                    return;
+                }
+            }
+            By allProductsTabBy = By.xpath("//*[@content-desc='All products' or @text='All products']");
+            java.util.List<WebElement> allTabs = driver.findElements(allProductsTabBy);
+            if (!allTabs.isEmpty() && allTabs.get(0).isDisplayed()) {
+                clickElReliably(allTabs.get(0));
+                try { Thread.sleep(1000); } catch (Exception ignore) {}
+            }
+            if (isElementVisible(element) || isElementVisible(fallbackLocator)) {
+                WebElement el = isElementVisible(element) ? element : getVisibleElement(fallbackLocator);
+                clickElReliably(el);
+                try { Thread.sleep(2000); } catch (Exception ignore) {}
+                if (driver.findElements(homeSignals).isEmpty()) {
+                    return;
+                }
+            }
+            By homeTabBy = By.xpath("//*[@content-desc='Home' or @text='Home']");
+            java.util.List<WebElement> homeTabs = driver.findElements(homeTabBy);
+            if (!homeTabs.isEmpty() && homeTabs.get(0).isDisplayed()) {
+                clickElReliably(homeTabs.get(0));
+                try { Thread.sleep(1000); } catch (Exception ignore) {}
+            }
+            scrollUp();
+            if (isElementVisible(element) || isElementVisible(fallbackLocator)) {
+                WebElement el = isElementVisible(element) ? element : getVisibleElement(fallbackLocator);
+                clickElReliably(el);
+                try { Thread.sleep(2000); } catch (Exception ignore) {}
+                if (driver.findElements(homeSignals).isEmpty()) {
+                    return;
+                }
+            }
+        } catch (Exception ignore) {}
+        for (int i = 0; i < 3; i++) {
+            try {
+                if (isElementVisible(element)) {
+                    clickElReliably(element);
+                    try { Thread.sleep(2000); } catch (Exception ignore) {}
+                    if (driver.findElements(homeSignals).isEmpty()) {
+                        return;
+                    }
+                }
+            } catch (Exception ignore) {}
+            try {
+                java.util.List<WebElement> els = driver.findElements(fallbackLocator);
+                if (!els.isEmpty() && els.get(0).isDisplayed()) {
+                    clickElReliably(els.get(0));
+                    try { Thread.sleep(2000); } catch (Exception ignore) {}
+                    if (driver.findElements(homeSignals).isEmpty()) {
+                        return;
+                    }
+                }
+            } catch (Exception ignore) {}
+            scrollDown();
+            try { Thread.sleep(800); } catch (Exception ignore) {}
+        }
+        try {
+            waitForVisibility(element);
+            clickElReliably(element);
+        } catch (Exception e) {
+            WebElement fallback = getVisibleElement(fallbackLocator);
+            clickElReliably(fallback);
+        }
+        try { Thread.sleep(2000); } catch (Exception ignore) {}
+    }
+
+    public HomeScreen clickMotorProduct() {
+        clickProductWithScroll(motorProductButton, "Motor",
+                By.xpath("//*[@resource-id='btn_home_product_motor' or contains(@content-desc, 'Motor')]"));
         return this;
     }
 
     public HomeScreen clickHealthInsuranceProduct() {
-        click(healthInsuranceButton);
+        clickProductWithScroll(healthInsuranceButton, "Individual Health",
+                By.xpath("//*[@resource-id='btn_home_product_individualHealthInsurance' or contains(@content-desc, 'Individual')]"));
+        return this;
+    }
+
+    public HomeScreen clickFamilyHealthProduct() {
+        clickProductWithScroll(familyHealthButton, "Family Health",
+                By.xpath("//*[@resource-id='btn_home_product_familyHealth' or contains(@content-desc, 'Family')]"));
+        return this;
+    }
+
+    public HomeScreen clickTravelProduct() {
+        clickProductWithScroll(travelButton, "Travel",
+                By.xpath("//*[@resource-id='btn_home_product_travel' or contains(@content-desc, 'Travel')]"));
+        return this;
+    }
+
+    public HomeScreen clickHomeInsuranceProduct() {
+        clickProductWithScroll(homeInsuranceButton, "Home Insurance",
+                By.xpath("//*[@resource-id='btn_home_product_homeInsurance' or (contains(@content-desc, 'Home') and contains(@content-desc, 'Insurance'))]"));
+        return this;
+    }
+
+    public HomeScreen clickDomesticWorkerProduct() {
+        clickProductWithScroll(domesticWorkerButton, "Domestic Worker",
+                By.xpath("//*[@resource-id='btn_home_product_domesticWorker' or contains(@content-desc, 'Domestic')]"));
+        return this;
+    }
+
+    public HomeScreen clickMalpracticeProduct() {
+        clickProductWithScroll(malpracticeButton, "Malpractice",
+                By.xpath("//*[@resource-id='btn_home_product_medical' or contains(@content-desc, 'Malpractice')]"));
         return this;
     }
 
     public HomeScreen clickIncomeProduct() {
-        click(incomeButton);
+        clickProductWithScroll(incomeButton, "Income Protection",
+                By.xpath("//*[@resource-id='btn_home_product_income' or contains(@content-desc, 'Income')]"));
         return this;
     }
 
     public HomeScreen clickPetProduct() {
-        click(petButton);
+        clickProductWithScroll(petButton, "Pet",
+                By.xpath("//*[@resource-id='btn_home_product_pet' or contains(@content-desc, 'Pet')]"));
         return this;
     }
 
