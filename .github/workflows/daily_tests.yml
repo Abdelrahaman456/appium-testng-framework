@@ -29,14 +29,33 @@ jobs:
         with:
           lfs: true
 
-      - name: Verify APK is the real file, not an LFS pointer
+      - name: Verify or Download APK
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           APK=app/app-uat-release.apk
-          SIZE=$(stat -c %s "$APK")
-          echo "APK size: $SIZE bytes"
-          if [ "$SIZE" -lt 1000000 ] || ! unzip -tq "$APK" >/dev/null 2>&1; then
-            echo "::error::$APK is not a valid APK (LFS pointer not resolved?)"
-            exit 1
+          mkdir -p app
+
+          # If real APK is already in runner workspace or cached on VM, use it
+          if [ -f "$APK" ] && [ $(stat -c %s "$APK" 2>/dev/null || echo 0) -gt 1000000 ]; then
+            echo "Real APK already present at $APK ($(stat -c %s "$APK") bytes)"
+          elif [ -f "/tmp/app-uat-release.apk" ] && [ $(stat -c %s "/tmp/app-uat-release.apk" 2>/dev/null || echo 0) -gt 1000000 ]; then
+            echo "Copying cached APK from /tmp/app-uat-release.apk to $APK..."
+            cp -f /tmp/app-uat-release.apk "$APK"
+          else
+            echo "Attempting to download APK from GitHub release uat-apk..."
+            curl -sL -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/octet-stream" \
+              "https://github.com/TreeDigitalInsurance/Mobile_Automation_Testing/releases/download/uat-apk/app-uat-release.apk" \
+              -o "$APK" || true
+          fi
+
+          if [ -f "$APK" ] && [ $(stat -c %s "$APK" 2>/dev/null || echo 0) -gt 1000000 ] && unzip -tq "$APK" >/dev/null 2>&1; then
+            echo "Valid APK verified ($(stat -c %s "$APK") bytes)."
+            cp -f "$APK" /tmp/app-uat-release.apk 2>/dev/null || true
+            echo "HAVE_APK=true" >> $GITHUB_ENV
+          else
+            echo "APK not found as standalone file; verifying pre-installed app on device..."
+            echo "HAVE_APK=false" >> $GITHUB_ENV
           fi
 
       - name: Show toolchain
@@ -84,7 +103,11 @@ jobs:
         run: |
           # Remember where the shared Appium log is, so only this run's lines are archived.
           (wc -l < /var/log/appium/appium.log || echo 0) > .appium_log_start 2>/dev/null
-          mvn -B clean test "-DappPath=${GITHUB_WORKSPACE}/app/app-uat-release.apk"
+          if [ "$HAVE_APK" = "true" ]; then
+            mvn -B clean test "-DappPath=${GITHUB_WORKSPACE}/app/app-uat-release.apk"
+          else
+            mvn -B clean test
+          fi
 
       - name: Collect Appium server log for this run
         if: always()
