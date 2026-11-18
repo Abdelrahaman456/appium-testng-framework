@@ -323,16 +323,37 @@ public class AboutYouScreen extends BasePage {
     }
 
     public void clickPrivacyCheckbox() {
-        System.out.println("Scrolling to and clicking Privacy checkbox...");
-        org.openqa.selenium.By switchLocator = org.openqa.selenium.By.xpath(
+        System.out.println("Ensuring Privacy checkbox is checked...");
+        try {
+            if (driver instanceof io.appium.java_client.android.AndroidDriver) {
+                ((io.appium.java_client.android.AndroidDriver) driver).hideKeyboard();
+                Thread.sleep(400);
+            }
+        } catch (Exception ignore) {}
+
+        org.openqa.selenium.By locator = org.openqa.selenium.By.xpath(
             "//*[@resource-id='tgl_about_you_page_motor_checkbox' or @class='android.widget.Switch']"
         );
-        if (!clickPrivacySwitch(switchLocator)) {
+        java.util.List<WebElement> list = driver.findElements(locator);
+        if (!list.isEmpty()) {
+            WebElement sw = list.get(0);
+            if ("true".equalsIgnoreCase(sw.getAttribute("checked"))) {
+                System.out.println("Privacy checkbox is already checked.");
+                return;
+            }
+            try {
+                tapElement(sw);
+                Thread.sleep(500);
+            } catch (Exception e) {
+                click(sw);
+            }
+        } else {
             try {
                 tapElement(privacyCheckbox);
             } catch (Exception e) {
-                click(privacyCheckbox);
+                tapCoordinates(68, 2101);
             }
+            try { Thread.sleep(500); } catch (Exception ignore) {}
         }
         System.out.println("Privacy checkbox tapped.");
     }
@@ -342,7 +363,7 @@ public class AboutYouScreen extends BasePage {
         try {
             if (driver instanceof io.appium.java_client.android.AndroidDriver) {
                 ((io.appium.java_client.android.AndroidDriver) driver).hideKeyboard();
-                Thread.sleep(500);
+                Thread.sleep(400);
             }
         } catch (Exception ignore) {}
         try {
@@ -351,8 +372,8 @@ public class AboutYouScreen extends BasePage {
             try {
                 click(nextButton);
             } catch (Exception ex) {
-                System.out.println("Standard click on Next failed, using fallback tap...");
-                // dynamic locator used; coordinate fallback removed
+                System.out.println("Standard click on Next failed, using coordinate tap (540, 2261)...");
+                tapCoordinates(540, 2261);
             }
         }
     }

@@ -80,8 +80,12 @@ public class PolicyConfirmationScreen extends BasePage {
                     org.openqa.selenium.Dimension size = driver.manage().window().getSize();
                     int tapX = size.getWidth() / 2;
                     int tapY = (int) (size.getHeight() * 0.654);
-                    System.out.println("3DS Payment screen active; tapping centered Submit region at (" + tapX + ", " + tapY + ")...");
+                    int tapY2 = (int) (size.getHeight() * 0.562);
+                    System.out.println("3DS Payment screen active; tapping centered Submit region at (" + tapX + ", " + tapY + ") & (" + tapX + ", " + tapY2 + ")...");
                     tapCoordinates(tapX, tapY);
+                    adbTap(tapX, tapY);
+                    tapCoordinates(tapX, tapY2);
+                    adbTap(tapX, tapY2);
                     threeDsSubmitted = true;
                 }
                 Thread.sleep(1500);

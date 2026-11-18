@@ -94,7 +94,7 @@ public class DriverManager {
 
                     // options.setSkipServerInstallation(true); // Must be disabled so Appium installs UiAutomator2 on fresh emulators
 
-                    options.setCapability("appium:ignoreUnimportantViews", true);
+                    options.setCapability("appium:ignoreUnimportantViews", false);
 
                     options.setNewCommandTimeout(Duration.ofSeconds(120));
 
@@ -263,11 +263,17 @@ public class DriverManager {
                     Thread.sleep(400);
                 }
 
-                // If navigation did not reach Home, ensure app is running and docked
+                // If navigation did not reach Home, restart the app cleanly so the next test starts on Home
                 if (currentDriver instanceof io.appium.java_client.InteractsWithApps) {
-                    System.out.println("[FAST RESET] Navigation did not reach Home. Ensuring app activity in foreground...");
+                    System.out.println("[FAST RESET] Navigation did not reach Home. Restarting app cleanly...");
                     String pkg = TestConfig.appPackage();
-                    ((io.appium.java_client.InteractsWithApps) currentDriver).activateApp(pkg);
+                    io.appium.java_client.InteractsWithApps appDriver = (io.appium.java_client.InteractsWithApps) currentDriver;
+                    try {
+                        appDriver.terminateApp(pkg);
+                        Thread.sleep(1000);
+                    } catch (Exception ignore) {}
+                    appDriver.activateApp(pkg);
+                    Thread.sleep(3500);
                 }
             } catch (Exception e) {
                 System.out.println("[FAST RESET] Back navigation exception: " + e.getMessage());

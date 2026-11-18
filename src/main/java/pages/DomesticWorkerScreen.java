@@ -138,11 +138,52 @@ public class DomesticWorkerScreen extends BasePage {
     }
 
     public DomesticWorkerScreen acceptPrivacyNotice() {
-        System.out.println("Toggling Privacy notice switch via dynamic locator...");
-        By switchBy = By.xpath("//*[@resource-id='tgl_checkbox' or contains(@resource-id, 'checkbox') or @class='android.widget.Switch']");
-        if (!clickPrivacySwitch(switchBy)) {
-            scrollDown();
-            clickPrivacySwitch(switchBy);
+        System.out.println("Ensuring Domestic Worker Privacy checkbox is checked...");
+        hideKeyboard();
+        try { Thread.sleep(300); } catch (Exception ignore) {}
+
+        By switchLocator = By.xpath(
+            "//*[@resource-id='tgl_checkbox' or @resource-id='tgl_about_you_page_motor_checkbox' or @class='android.widget.Switch' or @class='android.widget.CheckBox']"
+        );
+        java.util.List<WebElement> list = driver.findElements(switchLocator);
+        if (list.isEmpty()) {
+            list = findWithUnimportantViews(switchLocator);
+        }
+        if (!list.isEmpty()) {
+            WebElement sw = list.get(0);
+            String checked = sw.getAttribute("checked");
+            System.out.println("Switch current checked state: " + checked);
+            if ("true".equalsIgnoreCase(checked)) {
+                System.out.println("Privacy checkbox is already checked.");
+                return this;
+            }
+            org.openqa.selenium.Rectangle r = sw.getRect();
+            int cx = 120;
+            int cy = 2111;
+            System.out.println("Tapping switch at active track center (" + cx + ", " + cy + ")...");
+            tapCoordinates(cx, cy);
+            adbTap(cx, cy);
+            try { Thread.sleep(800); } catch (Exception ignore) {}
+
+            list = driver.findElements(switchLocator);
+            if (list.isEmpty()) list = findWithUnimportantViews(switchLocator);
+            if (!list.isEmpty()) {
+                String checkedAfter = list.get(0).getAttribute("checked");
+                System.out.println("Switch checked state after tap: " + checkedAfter);
+                if ("true".equalsIgnoreCase(checkedAfter)) {
+                    System.out.println("Privacy checkbox successfully checked!");
+                    return this;
+                }
+            }
+            // If still not checked, try native click once
+            try {
+                sw.click();
+                Thread.sleep(800);
+            } catch (Exception ignore) {}
+        } else {
+            tapCoordinates(120, 2111);
+            adbTap(120, 2111);
+            try { Thread.sleep(500); } catch (Exception ignore) {}
         }
         return this;
     }
@@ -150,25 +191,47 @@ public class DomesticWorkerScreen extends BasePage {
     public DomesticWorkerScreen clickNext() {
         System.out.println("Clicking Next button on Sponsor Details via dynamic locator...");
         hideKeyboard();
-        try {
-            java.util.List<WebElement> btns = driver.findElements(By.xpath(
-                "//*[@content-desc='Next' or @text='Next' or @resource-id='btn_next_button']"));
+
+        By nextBtnBy = By.xpath(
+            "//*[@resource-id='btn_next_button']//*[@clickable='true'] "
+            + "| //android.widget.Button[@clickable='true' and (@content-desc='Next' or @text='Next')] "
+            + "| //*[@resource-id='btn_next_button'] "
+            + "| //android.widget.Button[@content-desc='Next' or @text='Next']"
+        );
+
+        for (int attempt = 1; attempt <= 3; attempt++) {
+            System.out.println("Domestic Worker clickNext attempt " + attempt + " of 3...");
+            java.util.List<WebElement> btns = driver.findElements(nextBtnBy);
+            if (btns.isEmpty()) btns = findWithUnimportantViews(nextBtnBy);
             if (!btns.isEmpty()) {
-                WebElement targetBtn = btns.get(btns.size() - 1);
+                WebElement target = btns.get(btns.size() - 1);
                 for (WebElement b : btns) {
                     if ("true".equals(b.getAttribute("clickable"))) {
-                        targetBtn = b;
+                        target = b;
                         break;
                     }
                 }
-                tapElement(targetBtn);
+                tapElement(target);
             } else {
-                tapElement(nextButton);
+                tapCoordinates(540, 2261);
+                adbTap(540, 2261);
             }
-        } catch (Exception e) {
-            System.out.println("Next button click: " + e.getMessage());
+
+            boolean transitioned = waitUntil(() -> {
+                boolean onOtp = !driver.findElements(By.xpath(
+                    "//*[contains(@content-desc, 'OTP') or contains(@text, 'OTP') or contains(@content-desc, 'Verification') or contains(@text, 'Verification') or @resource-id='textfield_otp_code' or contains(@resource-id, 'otp_pin')]")).isEmpty();
+                boolean onMember = !driver.findElements(By.xpath(
+                    "//*[@resource-id='textfield_iqama_id' or @resource-id='textfield_member_id' or @resource-id='btn_add' or @content-desc='Add']")).isEmpty();
+                boolean onError = isErrorDialogDisplayed();
+                return onOtp || onMember || onError;
+            }, 6);
+
+            if (transitioned) {
+                System.out.println("Successfully transitioned past Sponsor Details!");
+                return this;
+            }
+            System.out.println("Still on Sponsor Details, re-attempting Next tap...");
         }
-        try { Thread.sleep(2000); } catch (Exception ignore) {}
         return this;
     }
 
@@ -185,10 +248,10 @@ public class DomesticWorkerScreen extends BasePage {
     private WebElement proceedButton;
 
     public DomesticWorkerScreen addMember(String iqamaId) {
-        System.out.println("Waiting for Domestic Worker Member Details screen...");
-        WebDriverWait localWait = new WebDriverWait(driver, Duration.ofSeconds(5));
-        localWait.until(ExpectedConditions.presenceOfElementLocated(
-            By.xpath("//*[@resource-id='textfield_iqama_id' or @resource-id='textfield_member_id' or @resource-id='textfield_national_id' or @resource-id='btn_add' or @content-desc='Add']")));
+        System.out.println("Waiting up to 30 seconds for Domestic Worker Member Details screen...");
+        WebDriverWait localWait = new WebDriverWait(driver, Duration.ofSeconds(30));
+        localWait.until(d -> isErrorDialogDisplayed() || !driver.findElements(
+            By.xpath("//*[@resource-id='textfield_iqama_id' or @resource-id='textfield_member_id' or @resource-id='textfield_national_id' or @resource-id='btn_add' or @content-desc='Add' or contains(@content-desc, 'Add')]")).isEmpty());
 
         System.out.println("Entering Worker Iqama ID: " + iqamaId);
         try {
@@ -213,7 +276,7 @@ public class DomesticWorkerScreen extends BasePage {
         try {
             WebDriverWait waitCard = new WebDriverWait(driver, Duration.ofSeconds(15));
             waitCard.until(d -> isErrorDialogDisplayed() || !driver.findElements(
-                By.xpath("//*[contains(@content-desc, 'Added Member') or contains(@text, 'Added Member') or contains(@content-desc, 'Osman') or contains(@text, 'Osman') or contains(@content-desc, 'Iqama') or contains(@text, 'Iqama') or contains(@content-desc, '" + iqamaId + "') or contains(@text, '" + iqamaId + "')]")).isEmpty());
+                By.xpath("//*[not(self::android.widget.EditText) and (contains(@content-desc, 'Added Member') or contains(@text, 'Added Member') or contains(@content-desc, 'Osman') or contains(@text, 'Osman') or contains(@content-desc, '" + iqamaId + "'))]")).isEmpty());
             System.out.println("Member card / Elm response received!");
         } catch (Exception e) {
             System.out.println("Member card detection handled: " + e.getMessage());
@@ -397,21 +460,10 @@ public class DomesticWorkerScreen extends BasePage {
 
     public DomesticWorkerScreen fillIbanAndAcceptTerms(String iban) {
         if (BasePage.uatElmDependentBlocked) return this;
-        String cleanIban = (iban != null && iban.toUpperCase().startsWith("SA")) ? iban.substring(2) : iban;
-        System.out.println("Entering IBAN digits: " + cleanIban);
-        try {
-            scrollDown();
-        } catch (Exception ignore) {}
-        sendKeys(ibanInput, cleanIban);
-        hideKeyboard();
-        try { Thread.sleep(500); } catch (Exception ignore) {}
-
-        System.out.println("Accepting Checkout Terms & Conditions via dynamic locator...");
-        By termsBy = By.xpath("//*[@resource-id='tgl_checkbox' or contains(@resource-id, 'checkbox') or @class='android.widget.Switch']");
-        if (!clickPrivacySwitch(termsBy)) {
-            scrollDown();
-            clickPrivacySwitch(termsBy);
-        }
+        System.out.println("Entering IBAN and accepting Terms on Checkout via standardized CheckoutScreen...");
+        CheckoutScreen checkout = new CheckoutScreen();
+        checkout.enterIban(iban);
+        checkout.clickTermsCheckbox();
         return this;
     }
 
@@ -423,13 +475,9 @@ public class DomesticWorkerScreen extends BasePage {
         if (isPaymentOrConfirmationAlreadyActive()) {
             return this;
         }
-        System.out.println("Clicking Pay now on Checkout screen via dynamic locator...");
-        try {
-            tapElement(checkoutPayNowButton);
-        } catch (Exception e) {
-            WebElement btn = driver.findElement(By.xpath("//*[@resource-id='btn_pay_now' or @content-desc='Pay now' or @text='Pay now']"));
-            tapElement(btn);
-        }
+        System.out.println("Clicking Pay now on Checkout screen via standardized CheckoutScreen...");
+        CheckoutScreen checkout = new CheckoutScreen();
+        checkout.clickPayNow();
         return this;
     }
 
@@ -439,7 +487,7 @@ public class DomesticWorkerScreen extends BasePage {
     public boolean isErrorDialogDisplayed() {
         try {
             return !driver.findElements(By.xpath(
-                "//*[contains(@text, 'Something Went Wrong') or contains(@content-desc, 'Something Went Wrong') or contains(@text, 'verify') or contains(@content-desc, 'verify') or contains(@text, 'Error') or contains(@content-desc, 'Error') or contains(@text, 'not found') or contains(@content-desc, 'not found')]")).isEmpty();
+                "//*[contains(@text, 'Something Went Wrong') or contains(@content-desc, 'Something Went Wrong') or contains(@text, 'verify') or contains(@content-desc, 'verify') or contains(@text, 'Error') or contains(@content-desc, 'Error') or contains(@text, 'not found') or contains(@content-desc, 'not found') or contains(@content-desc, 'required') or contains(@text, 'required')]")).isEmpty();
         } catch (Exception e) {
             return false;
         }

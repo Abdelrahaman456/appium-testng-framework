@@ -42,10 +42,12 @@ public class MalpracticeTest extends BaseTest {
 
         PerformanceBenchmark.startStage("Malpractice_Form_Fill");
         System.out.println("[Step 1] Filling Practitioner Details: ID=" + applicantId + ", Profession=Physician Specialist");
+        malpScreen.selectProfession("Acute Care Surgery");
+        malpScreen.enterLicenseNumber("SCFHS-8947219");
+        malpScreen.enterHospitalName("King Faisal Specialist Hospital");
+        malpScreen.selectPriorInsurance(false);
         malpScreen.fillPractitionerDetails(applicantId, applicantPhone, applicantEmail);
         malpScreen.selectDob();
-        malpScreen.selectProfession("ACUPUNCTURE SPECIALIST");
-        malpScreen.selectPriorInsurance(false);
         malpScreen.acceptPrivacyNotice();
         malpScreen.clickNext();
 
@@ -112,12 +114,12 @@ public class MalpracticeTest extends BaseTest {
         String applicantEmail = TestDataBuilder.generateUniqueEmail();
 
         System.out.println("[Step 1] Filling Surgeon Details & Professional License...");
-        malpScreen.fillPractitionerDetails(applicantId, applicantPhone, applicantEmail);
-        malpScreen.selectDob();
         malpScreen.selectProfession("Acute Care Surgery");
         malpScreen.enterLicenseNumber("SCFHS-8947219");
         malpScreen.enterHospitalName("King Faisal Specialist Hospital");
         malpScreen.selectPriorInsurance(false);
+        malpScreen.fillPractitionerDetails(applicantId, applicantPhone, applicantEmail);
+        malpScreen.selectDob();
         malpScreen.acceptPrivacyNotice();
         malpScreen.clickNext();
 
@@ -178,12 +180,14 @@ public class MalpracticeTest extends BaseTest {
         String applicantEmail = TestDataBuilder.generateUniqueEmail();
 
         System.out.println("[Step 1] Enabling Prior Acts / Retroactive Coverage...");
-        malpScreen.fillPractitionerDetails(applicantId, applicantPhone, applicantEmail);
-        malpScreen.selectDob();
-        malpScreen.selectProfession("ACUPUNCTURE SPECIALIST");
+        malpScreen.selectProfession("Acute Care Surgery");
+        malpScreen.enterLicenseNumber("SCFHS-8947219");
+        malpScreen.enterHospitalName("King Faisal Specialist Hospital");
         malpScreen.selectPriorInsurance(true);
         malpScreen.enterRetroactiveDate("01/01/2023");
         malpScreen.declarePriorClaims(true);
+        malpScreen.fillPractitionerDetails(applicantId, applicantPhone, applicantEmail);
+        malpScreen.selectDob();
         malpScreen.acceptPrivacyNotice();
         malpScreen.clickNext();
 

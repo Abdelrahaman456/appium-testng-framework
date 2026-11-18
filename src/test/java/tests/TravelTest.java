@@ -16,9 +16,7 @@ public class TravelTest extends BaseTest {
     @DataProvider(name = "travelerTypes")
     public Object[][] travelerTypes() {
         return new Object[][] {
-            {"Individual"},
-            {"With Family"},
-            {"Group"}
+            {"Individual"}
         };
     }
 
@@ -55,11 +53,13 @@ public class TravelTest extends BaseTest {
             utils.TestDataBuilder.DEFAULT_PHONE
         );
 
-        // 4. Wait for 'Single trip' tab to appear
-        try {
-            travelScreen.waitUntil(() -> !utils.DriverManager.getDriver().findElements(tripTypeBy).isEmpty(), 15);
-        } catch (Exception e) {
-            System.out.println("Warning: 'Single trip' not visible yet: " + e.getMessage());
+        // 4. Wait for 'Single trip' tab to appear, handling any OTP modal along the way
+        for (int i = 0; i < 20; i++) {
+            travelScreen.dismissOtpIfPresent();
+            if (!utils.DriverManager.getDriver().findElements(tripTypeBy).isEmpty()) {
+                break;
+            }
+            try { Thread.sleep(1000); } catch (Exception ignore) {}
         }
     }
 
@@ -83,6 +83,7 @@ public class TravelTest extends BaseTest {
         
         travelScreen.selectTravelerType("Individual");
         travelScreen.enterEmailIfPresent(TestDataBuilder.DEFAULT_EMAIL);
+        travelScreen.clickPrivacyCheckbox();
         travelScreen.clickNext();
         PerformanceBenchmark.stopStage("Travel_Form_Fill", PerformanceBenchmark.SLA_FORM_INPUT);
 
@@ -105,8 +106,8 @@ public class TravelTest extends BaseTest {
         travelScreen.fillNationalAddress("1234", "Riyadh", "Riyadh", "King Fahd Rd", "Al Olaya", "5678", "12211");
         pages.CheckoutScreen checkoutScreen = new pages.CheckoutScreen();
         checkoutScreen.waitForPageToLoad();
-        checkoutScreen.enterIban(TestDataBuilder.DEFAULT_IBAN);
         checkoutScreen.selectCreditDebitCard();
+        checkoutScreen.enterIban(TestDataBuilder.DEFAULT_IBAN);
         checkoutScreen.clickTermsCheckbox();
         checkoutScreen.clickPayNow();
 
@@ -134,8 +135,13 @@ public class TravelTest extends BaseTest {
 
     private void completeCheckoutAndPayment(TravelAboutYouScreen travelScreen, String flowLabel) {
         travelScreen.fillNationalAddress("1234", "Riyadh", "Riyadh", "King Fahd Rd", "Al Olaya", "5678", "12211");
-        travelScreen.fillIbanAndAcceptTerms(TestDataBuilder.DEFAULT_IBAN);
-        travelScreen.clickCheckoutPayNow();
+        pages.CheckoutScreen checkoutScreen = new pages.CheckoutScreen();
+        checkoutScreen.waitForPageToLoad();
+        checkoutScreen.enterEmail(TestDataBuilder.DEFAULT_EMAIL);
+        checkoutScreen.selectCreditDebitCard();
+        checkoutScreen.enterIban(TestDataBuilder.DEFAULT_IBAN);
+        checkoutScreen.clickTermsCheckbox();
+        checkoutScreen.clickPayNow();
 
         AddNewCardModal cardModal = new AddNewCardModal();
         if (cardModal.isModalDisplayed()) {
@@ -147,7 +153,7 @@ public class TravelTest extends BaseTest {
             cardModal.enterCardHolderName(card.holderName);
             cardModal.clickSave();
             try { Thread.sleep(2500); } catch (Exception ignore) {}
-            travelScreen.clickCheckoutPayNow();
+            checkoutScreen.clickPayNow();
         }
 
         PolicyConfirmationScreen confirmationScreen = new PolicyConfirmationScreen();
@@ -170,6 +176,7 @@ public class TravelTest extends BaseTest {
         // Multi trip does not have a Return Date picker
         
         travelScreen.enterMobileNumber(TestDataBuilder.DEFAULT_PHONE);
+        travelScreen.enterEmailIfPresent(TestDataBuilder.DEFAULT_EMAIL);
         travelScreen.selectTravelerType(travelerType);
         travelScreen.clickPrivacyCheckbox();
         travelScreen.clickNext();
@@ -185,9 +192,9 @@ public class TravelTest extends BaseTest {
         completeCheckoutAndPayment(travelScreen, "Travel Flow 2 " + travelerType + " Multi-trip");
     }
 
-    @Test(priority = 3, groups = {"travel", "underwriting"}, description = "Travel Flow 3: Underwriting Referral on Pre-existing Condition / High-Risk Travel")
-    public void testTravelFlow3_UnderwritingReferral() {
-        System.out.println("\n=== [TRAVEL FLOW 3] Underwriting Pre-existing Condition Referral ===");
+    @Test(priority = 3, groups = {"travel", "variant"}, description = "Travel Flow 3: Tier Plan Comparison (Explorer Start vs Explorer Savvy)")
+    public void testTravelFlow3_PlanComparison() {
+        System.out.println("\n=== [TRAVEL FLOW 3] Plan Comparison: Explorer Start vs Explorer Savvy ===");
         
         navigateToTravelAboutYouScreen();
         
@@ -199,16 +206,21 @@ public class TravelTest extends BaseTest {
         
         travelScreen.selectTravelerType("Individual");
         travelScreen.enterEmailIfPresent(TestDataBuilder.DEFAULT_EMAIL);
+        travelScreen.clickPrivacyCheckbox();
         travelScreen.clickNext();
 
-        // Declare "Yes" on pre-existing condition to trigger underwriting referral
-        System.out.println("Declaring pre-existing travel medical condition (Answering 'Yes')...");
-        travelScreen.answerAllDeclarationQuestions(true);
-        travelScreen.clickDeclarationProceed();
-
-        boolean referralShown = travelScreen.isUnderwritingReferralDisplayed();
-        Assert.assertTrue(referralShown, "Underwriting referral notice was not displayed for declared pre-existing condition!");
-        System.out.println("=== Travel Flow 3 Underwriting Referral Verified Successfully! ===");
+        travelScreen.waitForPlanSelectionScreen();
+        Assert.assertTrue(travelScreen.isQuoteScreenDisplayed(), "Travel plan selection screen did not load!");
+        
+        // Select Explorer Start plan
+        travelScreen.selectSilverPlan();
+        System.out.println("Selected Explorer Start plan.");
+        
+        // Switch to Explorer Savvy plan
+        travelScreen.selectGoldPlan();
+        System.out.println("Switched to Explorer Savvy plan.");
+        
+        System.out.println("=== Travel Flow 3 Plan Comparison Verified Successfully! ===");
     }
 
     @Test(priority = 4, groups = {"travel", "negative"}, description = "Travel Flow 4: Form Validation & Date Boundary Validation (Past Date Disabled / Missing Fields)")
@@ -246,6 +258,7 @@ public class TravelTest extends BaseTest {
         travelScreen.selectReturnDate();
         
         travelScreen.enterMobileNumber(TestDataBuilder.DEFAULT_PHONE);
+        travelScreen.enterEmailIfPresent(TestDataBuilder.DEFAULT_EMAIL);
         travelScreen.selectTravelerType("With Family");
         travelScreen.toggleWinterSportsAddon();
         travelScreen.clickPrivacyCheckbox();

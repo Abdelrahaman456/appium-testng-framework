@@ -59,7 +59,8 @@ public class BasePage {
         getCompiledLocator("//android.widget.Button[@content-desc='Not now' or @text='Not now']"),
         getCompiledLocator("//android.widget.Button[@content-desc='Dismiss' or @text='Dismiss']"),
         getCompiledLocator("//*[@text='Got it' or @content-desc='Got it' or contains(@resource-id, 'ok')]"),
-        getCompiledLocator("//*[contains(@content-desc, \"Got it, let's continue\") or contains(@text, \"Got it, let's continue\")]")
+        getCompiledLocator("//*[contains(@content-desc, \"Got it, let's continue\") or contains(@text, \"Got it, let's continue\")]"),
+        getCompiledLocator("//*[@resource-id='btn_try_again_button' or @content-desc='Try Again' or @text='Try Again']")
     ));
 
 
@@ -426,6 +427,10 @@ public class BasePage {
         return elements;
     }
 
+    public boolean clickPrivacySwitch() {
+        return clickPrivacySwitch(org.openqa.selenium.By.xpath("//*[@resource-id='tgl_checkbox' or contains(@resource-id, 'checkbox') or @class='android.widget.Switch']"));
+    }
+
     protected boolean clickPrivacySwitch(org.openqa.selenium.By locator) {
         hideKeyboard();
         try { Thread.sleep(600); } catch (Exception ignore) {}
@@ -441,57 +446,57 @@ public class BasePage {
                 }
 
                 org.openqa.selenium.Rectangle r = sw.getRect();
-                int cx = r.getX() + (r.getWidth() / 2);
+                int thumbX = r.getX() + (r.getWidth() / 2);
                 int cy = r.getY() + (r.getHeight() / 2);
 
-                // Tap exact center via W3C touch gesture
-                tapCoordinates(cx, cy);
-                try { Thread.sleep(500); } catch (Exception ignored) {}
-
-                // Verify
-                java.util.List<WebElement> after = findWithUnimportantViews(locator);
-                if (!after.isEmpty() && "true".equalsIgnoreCase(after.get(0).getAttribute("checked"))) {
-                    System.out.println("Privacy switch toggled to checked via center tap.");
-                    return true;
-                }
-
-                // Native click fallback
+                // 1. Try native click first
                 try {
                     sw.click();
                     Thread.sleep(500);
                 } catch (Exception ignored) {}
 
-                after = findWithUnimportantViews(locator);
+                java.util.List<WebElement> after = findWithUnimportantViews(locator);
                 if (!after.isEmpty() && "true".equalsIgnoreCase(after.get(0).getAttribute("checked"))) {
                     System.out.println("Privacy switch toggled to checked via native click.");
                     return true;
                 }
 
-                // Fallback: tap label to the right of the switch
-                tapCoordinates(r.getX() + r.getWidth() + 60, cy);
+                // 2. Try single pointer tap at switch center
+                System.out.println("Tapping switch at center (" + thumbX + ", " + cy + ")...");
+                tapCoordinates(thumbX, cy);
                 try { Thread.sleep(500); } catch (Exception ignored) {}
 
                 after = findWithUnimportantViews(locator);
                 if (!after.isEmpty() && "true".equalsIgnoreCase(after.get(0).getAttribute("checked"))) {
-                    System.out.println("Privacy switch toggled via label tap.");
+                    System.out.println("Privacy switch toggled to checked via tapCoordinates.");
                     return true;
                 }
 
-                // ADB direct tap fallback
-                try {
-                    Runtime.getRuntime().exec(new String[]{ADB_PATH, "-s", "emulator-5554", "shell", "input", "tap", String.valueOf(cx), String.valueOf(cy)}).waitFor();
-                    Thread.sleep(500);
-                } catch (Exception ignore) {}
+                // 3. Try single adb tap at switch center
+                adbTap(thumbX, cy);
+                try { Thread.sleep(500); } catch (Exception ignored) {}
 
                 after = findWithUnimportantViews(locator);
                 if (!after.isEmpty() && "true".equalsIgnoreCase(after.get(0).getAttribute("checked"))) {
-                    System.out.println("Privacy switch toggled via ADB tap.");
+                    System.out.println("Privacy switch toggled to checked via adbTap.");
+                    return true;
+                }
+
+                // 4. Try tapping slightly to the right (track)
+                int trackX = Math.min(r.getX() + r.getWidth() + 10, 150);
+                System.out.println("Tapping switch track fallback (" + trackX + ", " + cy + ")...");
+                tapCoordinates(trackX, cy);
+                try { Thread.sleep(500); } catch (Exception ignored) {}
+
+                after = findWithUnimportantViews(locator);
+                if (!after.isEmpty() && "true".equalsIgnoreCase(after.get(0).getAttribute("checked"))) {
+                    System.out.println("Privacy switch toggled to checked via track fallback tap.");
                     return true;
                 }
             } else {
                 System.out.println("Privacy switch not found in DOM; tapping standard coordinate (68, 2101)...");
                 tapCoordinates(68, 2101);
-                try { Thread.sleep(500); } catch (Exception ignored) {}
+                try { Thread.sleep(600); } catch (Exception ignored) {}
             }
             if (attempt == 0) {
                 scrollDown();
@@ -528,17 +533,21 @@ public class BasePage {
         } catch (Exception ignore) {}
     }
 
+    public void adbTap(int x, int y) {
+        try {
+            Runtime.getRuntime().exec(new String[]{ADB_PATH, "-s", "emulator-5554", "shell", "input", "tap", String.valueOf(x), String.valueOf(y)}).waitFor();
+        } catch (Exception ignore) {}
+    }
+
+    public void adbInput(String text) {
+        try {
+            Runtime.getRuntime().exec(new String[]{ADB_PATH, "-s", "emulator-5554", "shell", "input", "text", text}).waitFor();
+        } catch (Exception ignore) {}
+    }
+
     protected void scrollDobWheelAndConfirm(WebElement dobInput) {
         hideKeyboard();
         waitForVisibility(dobInput);
-        try {
-            String text = dobInput.getText();
-            String desc = dobInput.getAttribute("content-desc");
-            if ((text != null && text.contains("1998")) || (desc != null && desc.contains("1998"))) {
-                System.out.println("DOB field already contains 1998 (text=" + text + ", desc=" + desc + "); skipping wheel scroll.");
-                return;
-            }
-        } catch (Exception ignore) {}
         tapElement(dobInput);
         try { Thread.sleep(1500); } catch (Exception ignore) {}
 
@@ -610,7 +619,7 @@ public class BasePage {
                     "(//*[@text='Confirm' or @content-desc='Confirm' or @text='Done' or @content-desc='Done'])[last()]"));
             tapElement(confirm);
         } catch (Exception e) {
-            try { tapElement(dobInput); } catch (Exception ignore) {}
+            System.out.println("Confirm button on DOB dialog not found: " + e.getMessage());
         }
         try { Thread.sleep(1000); } catch (Exception ignore) {}
     }
@@ -753,6 +762,29 @@ public class BasePage {
             return true;
         }
         return false;
+    }
+
+    public boolean isErrorDialogDisplayed() {
+        try {
+            return !driver.findElements(org.openqa.selenium.By.xpath(
+                "//*[contains(@text, 'Something Went Wrong') or contains(@content-desc, 'Something Went Wrong')"
+                + " or contains(@text, 'verify') or contains(@content-desc, 'verify')"
+                + " or contains(@text, 'Error') or contains(@content-desc, 'Error')"
+                + " or contains(@text, 'not found') or contains(@content-desc, 'not found')"
+                + " or contains(@content-desc, 'required') or contains(@text, 'required')]")).isEmpty();
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    public void dismissErrorDialogIfPresent() {
+        try {
+            WebElement closeBtn = driver.findElement(org.openqa.selenium.By.xpath(
+                "//*[@content-desc='Close' or @text='Close' or @content-desc='Try Again' or @text='Try Again' or @content-desc='OK' or @text='OK']"));
+            tapElement(closeBtn);
+        } catch (Exception e) {
+            System.out.println("Dismiss error dialog handled: " + e.getMessage());
+        }
     }
 
 }

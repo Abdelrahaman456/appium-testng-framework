@@ -524,19 +524,8 @@ public class PetScreen extends BasePage {
 
     public PetScreen acceptPrivacyNotice() {
         System.out.println("Toggling Privacy notice switch...");
-        hideKeyboard();
-        try {
-            By switchBy = By.xpath("//*[@resource-id='tgl_checkbox' or contains(@resource-id, 'checkbox') or @class='android.widget.Switch']");
-            List<WebElement> sws = driver.findElements(switchBy);
-            if (!sws.isEmpty()) {
-                tapElement(sws.get(0));
-            } else {
-                tapCoordinates(68, 2101);
-            }
-        } catch (Exception e) {
-            tapCoordinates(68, 2101);
-        }
-        try { Thread.sleep(500); } catch (Exception ignore) {}
+        By switchBy = By.xpath("//*[@resource-id='tgl_checkbox' or contains(@resource-id, 'checkbox') or @class='android.widget.Switch']");
+        clickPrivacySwitch(switchBy);
         return this;
     }
 
@@ -617,7 +606,12 @@ public class PetScreen extends BasePage {
             WebDriverWait waitErr = new WebDriverWait(driver, Duration.ofSeconds(5));
             return waitErr.until(d -> {
                 if (isElementVisible(validationErrorMessage)) return true;
-                return !driver.findElements(By.xpath("//*[contains(@resource-id, 'error') or contains(@text, 'invalid') or contains(@content-desc, 'invalid') or contains(@text, 'Age') or contains(@content-desc, 'Age')]")).isEmpty();
+                return !driver.findElements(By.xpath(
+                    "//*[contains(@resource-id, 'error') or contains(@text, 'invalid') or contains(@content-desc, 'invalid') "
+                    + "or contains(@text, 'Age') or contains(@content-desc, 'Age') "
+                    + "or contains(@content-desc, 'required') or contains(@text, 'required') "
+                    + "or contains(@content-desc, 'between') or contains(@text, 'between') "
+                    + "or contains(@content-desc, 'years old') or contains(@text, 'years old')]")).isEmpty();
             });
         } catch (Exception e) {
             return false;
@@ -716,7 +710,13 @@ public class PetScreen extends BasePage {
             WebDriverWait waitReferral = new WebDriverWait(driver, Duration.ofSeconds(10));
             return waitReferral.until(d -> {
                 if (isElementVisible(underwritingNotice)) return true;
-                return !driver.findElements(By.xpath("//*[contains(@content-desc, 'referral') or contains(@text, 'referral') or contains(@content-desc, 'exclusion') or contains(@text, 'exclusion') or contains(@content-desc, 'not eligible') or contains(@text, 'not eligible') or contains(@content-desc, 'underwriting') or contains(@text, 'underwriting') or contains(@content-desc, 'Something Went Wrong')]")).isEmpty();
+                return !driver.findElements(By.xpath(
+                    "//*[contains(@content-desc, 'referral') or contains(@text, 'referral') "
+                    + "or contains(@content-desc, 'exclusion') or contains(@text, 'exclusion') "
+                    + "or contains(@content-desc, 'not eligible') or contains(@text, 'not eligible') "
+                    + "or contains(@content-desc, 'underwriting') or contains(@text, 'underwriting') "
+                    + "or contains(@content-desc, 'A bit more about') or contains(@text, 'A bit more about') "
+                    + "or contains(@content-desc, 'Something Went Wrong') or contains(@text, 'Something Went Wrong')]")).isEmpty();
             });
         } catch (Exception e) {
             return false;
@@ -929,27 +929,13 @@ public class PetScreen extends BasePage {
      * CRITICAL RULE: Strip 'SA' prefix before entering numeric digits into textfield_iban.
      */
     public PetScreen fillIbanAndAcceptTerms(String iban) {
-        System.out.println("Entering IBAN into Checkout: " + iban);
+        System.out.println("Entering IBAN and accepting Terms on Pet Checkout...");
         try {
-            scrollDown();
-        } catch (Exception ignore) {}
-
-        String numericOnly = (iban != null && iban.toUpperCase().startsWith("SA")) ? iban.substring(2) : iban;
-        try {
-            waitForVisibility(ibanInput);
-            sendKeys(ibanInput, numericOnly);
+            CheckoutScreen checkout = new CheckoutScreen();
+            checkout.enterIban(iban);
+            checkout.clickTermsCheckbox();
         } catch (Exception e) {
-            WebElement fallback = driver.findElement(By.xpath("//*[contains(@resource-id, 'iban')]"));
-            sendKeys(fallback, numericOnly);
-        }
-        hideKeyboard();
-        try { Thread.sleep(500); } catch (Exception ignore) {}
-
-        System.out.println("Accepting Checkout Terms & Conditions...");
-        By termsBy = By.xpath("//*[@resource-id='tgl_checkbox' or @resource-id='tgl_checkout_page_motor_checkbox' or contains(@resource-id, 'checkbox') or @class='android.widget.Switch']");
-        if (!clickPrivacySwitch(termsBy)) {
-            scrollDown();
-            clickPrivacySwitch(termsBy);
+            System.out.println("CheckoutScreen delegation warning: " + e.getMessage());
         }
         return this;
     }
@@ -958,20 +944,14 @@ public class PetScreen extends BasePage {
         if (isPaymentOrConfirmationAlreadyActive()) {
             return this;
         }
-        System.out.println("Clicking Pay now on Checkout screen...");
+        System.out.println("Selecting payment method and clicking Pay now on Pet Checkout...");
         try {
-            if (isElementVisible(checkoutPayNowButton)) {
-                tapElement(checkoutPayNowButton);
-            } else {
-                List<WebElement> payBtns = driver.findElements(By.xpath("//*[@resource-id='btn_pay_now' or @content-desc='Pay now' or @text='Pay now']"));
-                if (!payBtns.isEmpty()) {
-                    tapElement(payBtns.get(0));
-                }
-            }
+            CheckoutScreen checkout = new CheckoutScreen();
+            checkout.selectCreditDebitCard();
+            checkout.clickPayNow();
         } catch (Exception e) {
-            System.out.println("Pay now click: " + e.getMessage());
+            System.out.println("CheckoutScreen pay now warning: " + e.getMessage());
         }
-        try { Thread.sleep(2000); } catch (Exception ignore) {}
         return this;
     }
 }

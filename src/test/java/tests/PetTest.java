@@ -160,6 +160,7 @@ public class PetTest extends BaseTest {
         System.out.println("Entering age boundary exceeding limits (25 years)...");
         petScreen.enterPetName("Maximus");
         petScreen.selectPetType("Woof");
+        petScreen.selectPetBreedIfPresent();
         petScreen.enterPetAge(25, 0);
         petScreen.selectPetGender("Male");
         petScreen.selectCity("Riyadh");
@@ -184,16 +185,9 @@ public class PetTest extends BaseTest {
         petScreen.clickInsureNowIfPresent();
 
         String email = TestDataBuilder.generateUniqueEmail();
-        petScreen.enterPetName("Bella");
-        petScreen.selectPetType("Woof");
-        petScreen.enterPetAge(2, 0);
-        petScreen.selectPetGender("Female");
-        petScreen.selectCity("Riyadh");
+        petScreen.fillAboutYourPet("Bella", "Woof", 2, 0, "Female", "Riyadh", email, DEFAULT_PHONE);
         // ISO 11784/11785 15-digit microchip number
         petScreen.enterMicrochipId("985141001234567");
-        petScreen.enterContactInfo(email, DEFAULT_PHONE);
-        petScreen.acceptPrivacyNotice();
-        petScreen.clickNext();
 
         petScreen.answerAllDeclarationQuestions(false);
         petScreen.clickDeclarationProceed();

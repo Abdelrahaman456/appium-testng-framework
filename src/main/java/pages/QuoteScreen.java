@@ -354,33 +354,41 @@ public class QuoteScreen extends BasePage {
 
 
     public void answerPepQuestion(boolean isYes) {
-
-        if (isYes) {
-
-            click(pepYesButton);
-
-        } else {
-
-            click(pepNoButton);
-
+        org.openqa.selenium.By pepLocator = org.openqa.selenium.By.xpath(
+            "//*[contains(@content-desc, 'Politically Exposed') or contains(@text, 'Politically Exposed') " +
+            "or @resource-id='btn_yes_button' or @content-desc='Yes']"
+        );
+        for (int i = 0; i < 3; i++) {
+            if (!driver.findElements(pepLocator).isEmpty()) {
+                break;
+            }
+            scrollDown();
+            try { Thread.sleep(500); } catch (Exception ignore) {}
         }
-
+        if (isYes) {
+            click(pepYesButton);
+        } else {
+            click(pepNoButton);
+        }
     }
 
-
-
     public void answerRelatedPartyQuestion(boolean isYes) {
-
-        if (isYes) {
-
-            click(relatedPartyYesButton);
-
-        } else {
-
-            click(relatedPartyNoButton);
-
+        org.openqa.selenium.By relatedLocator = org.openqa.selenium.By.xpath(
+            "//*[contains(@content-desc, 'related party') or contains(@text, 'related party') " +
+            "or (//*[@content-desc='Yes' or @text='Yes'])[2]]"
+        );
+        for (int i = 0; i < 3; i++) {
+            if (!driver.findElements(relatedLocator).isEmpty()) {
+                break;
+            }
+            scrollDown();
+            try { Thread.sleep(500); } catch (Exception ignore) {}
         }
-
+        if (isYes) {
+            click(relatedPartyYesButton);
+        } else {
+            click(relatedPartyNoButton);
+        }
     }
 
 

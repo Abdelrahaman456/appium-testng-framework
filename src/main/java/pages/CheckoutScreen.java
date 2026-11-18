@@ -38,7 +38,18 @@ public class CheckoutScreen extends BasePage {
 
     public boolean isVatBreakdownDisplayed() {
         try {
-            return isElementVisible(vatBreakdownText) || !driver.findElements(org.openqa.selenium.By.xpath("//*[contains(@content-desc, 'VAT') or contains(@text, 'VAT')]")).isEmpty();
+            org.openqa.selenium.By vatBy = org.openqa.selenium.By.xpath("//*[contains(@content-desc, 'VAT') or contains(@text, 'VAT') or contains(@content-desc, '15%')]");
+            if (!driver.findElements(vatBy).isEmpty()) {
+                return true;
+            }
+            // If collapsed under 'Details', tap Details to expand the premium breakdown
+            org.openqa.selenium.By detailsBy = org.openqa.selenium.By.xpath("//*[contains(@content-desc, 'Details') or contains(@text, 'Details')]");
+            java.util.List<WebElement> details = driver.findElements(detailsBy);
+            if (!details.isEmpty()) {
+                tapElement(details.get(0));
+                Thread.sleep(800);
+            }
+            return !driver.findElements(vatBy).isEmpty();
         } catch (Exception e) {
             return false;
         }
@@ -72,32 +83,54 @@ public class CheckoutScreen extends BasePage {
     }
 
     public void enterIban(String iban) {
-        System.out.println("Entering IBAN into Checkout field...");
+        System.out.println("Entering IBAN into Checkout field: " + iban);
         
         // Strip 'SA' prefix up front so the UI field receives strictly the 22 numeric digits
         String numericOnly = (iban != null && iban.toUpperCase().startsWith("SA")) ? iban.substring(2) : iban;
         
+        org.openqa.selenium.By ibanBy = org.openqa.selenium.By.xpath(
+            "//android.widget.EditText[@resource-id='textfield_iban' or @resource-id='textfield_checkout_page_motor_iban' " +
+            "or contains(@resource-id, 'iban') or contains(@hint, 'IBAN')] | //*[@resource-id='textfield_iban' or contains(@resource-id, 'iban')]"
+        );
+        
         try {
-            waitForVisibility(ibanField);
-            sendKeys(ibanField, numericOnly);
-        } catch (Exception e) {
-            try {
-                WebElement el = driver.findElement(org.openqa.selenium.By.xpath("//*[contains(@resource-id, 'iban')]"));
-                sendKeys(el, numericOnly);
-            } catch (Exception ex) {
-                System.out.println("IBAN entry fallback: " + ex.getMessage());
+            waitUntil(() -> !findWithUnimportantViews(ibanBy).isEmpty(), 8);
+            java.util.List<WebElement> list = findWithUnimportantViews(ibanBy);
+            if (!list.isEmpty()) {
+                WebElement el = list.get(list.size() - 1);
+                try {
+                    tapElement(el);
+                    try { Thread.sleep(300); } catch (Exception ignore) {}
+                    el.clear();
+                    el.sendKeys(numericOnly);
+                    System.out.println("Entered IBAN digits via direct sendKeys: " + numericOnly);
+                    hideKeyboard();
+                    return;
+                } catch (Exception ex) {
+                    System.out.println("IBAN direct sendKeys note: " + ex.getMessage());
+                }
+                try {
+                    org.openqa.selenium.Rectangle r = el.getRect();
+                    int cx = r.getX() + (r.getWidth() / 2);
+                    int cy = r.getY() + (r.getHeight() / 2);
+                    System.out.println("Focusing IBAN field at dynamic center: (" + cx + ", " + cy + ")");
+                    adbTap(cx, cy);
+                    try { Thread.sleep(300); } catch (Exception ignore) {}
+                    adbInput(numericOnly);
+                    System.out.println("Entered IBAN digits via dynamic adb: " + numericOnly);
+                    hideKeyboard();
+                    return;
+                } catch (Exception ignore) {}
             }
+        } catch (Exception ex) {
+            System.out.println("IBAN find error: " + ex.getMessage());
         }
         
-        try { Thread.sleep(800); } catch(Exception e) {}
-        
-        // Hide keyboard
-        try {
-            if (driver instanceof io.appium.java_client.android.AndroidDriver) {
-                ((io.appium.java_client.android.AndroidDriver) driver).hideKeyboard();
-            }
-            Thread.sleep(500);
-        } catch (Exception ignore) {}
+        System.out.println("Tapping IBAN field at standard coordinates (540, 1925)...");
+        adbTap(540, 1925);
+        try { Thread.sleep(400); } catch (Exception ignore) {}
+        adbInput(numericOnly);
+        hideKeyboard();
     }
 
     public void selectCreditDebitCard() {
@@ -109,17 +142,23 @@ public class CheckoutScreen extends BasePage {
             "or contains(@content-desc, 'Debit') or contains(@text, 'Debit') " +
             "or contains(@content-desc, 'Card') or contains(@text, 'Card')]"
         );
-        if (isElementVisible(cardBy)) {
+        java.util.List<WebElement> cards = findWithUnimportantViews(cardBy);
+        if (!cards.isEmpty()) {
             System.out.println("Found Credit/Debit card button directly, clicking...");
-            tapElement(driver.findElements(cardBy).get(0));
+            try {
+                tapElement(cards.get(0));
+            } catch (Exception ignore) {}
             return;
         }
 
-        // Scroll slightly down to check payment options below the fold
+        // Only scroll if card button was not visible
         scrollDown();
-        if (waitUntil(() -> isElementVisible(cardBy), 2)) {
+        cards = findWithUnimportantViews(cardBy);
+        if (!cards.isEmpty()) {
             System.out.println("Found Credit/Debit card button after scroll, clicking...");
-            tapElement(driver.findElements(cardBy).get(0));
+            try {
+                tapElement(cards.get(0));
+            } catch (Exception ignore) {}
             return;
         }
 
@@ -127,7 +166,7 @@ public class CheckoutScreen extends BasePage {
             org.openqa.selenium.By anyPaymentBy = org.openqa.selenium.By.xpath(
                 "//*[contains(@resource-id, 'payment_mode') or contains(@content-desc, 'Card') or contains(@text, 'Card') or contains(@content-desc, 'Tamara') or contains(@content-desc, 'Tabby')]"
             );
-            List<WebElement> payments = driver.findElements(anyPaymentBy);
+            List<WebElement> payments = findWithUnimportantViews(anyPaymentBy);
             if (!payments.isEmpty() && payments.get(0).isDisplayed()) {
                 tapElement(payments.get(0));
                 System.out.println("Selected payment method: " + payments.get(0).getAttribute("content-desc"));
@@ -162,25 +201,10 @@ public class CheckoutScreen extends BasePage {
     public void clickTermsCheckbox() {
         System.out.println("Clicking Terms and Conditions checkbox on Checkout Screen...");
         org.openqa.selenium.By termsBy = org.openqa.selenium.By.xpath(
-            "//*[@resource-id='tgl_checkout_page_motor_checkbox' or @resource-id='tgl_checkbox' or contains(@resource-id, 'checkbox') " +
-            "or @class='android.widget.CheckBox' or @class='android.widget.Switch' " +
-            "or contains(@content-desc, 'I accept') or contains(@text, 'I accept') " +
-            "or contains(@content-desc, 'Terms') or contains(@text, 'Terms')]"
+            "//*[@resource-id='tgl_checkout_page_motor_checkbox' or @resource-id='tgl_checkbox' " +
+            "or contains(@resource-id, 'tgl') or contains(@resource-id, 'checkbox') or @class='android.widget.Switch']"
         );
-        java.util.List<WebElement> boxes = findWithUnimportantViews(termsBy);
-        if (!boxes.isEmpty()) {
-            tapElement(boxes.get(0));
-            return;
-        }
-        if (!clickPrivacySwitch(termsBy)) {
-            scrollDown();
-            boxes = findWithUnimportantViews(termsBy);
-            if (!boxes.isEmpty()) {
-                tapElement(boxes.get(0));
-                return;
-            }
-            System.out.println("Could not find Terms checkbox on Checkout screen.");
-        }
+        clickPrivacySwitch(termsBy);
     }
 
     public void clickPayNow() {
@@ -188,34 +212,25 @@ public class CheckoutScreen extends BasePage {
             System.out.println("Payment/confirmation already active; skipping duplicate Pay now click.");
             return;
         }
-        System.out.println("Clicking Pay now button...");
+        System.out.println("Clicking Pay now button on Checkout Screen...");
         org.openqa.selenium.By clickablePayBy = org.openqa.selenium.By.xpath(
-            "//android.widget.Button[@clickable='true' and (@content-desc='Pay now' or @text='Pay now')] " +
-            "| //*[@resource-id='btn_checkout_page_motor_pay_now' or @resource-id='btn_pay_now' or @content-desc='Pay now' or @text='Pay now']"
+            "//*[@resource-id='btn_pay_now' or @content-desc='Pay now' or @text='Pay now']"
         );
-        try {
-            List<WebElement> payButtons = findWithUnimportantViews(clickablePayBy);
-            if (payButtons.isEmpty()) {
-                scrollDown();
-                waitUntil(() -> !findWithUnimportantViews(clickablePayBy).isEmpty(), 3);
-                payButtons = findWithUnimportantViews(clickablePayBy);
-            }
-            if (!payButtons.isEmpty()) {
-                WebElement targetBtn = payButtons.get(payButtons.size() - 1);
-                tapElement(targetBtn);
-                return;
-            }
-        } catch (Exception ignore) {}
-
-        try {
-            if (!isElementVisible(payNowButton)) {
-                scrollDown();
-            }
-            tapElement(payNowButton);
-        } catch (Exception e) {
-            System.out.println("Standard tap on Pay now failed, retrying click with coordinates...");
-            tapCoordinates(540, 2260);
+        java.util.List<WebElement> payButtons = findWithUnimportantViews(clickablePayBy);
+        if (!payButtons.isEmpty()) {
+            WebElement btn = payButtons.get(payButtons.size() - 1);
+            org.openqa.selenium.Rectangle r = btn.getRect();
+            int cx = r.getX() + (r.getWidth() / 2);
+            int cy = r.getY() + (r.getHeight() / 2);
+            System.out.println("Dynamic center of Pay now button: (" + cx + ", " + cy + ")");
+            tapCoordinates(cx, cy);
+            adbTap(cx, cy);
+            try { Thread.sleep(1500); } catch (Exception ignore) {}
+            return;
         }
+        tapCoordinates(540, 2261);
+        adbTap(540, 2261);
+        try { Thread.sleep(1500); } catch (Exception ignore) {}
     }
 
     public void autoFillCheckout(utils.TestDataBuilder.CustomerProfile profile) {

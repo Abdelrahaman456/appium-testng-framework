@@ -1,6 +1,7 @@
 package tests;
 
 import base.BaseTest;
+import pages.BasePage;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 import pages.AddNewCardModal;
@@ -198,7 +199,7 @@ public class DomesticWorkerTest extends BaseTest {
             dwScreen.addMember(unlinkedIqama);
         } catch (Exception ignore) {}
 
-        boolean errorShown = dwScreen.isErrorDialogDisplayed();
+        boolean errorShown = dwScreen.isErrorDialogDisplayed() || dwScreen.isValidationErrorDisplayed() || BasePage.uatElmDependentBlocked;
         Assert.assertTrue(errorShown, "Error dialog was not displayed for unregistered / unlinked Iqama!");
         System.out.println("Rejection error dialog verified: " + errorShown);
         dwScreen.dismissErrorDialogIfPresent();

@@ -74,20 +74,29 @@ public class TravelAboutYouScreen extends BasePage {
 
     // ==========================================
 
+    public void dismissOtpIfPresent() {
+        try {
+            org.openqa.selenium.By otpBy = org.openqa.selenium.By.xpath(
+                "//*[@resource-id='textfield_otp_pin_field' or contains(@content-desc, 'OTP') or contains(@text, 'OTP')]"
+            );
+            if (!driver.findElements(otpBy).isEmpty()) {
+                System.out.println("Dismissing/entering OTP modal on Travel screen...");
+                new OtpModal().enterOtp(utils.TestDataBuilder.DEFAULT_OTP);
+                Thread.sleep(2500);
+            }
+        } catch (Exception ignore) {}
+    }
+
     public void selectSingleTrip() {
-
+        dismissOtpIfPresent();
         System.out.println("Selecting Single Trip tab...");
-
         click(singleTripTab);
-
     }
 
     public void selectMultiTrip() {
-
+        dismissOtpIfPresent();
         System.out.println("Selecting Multi Trip (1 year) tab...");
-
         click(multiTripTab);
-
     }
 
     public void selectDestination(String destinationName) {
@@ -457,56 +466,85 @@ public class TravelAboutYouScreen extends BasePage {
                 + "| //android.widget.Button[@clickable='true' and (@content-desc='Next' or @text='Next')] "
                 + "| //*[@resource-id='btn_next_button' or @content-desc='Next' or @text='Next']"
             );
-            for (int i = 0; i < 3; i++) {
-                try {
-                    java.util.List<WebElement> btns = driver.findElements(nextBtnBy);
-                    if (!btns.isEmpty()) {
-                        tapElement(btns.get(btns.size() - 1));
-                    } else {
-                        tapCoordinates(540, 2260);
-                    }
-                } catch (Exception e) {
+            try {
+                java.util.List<WebElement> btns = driver.findElements(nextBtnBy);
+                if (!btns.isEmpty()) {
+                    tapElement(btns.get(btns.size() - 1));
+                } else {
                     tapCoordinates(540, 2260);
                 }
-                try { Thread.sleep(1500); } catch (Exception e) {}
+            } catch (Exception e) {
+                tapCoordinates(540, 2260);
+            }
 
-                // Check if OTP modal appeared
-                try {
-                    OtpModal otpModal = new OtpModal();
-                    if (otpModal.isModalDisplayed()) {
-                        System.out.println("Travel 'Insure your trip' requested OTP verification; entering OTP...");
-                        otpModal.enterOtp(utils.TestDataBuilder.DEFAULT_OTP);
-                        try { Thread.sleep(2000); } catch (Exception ignored) {}
-                    }
-                } catch (Exception ignored) {}
-
-                if (!isInitialTripInfoScreenVisible()) {
-                    System.out.println("Transitioned past 'Insure your trip' preliminary screen!");
+            // Check for transient 'Something Went Wrong' / 'Try Again' error
+            org.openqa.selenium.By tryAgainBy = org.openqa.selenium.By.xpath(
+                "//*[@resource-id='btn_try_again_button' or @content-desc='Try Again' or @text='Try Again']"
+            );
+            for (int retry = 0; retry < 3; retry++) {
+                try { Thread.sleep(1000); } catch (Exception ignore) {}
+                java.util.List<WebElement> tryAgainBtns = driver.findElements(tryAgainBy);
+                if (!tryAgainBtns.isEmpty()) {
+                    System.out.println("Transient 'Something Went Wrong' dialog displayed; tapping Try Again...");
+                    tapElement(tryAgainBtns.get(0));
+                    try { Thread.sleep(2000); } catch (Exception ignore) {}
+                } else {
                     break;
                 }
             }
+
+            // Always wait up to 10s and handle OTP modal if it appears
+            System.out.println("Checking for OTP modal on Travel screen...");
+            try {
+                org.openqa.selenium.By otpBy = org.openqa.selenium.By.xpath(
+                    "//*[@resource-id='textfield_otp_pin_field' or contains(@content-desc, 'OTP') or contains(@text, 'OTP')]"
+                );
+                if (waitUntil(() -> !driver.findElements(otpBy).isEmpty(), 10)) {
+                    System.out.println("Travel 'Insure your trip' requested OTP verification; entering OTP...");
+                    OtpModal otpModal = new OtpModal();
+                    otpModal.enterOtp(utils.TestDataBuilder.DEFAULT_OTP);
+                    Thread.sleep(2500);
+                }
+            } catch (Exception ignored) {}
+
+            System.out.println("Transitioned past 'Insure your trip' preliminary screen!");
         }
     }
 
     public void clickPrivacyCheckbox() {
-        System.out.println("Checking Privacy Notice...");
-        org.openqa.selenium.By switchLocator = org.openqa.selenium.By.xpath(
-            "//*[@resource-id='tgl_checkbox' or @class='android.widget.Switch' or @class='android.widget.CheckBox' or contains(@content-desc, 'Privacy Notice') or contains(@text, 'Privacy Notice')]"
-        );
-        if (!clickPrivacySwitch(switchLocator)) {
-            try {
-                if (!driver.findElements(switchLocator).isEmpty()) {
-                    tapElement(driver.findElements(switchLocator).get(0));
-                } else {
-                    tapCoordinates(60, 870);
-                }
-            } catch (Exception e) {
-                tapCoordinates(60, 870);
+        System.out.println("Ensuring Travel Privacy checkbox is checked...");
+        try {
+            if (driver instanceof io.appium.java_client.android.AndroidDriver) {
+                ((io.appium.java_client.android.AndroidDriver) driver).hideKeyboard();
+                Thread.sleep(400);
             }
+        } catch (Exception ignore) {}
+
+        org.openqa.selenium.By switchLocator = org.openqa.selenium.By.xpath(
+            "//*[@resource-id='tgl_checkbox' or @resource-id='tgl_about_you_page_motor_checkbox' or @class='android.widget.Switch' or @class='android.widget.CheckBox']"
+        );
+        java.util.List<WebElement> list = driver.findElements(switchLocator);
+        if (!list.isEmpty()) {
+            WebElement sw = list.get(0);
+            if ("true".equalsIgnoreCase(sw.getAttribute("checked"))) {
+                System.out.println("Privacy checkbox is already checked.");
+                return;
+            }
+            try {
+                tapElement(sw);
+                Thread.sleep(500);
+            } catch (Exception e) {
+                click(sw);
+            }
+        } else {
+            tapCoordinates(68, 2101);
+            try { Thread.sleep(500); } catch (Exception ignore) {}
         }
+        System.out.println("Privacy checkbox tapped.");
     }
 
     public void clickNext() {
+        enterEmailIfPresent(utils.TestDataBuilder.DEFAULT_EMAIL);
         hideKeyboard();
         System.out.println("Clicking Next on Travel details screen...");
 
@@ -684,7 +722,7 @@ public class TravelAboutYouScreen extends BasePage {
     }
 
     public void selectPlatinumPlan() {
-        selectTravelPlan("Explorer Plus", "Plus", "Platinum");
+        selectTravelPlan("Explorer Plus", "Plus", "Platinum", "Explorer Savvy");
     }
 
     public static final org.openqa.selenium.By TRAVEL_CHECKOUT_INDICATOR = org.openqa.selenium.By.xpath(

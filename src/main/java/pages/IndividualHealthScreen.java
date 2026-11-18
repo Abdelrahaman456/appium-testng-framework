@@ -196,24 +196,23 @@ public class IndividualHealthScreen extends BasePage {
         System.out.println("Toggling Privacy notice switch via dynamic locator...");
         By switchBy = By.xpath("//*[@resource-id='tgl_checkbox' or contains(@resource-id, 'checkbox') or @class='android.widget.Switch']");
         clickPrivacySwitch(switchBy);
-        try {
-            java.util.List<WebElement> sws = driver.findElements(switchBy);
-            if (!sws.isEmpty()) {
-                WebElement sw = sws.get(0);
-                if (!"true".equalsIgnoreCase(sw.getAttribute("checked"))) {
-                    tapElement(sw);
-                }
-            }
-        } catch (Exception ignore) {}
         return this;
     }
 
     public IndividualHealthScreen clickNext() {
         System.out.println("Clicking Next button on Applicant Details via dynamic locator...");
         hideKeyboard();
-        try {
-            java.util.List<WebElement> btns = driver.findElements(By.xpath(
-                "//*[@content-desc='Next' or @text='Next' or @resource-id='btn_next_button']"));
+        By nextBtnBy = By.xpath(
+            "//*[@resource-id='btn_next_button']//*[@clickable='true'] "
+            + "| //android.widget.Button[@clickable='true' and (@content-desc='Next' or @text='Next')] "
+            + "| //*[@resource-id='btn_next_button'] "
+            + "| //android.widget.Button[@content-desc='Next' or @text='Next']"
+        );
+
+        for (int attempt = 1; attempt <= 3; attempt++) {
+            System.out.println("Individual Health clickNext attempt " + attempt + " of 3...");
+            java.util.List<WebElement> btns = driver.findElements(nextBtnBy);
+            if (btns.isEmpty()) btns = findWithUnimportantViews(nextBtnBy);
             if (!btns.isEmpty()) {
                 WebElement targetBtn = btns.get(btns.size() - 1);
                 for (WebElement b : btns) {
@@ -224,12 +223,25 @@ public class IndividualHealthScreen extends BasePage {
                 }
                 tapElement(targetBtn);
             } else {
-                tapElement(nextButton);
+                tapCoordinates(540, 2261);
+                adbTap(540, 2261);
             }
-        } catch (Exception e) {
-            System.out.println("Next button click: " + e.getMessage());
+
+            boolean transitioned = waitUntil(() -> {
+                boolean onOtp = !driver.findElements(By.xpath(
+                    "//*[contains(@content-desc, 'OTP') or contains(@text, 'OTP') or contains(@content-desc, 'Verification') or contains(@text, 'Verification') or @resource-id='textfield_otp_code' or contains(@resource-id, 'otp_pin')]")).isEmpty();
+                boolean onDependent = !driver.findElements(By.xpath(
+                    "//*[@resource-id='textfield_iqama_id' or @resource-id='textfield_dependent_id' or @resource-id='btn_add' or @content-desc='Add' or contains(@content-desc, 'Dependent')]")).isEmpty();
+                boolean onError = isErrorDialogDisplayed() || isValidationErrorDisplayed();
+                return onOtp || onDependent || onError;
+            }, 6);
+
+            if (transitioned) {
+                System.out.println("Successfully transitioned past Applicant Details!");
+                return this;
+            }
+            System.out.println("Still on Applicant Details, re-attempting Next tap...");
         }
-        try { Thread.sleep(2000); } catch (Exception ignore) {}
         return this;
     }
 
@@ -402,7 +414,11 @@ public class IndividualHealthScreen extends BasePage {
             return waitReferral.until(d -> {
                 if (isElementVisible(underwritingNotice)) return true;
                 return !driver.findElements(By.xpath(
-                    "//*[contains(@content-desc, 'referral') or contains(@text, 'referral') or contains(@content-desc, 'underwriting') or contains(@text, 'underwriting') or contains(@content-desc, 'manual review') or contains(@text, 'manual review')]")).isEmpty();
+                    "//*[contains(@content-desc, 'referral') or contains(@text, 'referral') "
+                    + "or contains(@content-desc, 'underwriting') or contains(@text, 'underwriting') "
+                    + "or contains(@content-desc, 'manual review') or contains(@text, 'manual review') "
+                    + "or contains(@content-desc, 'apologize') or contains(@text, 'apologize') "
+                    + "or contains(@content-desc, 'not currently covered') or contains(@text, 'not currently covered')]")).isEmpty();
             });
         } catch (Exception e) {
             return false;
@@ -646,27 +662,13 @@ public class IndividualHealthScreen extends BasePage {
 
     public IndividualHealthScreen fillIbanAndAcceptTerms(String iban) {
         if (BasePage.uatElmDependentBlocked) return this;
-        System.out.println("Entering IBAN into Checkout: " + iban);
+        System.out.println("Entering IBAN and accepting Terms on Individual Health Checkout...");
         try {
-            scrollDown();
-        } catch (Exception ignore) {}
-
-        String numericOnly = (iban != null && iban.toUpperCase().startsWith("SA")) ? iban.substring(2) : iban;
-        try {
-            waitForVisibility(ibanInput);
-            sendKeys(ibanInput, numericOnly);
+            CheckoutScreen checkout = new CheckoutScreen();
+            checkout.enterIban(iban);
+            checkout.clickTermsCheckbox();
         } catch (Exception e) {
-            WebElement fallback = driver.findElement(By.xpath("//*[contains(@resource-id, 'iban')]"));
-            sendKeys(fallback, numericOnly);
-        }
-        hideKeyboard();
-        try { Thread.sleep(500); } catch (Exception ignore) {}
-
-        System.out.println("Accepting Checkout Terms & Conditions via dynamic locator...");
-        By termsBy = By.xpath("//*[@resource-id='tgl_checkbox' or @resource-id='tgl_checkout_page_motor_checkbox' or contains(@resource-id, 'checkbox') or @class='android.widget.Switch']");
-        if (!clickPrivacySwitch(termsBy)) {
-            scrollDown();
-            clickPrivacySwitch(termsBy);
+            System.out.println("CheckoutScreen delegation warning: " + e.getMessage());
         }
         return this;
     }
@@ -679,18 +681,14 @@ public class IndividualHealthScreen extends BasePage {
         if (isPaymentOrConfirmationAlreadyActive()) {
             return this;
         }
-        System.out.println("Clicking Pay now on Checkout screen via dynamic locator...");
+        System.out.println("Selecting payment method and clicking Pay now on Checkout...");
         try {
-            if (isElementVisible(checkoutPayNowButton)) {
-                tapElement(checkoutPayNowButton);
-            } else {
-                WebElement btn = driver.findElement(By.xpath("//*[@resource-id='btn_pay_now' or @content-desc='Pay now' or @text='Pay now']"));
-                tapElement(btn);
-            }
+            CheckoutScreen checkout = new CheckoutScreen();
+            checkout.selectCreditDebitCard();
+            checkout.clickPayNow();
         } catch (Exception e) {
-            System.out.println("Checkout pay now click: " + e.getMessage());
+            System.out.println("CheckoutScreen pay now warning: " + e.getMessage());
         }
-        try { Thread.sleep(2000); } catch (Exception ignore) {}
         return this;
     }
 }
