@@ -136,5 +136,47 @@
         </classes>
     </test>
 
+    <!-- ========================================== -->
+    <!-- CLAIMS LIFECYCLE (FNOL) SUITE              -->
+    <!-- ========================================== -->
+    <test name="Claims Lifecycle Test">
+        <parameter name="platformName" value="Android" />
+        <parameter name="deviceName" value="Physical Device" />
+        <parameter name="udid" value="" />
+        <parameter name="appPackage" value="sa.com.tree.digital.insurance.uat" />
+        <parameter name="appActivity" value="sa.com.tree.digital.insurance.MainActivity" />
+        <classes>
+            <class name="tests.ClaimsTest" />
+        </classes>
+    </test>
+
+    <!-- ========================================== -->
+    <!-- PAYMENT VALIDATION & ALTERNATIVE METHODS   -->
+    <!-- ========================================== -->
+    <test name="Payment Validation Test">
+        <parameter name="platformName" value="Android" />
+        <parameter name="deviceName" value="Physical Device" />
+        <parameter name="udid" value="" />
+        <parameter name="appPackage" value="sa.com.tree.digital.insurance.uat" />
+        <parameter name="appActivity" value="sa.com.tree.digital.insurance.MainActivity" />
+        <classes>
+            <class name="tests.PaymentValidationTest" />
+        </classes>
+    </test>
+
+    <!-- ========================================== -->
+    <!-- SUPPORT, COMPLAINTS, FAQS & ARABIC RTL     -->
+    <!-- ========================================== -->
+    <test name="Support and Localization Test">
+        <parameter name="platformName" value="Android" />
+        <parameter name="deviceName" value="Physical Device" />
+        <parameter name="udid" value="" />
+        <parameter name="appPackage" value="sa.com.tree.digital.insurance.uat" />
+        <parameter name="appActivity" value="sa.com.tree.digital.insurance.MainActivity" />
+        <classes>
+            <class name="tests.SupportAndLocalizationTest" />
+        </classes>
+    </test>
+
 </suite>
 
