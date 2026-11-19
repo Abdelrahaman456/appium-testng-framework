@@ -1,8 +1,8 @@
 package base;
 
 import org.testng.ITestResult;
-import org.testng.annotations.AfterClass;
 import org.testng.annotations.AfterMethod;
+import org.testng.annotations.AfterSuite;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Listeners;
 import org.testng.annotations.Optional;
@@ -55,15 +55,14 @@ public class BaseTest {
             System.out.println("║  App Path     : " + (appPath.isEmpty() ? "(use installed app)" : appPath));
             System.out.println("╚══════════════════════════════════════════════════════════╝");
             DriverManager.initializeDriver(platformName, deviceName, udid, appPath, appPackage, appActivity);
-            // Dismiss any startup ANR dialog ("Wait") if app was slow to load
+            // Dismiss any startup ANR dialog ("Wait") immediately if present (no blind 2s sleep)
             try {
-                Thread.sleep(2000);
                 java.util.List<org.openqa.selenium.WebElement> anrButtons = DriverManager.getDriver().findElements(
                     org.openqa.selenium.By.xpath("//*[@resource-id='android:id/aerr_wait' or @text='Wait']"));
                 if (!anrButtons.isEmpty()) {
                     System.out.println("[BaseTest] Detected startup ANR dialog. Tapping 'Wait'...");
                     anrButtons.get(0).click();
-                    Thread.sleep(1500);
+                    Thread.sleep(800);
                 }
             } catch (Exception ignore) {}
         } else {
@@ -108,17 +107,17 @@ public class BaseTest {
                 DriverManager.stopAndSaveVideoRecording("target/videos/" + result.getName() + "_" + System.currentTimeMillis() + ".mp4");
             }
         } else {
-            System.out.println("[TEST PASSED: " + result.getName() + "] Resetting app state to Home for next test...");
+            System.out.println("[TEST PASSED: " + result.getName() + "]");
             if (utils.TestConfig.recordVideo()) {
                 DriverManager.stopVideoRecording();
             }
         }
-        DriverManager.resetAppToHome();
+        // Note: Single fast reset runs in @BeforeMethod before the next test (eliminates double reset overhead)
     }
 
-    @AfterClass(alwaysRun = true)
-    public void tearDownClass() {
-        System.out.println("=== TEST CLASS COMPLETED: Closing Driver Session ===");
+    @AfterSuite(alwaysRun = true)
+    public void tearDownSuite() {
+        System.out.println("=== TEST SUITE COMPLETED: Closing Reused Driver Session ===");
         DriverManager.quitDriver();
     }
 }

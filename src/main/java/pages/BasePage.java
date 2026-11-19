@@ -71,7 +71,7 @@ public class BasePage {
 
         PageFactory.initElements(driver, this);
 
-        this.wait = new WebDriverWait(driver, Duration.ofSeconds(utils.TestConfig.elementTimeout()));
+        this.wait = new WebDriverWait(driver, Duration.ofSeconds(utils.TestConfig.elementTimeout()), Duration.ofMillis(200));
 
     }
 

@@ -56,7 +56,7 @@ public class SupportAndLocalizationScreen extends BasePage {
         System.out.println("Navigating to Support tab via locator...");
         waitUntil(() -> isElementVisible(supportTabBy), 10);
         tapElement(getVisibleElement(supportTabBy));
-        try { Thread.sleep(1200); } catch (Exception ignore) {}
+        waitUntil(() -> isElementVisible(contactUsCardBy) || isElementVisible(faqsCardBy), 5);
         return this;
     }
 
@@ -64,7 +64,7 @@ public class SupportAndLocalizationScreen extends BasePage {
         System.out.println("Navigating to My profile tab via locator...");
         waitUntil(() -> isElementVisible(profileTabBy), 10);
         tapElement(getVisibleElement(profileTabBy));
-        try { Thread.sleep(1200); } catch (Exception ignore) {}
+        waitUntil(() -> isElementVisible(languageToggleBy), 5);
         return this;
     }
 
@@ -78,7 +78,7 @@ public class SupportAndLocalizationScreen extends BasePage {
         }
         waitUntil(() -> isElementVisible(faqsCardBy), 8);
         tapElement(getVisibleElement(faqsCardBy));
-        try { Thread.sleep(1500); } catch (Exception ignore) {}
+        waitUntil(() -> isElementVisible(faqsHeaderBy) || isElementVisible(faqSearchInputBy), 6);
         return this;
     }
 

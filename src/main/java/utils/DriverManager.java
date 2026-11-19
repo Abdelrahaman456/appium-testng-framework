@@ -88,14 +88,11 @@ public class DriverManager {
 
                     
 
-                    // HIGH-PERFORMANCE OPTIMIZATION (Rec 2): Skip redundant checks & compress accessibility tree
-
+                    // HIGH-PERFORMANCE OPTIMIZATION: Skip redundant checks & disable window animations
                     options.setSkipUnlock(true);
-
-                    // options.setSkipServerInstallation(true); // Must be disabled so Appium installs UiAutomator2 on fresh emulators
-
+                    options.setCapability("appium:disableWindowAnimation", true);
+                    options.setCapability("appium:skipDeviceInitialization", true);
                     options.setCapability("appium:ignoreUnimportantViews", false);
-
                     options.setNewCommandTimeout(Duration.ofSeconds(120));
 
                     
@@ -206,15 +203,21 @@ public class DriverManager {
         AppiumDriver currentDriver = getDriver();
         if (currentDriver != null) {
             try {
-                // If keyboard is open, hide it first so navigation buttons are visible
+                // Only hide keyboard if actually shown (avoids ~500ms-1s wasted roundtrip per reset)
                 try {
                     if (currentDriver instanceof io.appium.java_client.android.AndroidDriver) {
-                        ((io.appium.java_client.android.AndroidDriver) currentDriver).hideKeyboard();
+                        io.appium.java_client.android.AndroidDriver ad = (io.appium.java_client.android.AndroidDriver) currentDriver;
+                        if (ad.isKeyboardShown()) {
+                            ad.hideKeyboard();
+                        }
                     }
                 } catch (Exception ignore) {}
 
                 org.openqa.selenium.By motorTileBy = org.openqa.selenium.By.xpath(
                     "//*[@resource-id='btn_home_product_motor' or @content-desc='Motor']"
+                );
+                org.openqa.selenium.By individualTabBy = org.openqa.selenium.By.xpath(
+                    "//*[contains(@content-desc, 'Individual') or contains(@text, 'Individual')]"
                 );
                 org.openqa.selenium.By homeTabBy = org.openqa.selenium.By.xpath(
                     "//*[@content-desc='Home' or @text='Home']"
@@ -225,31 +228,46 @@ public class DriverManager {
 
                 for (int i = 0; i < 4; i++) {
                     try {
-                        java.util.List<org.openqa.selenium.WebElement> motorTile = currentDriver.findElements(
-                            org.openqa.selenium.By.xpath("//*[@resource-id='btn_home_product_motor' or @content-desc='Motor']")
-                        );
+                        // 1. Already on Home -> Individual tab
+                        java.util.List<org.openqa.selenium.WebElement> motorTile = currentDriver.findElements(motorTileBy);
                         if (!motorTile.isEmpty() && motorTile.get(0).isDisplayed()) {
                             System.out.println("[FAST RESET] Successfully on Home screen!");
                             return;
                         }
 
-                        // Check if bottom navigation Home tab can be tapped directly via locator
+                        // 2. Already on Home -> SMEs or All products tab: tap Individual tab directly (0.3s instead of app restart!)
+                        java.util.List<org.openqa.selenium.WebElement> indTabs = currentDriver.findElements(individualTabBy);
+                        if (!indTabs.isEmpty() && indTabs.get(0).isDisplayed()) {
+                            indTabs.get(0).click();
+                            Thread.sleep(300);
+                            if (!currentDriver.findElements(motorTileBy).isEmpty()) {
+                                System.out.println("[FAST RESET] Switched to Home -> Individual tab directly!");
+                                return;
+                            }
+                        }
+
+                        // 3. On another bottom-nav tab (Support / My profile / My Policies): tap Home tab directly
                         java.util.List<org.openqa.selenium.WebElement> homeTabs = currentDriver.findElements(homeTabBy);
                         if (!homeTabs.isEmpty() && homeTabs.get(0).isDisplayed()) {
                             homeTabs.get(0).click();
-                            Thread.sleep(500);
-                            if (!currentDriver.findElements(motorTileBy).isEmpty()) {
+                            Thread.sleep(350);
+                            if (!currentDriver.findElements(motorTileBy).isEmpty() || !currentDriver.findElements(individualTabBy).isEmpty()) {
+                                java.util.List<org.openqa.selenium.WebElement> indAfter = currentDriver.findElements(individualTabBy);
+                                if (currentDriver.findElements(motorTileBy).isEmpty() && !indAfter.isEmpty()) {
+                                    indAfter.get(0).click();
+                                    Thread.sleep(250);
+                                }
                                 System.out.println("[FAST RESET] Successfully docked to Home tab via locator!");
                                 return;
                             }
                         }
 
-                        // Check if in-app back button is present (Flutter landing / sub-screens)
+                        // 4. In-app back button present (sub-screens)
                         java.util.List<org.openqa.selenium.WebElement> backBtns = currentDriver.findElements(inAppBackBy);
                         if (!backBtns.isEmpty() && backBtns.get(0).isDisplayed()) {
                             System.out.println("[FAST RESET] Found in-app Back button. Tapping to return towards Home...");
                             backBtns.get(0).click();
-                            Thread.sleep(600);
+                            Thread.sleep(350);
                             continue;
                         }
                     } catch (Exception ignore) {}
@@ -260,20 +278,26 @@ public class DriverManager {
                             new io.appium.java_client.android.nativekey.KeyEvent(io.appium.java_client.android.nativekey.AndroidKey.BACK)
                         );
                     }
-                    Thread.sleep(400);
+                    Thread.sleep(300);
                 }
 
-                // If navigation did not reach Home, restart the app cleanly so the next test starts on Home
+                // If navigation did not reach Home, restart the app cleanly and poll dynamically for Home
                 if (currentDriver instanceof io.appium.java_client.InteractsWithApps) {
                     System.out.println("[FAST RESET] Navigation did not reach Home. Restarting app cleanly...");
                     String pkg = TestConfig.appPackage();
                     io.appium.java_client.InteractsWithApps appDriver = (io.appium.java_client.InteractsWithApps) currentDriver;
                     try {
                         appDriver.terminateApp(pkg);
-                        Thread.sleep(1000);
+                        Thread.sleep(400);
                     } catch (Exception ignore) {}
                     appDriver.activateApp(pkg);
-                    Thread.sleep(3500);
+                    long deadline = System.currentTimeMillis() + 6000;
+                    while (System.currentTimeMillis() < deadline) {
+                        if (!currentDriver.findElements(motorTileBy).isEmpty() || !currentDriver.findElements(individualTabBy).isEmpty()) {
+                            break;
+                        }
+                        Thread.sleep(250);
+                    }
                 }
             } catch (Exception e) {
                 System.out.println("[FAST RESET] Back navigation exception: " + e.getMessage());

@@ -45,7 +45,7 @@ public class SmeScreen extends BasePage {
         System.out.println("Selecting 'SMEs' tab on Home screen via locator...");
         waitUntil(() -> isElementVisible(smesTabBy), 10);
         tapElement(getVisibleElement(smesTabBy));
-        try { Thread.sleep(1200); } catch (Exception ignore) {}
+        waitUntil(() -> isElementVisible(smeHealthCardBy), 5);
         return this;
     }
 
@@ -53,7 +53,7 @@ public class SmeScreen extends BasePage {
         System.out.println("Selecting 'All products' tab on Home screen via locator...");
         waitUntil(() -> isElementVisible(allProductsTabBy), 10);
         tapElement(getVisibleElement(allProductsTabBy));
-        try { Thread.sleep(1200); } catch (Exception ignore) {}
+        try { Thread.sleep(300); } catch (Exception ignore) {}
         return this;
     }
 
@@ -61,7 +61,7 @@ public class SmeScreen extends BasePage {
         System.out.println("Switching back to 'Individual' tab on Home screen via locator...");
         waitUntil(() -> isElementVisible(individualTabBy), 10);
         tapElement(getVisibleElement(individualTabBy));
-        try { Thread.sleep(1000); } catch (Exception ignore) {}
+        try { Thread.sleep(300); } catch (Exception ignore) {}
         return this;
     }
 
