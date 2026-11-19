@@ -189,4 +189,86 @@ public class AddNewCardModal extends BasePage {
         System.out.println("Card saved! Handing off to dynamic Policy Confirmation polling...");
         try { Thread.sleep(2000); } catch (Exception e) {}
     }
+
+    /**
+     * Checks if any inline card validation error message is displayed inside the Add New Card bottom sheet.
+     */
+    public boolean isCardValidationErrorDisplayed() {
+        org.openqa.selenium.By errorBy = org.openqa.selenium.By.xpath(
+            "//*[contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'invalid') " +
+            "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'invalid') " +
+            "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'required') " +
+            "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'required') " +
+            "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'expired') " +
+            "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'expired') " +
+            "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'valid') " +
+            "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'valid') " +
+            "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'incorrect') " +
+            "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'incorrect')]"
+        );
+        return !driver.findElements(errorBy).isEmpty();
+    }
+
+    /**
+     * Verifies that submitting invalid card inputs is blocked (either inline error shown or modal stays open).
+     */
+    public boolean isSaveBlockedOrErrorShown() {
+        hideKeyboard();
+        try { Thread.sleep(600); } catch (Exception ignore) {}
+        return isCardValidationErrorDisplayed() || isModalDisplayed();
+    }
+
+    /**
+     * Dismisses the Add New Card modal cleanly to verify cancellation returns to Checkout screen.
+     */
+    public void dismissModal() {
+        System.out.println("Dismissing Add New Card modal...");
+        hideKeyboard();
+        try { Thread.sleep(500); } catch (Exception ignore) {}
+
+        // 1. Try close icon inside bottom sheet
+        try {
+            org.openqa.selenium.By closeBy = org.openqa.selenium.By.xpath(
+                "//*[@resource-id='btn_close' or @content-desc='Close' or @text='Close' or @content-desc='Cancel' or @text='Cancel']"
+            );
+            java.util.List<WebElement> closes = driver.findElements(closeBy);
+            if (!closes.isEmpty() && closes.get(0).isDisplayed()) {
+                tapElement(closes.get(0));
+                Thread.sleep(1000);
+                if (!isModalDisplayedQuick()) return;
+            }
+        } catch (Exception ignore) {}
+
+        // 2. Drag down on the bottom sheet header / card number region to dismiss Flutter modal sheet without popping Checkout
+        try {
+            org.openqa.selenium.By sheetHeaderBy = org.openqa.selenium.By.xpath(
+                "//*[contains(@content-desc, 'Add new card') or contains(@text, 'Add new card') or @resource-id='textfield_credit_debit_card_bottom_sheet_card_number']"
+            );
+            java.util.List<WebElement> headers = driver.findElements(sheetHeaderBy);
+            if (!headers.isEmpty()) {
+                org.openqa.selenium.Rectangle r = headers.get(0).getRect();
+                org.openqa.selenium.Dimension size = driver.manage().window().getSize();
+                int startX = r.getX() + (r.getWidth() / 2);
+                int startY = r.getY();
+                int endY = (int) (size.height * 0.92);
+                scrollWheel(startX, startY, endY);
+                Thread.sleep(1000);
+                if (!isModalDisplayedQuick()) return;
+            }
+        } catch (Exception ignore) {}
+
+        // 3. Fallback: tap dimmed scrim above the bottom sheet (15% screen height)
+        if (isModalDisplayedQuick()) {
+            org.openqa.selenium.Dimension size = driver.manage().window().getSize();
+            tapCoordinates(size.width / 2, (int) (size.height * 0.15));
+            try { Thread.sleep(1000); } catch (Exception ignore) {}
+        }
+    }
+
+    private boolean isModalDisplayedQuick() {
+        org.openqa.selenium.By modalBy = org.openqa.selenium.By.xpath(
+            "//*[@resource-id='textfield_credit_debit_card_bottom_sheet_card_number' or @resource-id='btn_credit_debit_card_bottom_sheet_save']"
+        );
+        return !driver.findElements(modalBy).isEmpty();
+    }
 }

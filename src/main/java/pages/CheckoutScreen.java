@@ -219,18 +219,13 @@ public class CheckoutScreen extends BasePage {
         java.util.List<WebElement> payButtons = findWithUnimportantViews(clickablePayBy);
         if (!payButtons.isEmpty()) {
             WebElement btn = payButtons.get(payButtons.size() - 1);
-            org.openqa.selenium.Rectangle r = btn.getRect();
-            int cx = r.getX() + (r.getWidth() / 2);
-            int cy = r.getY() + (r.getHeight() / 2);
-            System.out.println("Dynamic center of Pay now button: (" + cx + ", " + cy + ")");
-            tapCoordinates(cx, cy);
-            adbTap(cx, cy);
-            try { Thread.sleep(1500); } catch (Exception ignore) {}
+            System.out.println("Clicking Pay now button via locator...");
+            tapElement(btn);
+            try { Thread.sleep(2000); } catch (Exception ignore) {}
             return;
         }
         tapCoordinates(540, 2261);
-        adbTap(540, 2261);
-        try { Thread.sleep(1500); } catch (Exception ignore) {}
+        try { Thread.sleep(2000); } catch (Exception ignore) {}
     }
 
     public void autoFillCheckout(utils.TestDataBuilder.CustomerProfile profile) {
@@ -240,5 +235,90 @@ public class CheckoutScreen extends BasePage {
         selectCreditDebitCard();
         clickTermsCheckbox();
         clickPayNow();
+    }
+
+    /**
+     * Checks whether a specific payment method option (e.g., Tamara, Tabby, Credit, Mada) is visible on Checkout.
+     */
+    public boolean isPaymentMethodOptionVisible(String methodKeyword) {
+        org.openqa.selenium.By methodBy = org.openqa.selenium.By.xpath(
+            "//*[contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), '" + methodKeyword.toLowerCase() + "') " +
+            "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), '" + methodKeyword.toLowerCase() + "') " +
+            "or contains(translate(@resource-id, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), '" + methodKeyword.toLowerCase() + "')]"
+        );
+        if (!findWithUnimportantViews(methodBy).isEmpty()) {
+            return true;
+        }
+        scrollDown();
+        return !findWithUnimportantViews(methodBy).isEmpty();
+    }
+
+    /**
+     * Dynamically selects an alternative payment method (e.g. Tamara, Tabby, Credit/Debit Card, Mada) via locators.
+     */
+    public boolean selectPaymentMethod(String methodKeyword) {
+        System.out.println("Selecting Payment Method matching: " + methodKeyword);
+        org.openqa.selenium.By methodBy = org.openqa.selenium.By.xpath(
+            "//*[contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), '" + methodKeyword.toLowerCase() + "') " +
+            "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), '" + methodKeyword.toLowerCase() + "') " +
+            "or contains(translate(@resource-id, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), '" + methodKeyword.toLowerCase() + "')]"
+        );
+        List<WebElement> matches = findWithUnimportantViews(methodBy);
+        if (matches.isEmpty()) {
+            scrollDown();
+            matches = findWithUnimportantViews(methodBy);
+        }
+        if (!matches.isEmpty()) {
+            tapElement(matches.get(0));
+            try { Thread.sleep(800); } catch (Exception ignore) {}
+            System.out.println("Selected payment method: " + methodKeyword);
+            return true;
+        }
+        System.out.println("Payment method option not available on this product/checkout: " + methodKeyword);
+        return false;
+    }
+
+    /**
+     * Checks if a payment failure, decline, or generic error modal is currently displayed.
+     */
+    public boolean isPaymentErrorModalDisplayed() {
+        org.openqa.selenium.By errorBy = org.openqa.selenium.By.xpath(
+            "//*[contains(@content-desc, 'Something Went Wrong') or contains(@text, 'Something Went Wrong') " +
+            "or contains(@content-desc, 'Payment Failed') or contains(@text, 'Payment Failed') " +
+            "or contains(@content-desc, 'Payment failed') or contains(@text, 'Payment failed') " +
+            "or contains(@content-desc, 'Declined') or contains(@text, 'Declined') " +
+            "or contains(@content-desc, 'declined') or contains(@text, 'declined') " +
+            "or contains(@content-desc, 'Try again') or contains(@text, 'Try again') " +
+            "or contains(@content-desc, 'Retry') or contains(@text, 'Retry') " +
+            "or contains(@content-desc, 'Invalid') or contains(@text, 'Invalid')]"
+        );
+        return waitUntil(() -> !driver.findElements(errorBy).isEmpty(), 8);
+    }
+
+    /**
+     * Dismisses a payment failure / error modal or taps Try Again / Retry to recover back to Checkout.
+     */
+    public boolean dismissPaymentErrorOrRetry() {
+        org.openqa.selenium.By actionBy = org.openqa.selenium.By.xpath(
+            "//android.widget.Button[@content-desc='Try again' or @text='Try again' or @content-desc='Retry' or @text='Retry' or @content-desc='Close' or @text='Close' or @content-desc='OK' or @text='OK'] " +
+            "| //*[@resource-id='btn_close' or @content-desc='Try again' or @text='Try again' or @content-desc='Close' or @text='Close']"
+        );
+        List<WebElement> buttons = driver.findElements(actionBy);
+        if (!buttons.isEmpty()) {
+            tapElement(buttons.get(0));
+            try { Thread.sleep(1000); } catch (Exception ignore) {}
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Verifies whether the Checkout screen is currently active.
+     */
+    public boolean isCheckoutScreenDisplayed() {
+        org.openqa.selenium.By checkoutBy = org.openqa.selenium.By.xpath(
+            "//*[@content-desc='Checkout' or @text='Checkout' or @resource-id='btn_pay_now' or @content-desc='Pay now' or @text='Pay now' or contains(@content-desc, 'Payment Method')]"
+        );
+        return waitUntil(() -> !findWithUnimportantViews(checkoutBy).isEmpty(), 8);
     }
 }
