@@ -88,9 +88,8 @@ public class DriverManager {
 
                     
 
-                    // HIGH-PERFORMANCE OPTIMIZATION: Skip redundant checks & disable window animations
+                    // HIGH-PERFORMANCE OPTIMIZATION: Skip redundant checks (keep animation scale=1 so Flutter splash transitions complete)
                     options.setSkipUnlock(true);
-                    options.setCapability("appium:disableWindowAnimation", true);
                     options.setCapability("appium:skipDeviceInitialization", true);
                     options.setCapability("appium:ignoreUnimportantViews", false);
                     options.setNewCommandTimeout(Duration.ofSeconds(120));
@@ -223,7 +222,8 @@ public class DriverManager {
                     "//*[@content-desc='Home' or @text='Home']"
                 );
                 org.openqa.selenium.By inAppBackBy = org.openqa.selenium.By.xpath(
-                    "//*[@resource-id='btn_back' or @content-desc='Back']"
+                    "//*[@resource-id='btn_back' or @content-desc='Back'] | " +
+                    "//android.widget.ImageView[@clickable='true' and (@content-desc='Login' or @content-desc='FAQs' or @content-desc='Contact us' or @content-desc='Complaints tracking' or contains(@content-desc, 'About') or contains(@content-desc, 'Privacy'))]"
                 );
 
                 for (int i = 0; i < 4; i++) {
@@ -291,7 +291,8 @@ public class DriverManager {
                         Thread.sleep(400);
                     } catch (Exception ignore) {}
                     appDriver.activateApp(pkg);
-                    long deadline = System.currentTimeMillis() + 6000;
+                    // Poll up to 20s for Home (exits immediately once Home is visible; covers slow splash on cold emulators)
+                    long deadline = System.currentTimeMillis() + 20000;
                     while (System.currentTimeMillis() < deadline) {
                         if (!currentDriver.findElements(motorTileBy).isEmpty() || !currentDriver.findElements(individualTabBy).isEmpty()) {
                             break;
