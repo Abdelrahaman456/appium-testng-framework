@@ -19,6 +19,7 @@ Thumbs.db
 
 # Scratch analysis scripts and XML/image dumps
 *.py
+!scripts/*.py
 *.png
 *.xml.dump
 dump*.xml
