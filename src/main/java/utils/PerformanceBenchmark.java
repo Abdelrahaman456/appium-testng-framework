@@ -180,7 +180,7 @@ public class PerformanceBenchmark {
             sb.append("# ⚡ Tree Digital Insurance - Automated Performance Benchmarks\n\n");
             sb.append("**Last Run Timestamp**: ").append(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date())).append("\n\n");
             sb.append("| Product / Test Journey | Stage / Transaction | Elapsed (s) | SLA Target (s) | SLA Status |\n");
-            sb.append("| :--- | :--- | :---: | :---: |\n");
+            sb.append("| :--- | :--- | :---: | :---: | :---: |\n");
             for (String row : existingRows.values()) {
                 sb.append(row).append("\n");
             }
