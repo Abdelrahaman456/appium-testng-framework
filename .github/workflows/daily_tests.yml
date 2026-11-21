@@ -72,6 +72,8 @@ jobs:
           java -version 2>&1 | head -1
           mvn -version | head -1
           adb version | head -1
+          COMMIT_MSG=$(git log -1 --pretty=%s 2>/dev/null || true)
+          echo "COMMIT_MESSAGE=${COMMIT_MSG}" >> $GITHUB_ENV
 
       - name: Ensure Android Emulator is Booted and Healthy
         run: |
@@ -149,7 +151,6 @@ jobs:
           TEAMS_CHANNEL_NAME: Mobile Automation
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           COMMIT_URL: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
-          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
           ACTOR: ${{ github.actor }}
           MAVEN_OUTCOME: ${{ steps.maven.outcome }}
           JOB_STATUS: ${{ job.status }}
@@ -177,7 +178,6 @@ jobs:
           TEAMS_CHANNEL_NAME: Mobile Automation
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           COMMIT_URL: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
-          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
           ACTOR: ${{ github.actor }}
           MAVEN_OUTCOME: ${{ steps.maven.outcome }}
           JOB_STATUS: ${{ job.status }}

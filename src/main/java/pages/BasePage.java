@@ -513,7 +513,33 @@ public class BasePage {
         tapCoordinates(centerX, centerY);
     }
 
-    public static final String ADB_PATH = "C:\\Users\\LENOVO\\AppData\\Local\\Android\\Sdk\\platform-tools\\adb.exe";
+    public static final String ADB_PATH = resolveAdbPath();
+
+    private static String resolveAdbPath() {
+        boolean isWindows = System.getProperty("os.name", "").toLowerCase().contains("win");
+        String adbName = isWindows ? "adb.exe" : "adb";
+
+        for (String envVar : new String[]{"ANDROID_HOME", "ANDROID_SDK_ROOT"}) {
+            String sdkRoot = System.getenv(envVar);
+            if (sdkRoot != null && !sdkRoot.isBlank()) {
+                java.io.File candidate = new java.io.File(sdkRoot, "platform-tools" + java.io.File.separator + adbName);
+                if (candidate.exists()) {
+                    return candidate.getAbsolutePath();
+                }
+            }
+        }
+
+        if (isWindows) {
+            String localAppData = System.getenv("LOCALAPPDATA");
+            if (localAppData != null && !localAppData.isBlank()) {
+                java.io.File candidate = new java.io.File(localAppData, "Android\\Sdk\\platform-tools\\adb.exe");
+                if (candidate.exists()) {
+                    return candidate.getAbsolutePath();
+                }
+            }
+        }
+        return adbName;
+    }
 
     public void tapCoordinates(int x, int y) {
         try {

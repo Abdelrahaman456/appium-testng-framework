@@ -11,8 +11,6 @@ import java.util.List;
 
 public class ClaimsScreen extends BasePage {
 
-    private static final String ADB_PATH = "C:\\Users\\LENOVO\\AppData\\Local\\Android\\Sdk\\platform-tools\\adb.exe";
-
     public ClaimsScreen() {
         super();
         PageFactory.initElements(new AppiumFieldDecorator(driver, Duration.ofSeconds(2)), this);
