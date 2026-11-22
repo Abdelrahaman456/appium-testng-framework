@@ -65,7 +65,7 @@ public class MalpracticeScreen extends BasePage {
             "//*[contains(@content-desc, 'Malpractice') or contains(@text, 'Malpractice')]"
         );
         org.openqa.selenium.By insureBtnBy = org.openqa.selenium.By.xpath(
-            "//*[@content-desc='Insure now' or @text='Insure now' or @resource-id='btn_insure_now']"
+            "//*[@resource-id='btn_next_button_product_landing_page_' or @resource-id='btn_insure_now' or @content-desc='Insure now' or @text='Insure now']"
         );
         org.openqa.selenium.By formTargetBy = org.openqa.selenium.By.xpath(
             "//*[@resource-id='textfield_national_id' or contains(@resource-id, 'national_id')]"
@@ -74,11 +74,22 @@ public class MalpracticeScreen extends BasePage {
             if (!driver.findElements(landingBy).isEmpty() || !driver.findElements(insureBtnBy).isEmpty()) {
                 System.out.println("Detected Malpractice Landing screen. Tapping Insure now...");
                 for (int attempt = 1; attempt <= 3; attempt++) {
-                    java.util.List<WebElement> btns = driver.findElements(insureBtnBy);
+                    java.util.List<WebElement> btns = findWithUnimportantViews(insureBtnBy);
+                    if (btns.isEmpty()) {
+                        scrollDown();
+                        btns = findWithUnimportantViews(insureBtnBy);
+                    }
                     if (!btns.isEmpty()) {
-                        tapElement(btns.get(btns.size() - 1));
-                    } else {
-                        tapCoordinates(540, 2260);
+                        WebElement target = btns.get(btns.size() - 1);
+                        for (WebElement b : btns) {
+                            if ("true".equals(b.getAttribute("clickable"))) {
+                                target = b;
+                                break;
+                            }
+                        }
+                        tapElement(target);
+                    } else if (isElementVisible(insureNowButton)) {
+                        tapElement(insureNowButton);
                     }
                     try { Thread.sleep(1500); } catch (Exception ignore) {}
                     if (!driver.findElements(formTargetBy).isEmpty()) {
@@ -211,11 +222,10 @@ public class MalpracticeScreen extends BasePage {
             }
             if (!clicked) {
                 org.openqa.selenium.Rectangle r = professionInput.getRect();
-                int suggX = r.getX() + 250;
-                int suggY = r.getY() + r.getHeight() + 30;
+                int suggX = r.getX() + (int) (r.getWidth() * 0.25);
+                int suggY = r.getY() + r.getHeight() + Math.max(10, (int) (r.getHeight() * 0.25));
                 System.out.println("Tapping suggestion overlay at (" + suggX + ", " + suggY + ")...");
                 tapCoordinates(suggX, suggY);
-                adbTap(suggX, suggY);
             }
             Thread.sleep(800);
             hideKeyboard();
@@ -268,10 +278,6 @@ public class MalpracticeScreen extends BasePage {
                 } catch (Exception clickEx) {
                     tapElement(btn);
                 }
-                try {
-                    org.openqa.selenium.Rectangle r = btn.getRect();
-                    adbTap(r.getX() + r.getWidth() / 2, r.getY() + r.getHeight() / 2);
-                } catch (Exception ignore) {}
                 try { Thread.sleep(800); } catch (Exception ignore) {}
 
                 // Verify: If No was selected, the provider dropdown should NOT be visible
@@ -344,6 +350,10 @@ public class MalpracticeScreen extends BasePage {
             System.out.println("Malpractice clickNext attempt " + attempt + " of 3...");
             List<WebElement> btns = driver.findElements(nextBtnBy);
             if (btns.isEmpty()) btns = findWithUnimportantViews(nextBtnBy);
+            if (btns.isEmpty()) {
+                scrollDown();
+                btns = findWithUnimportantViews(nextBtnBy);
+            }
             if (!btns.isEmpty()) {
                 WebElement targetBtn = btns.get(btns.size() - 1);
                 for (WebElement b : btns) {
@@ -353,9 +363,8 @@ public class MalpracticeScreen extends BasePage {
                     }
                 }
                 tapElement(targetBtn);
-            } else {
-                tapCoordinates(540, 2261);
-                adbTap(540, 2261);
+            } else if (isElementVisible(nextButton)) {
+                tapElement(nextButton);
             }
 
             boolean transitioned = waitUntil(() -> {
@@ -459,7 +468,7 @@ public class MalpracticeScreen extends BasePage {
         System.out.println("Selecting Deductible Option: " + deductibleAmount);
         try {
             By deductibleBy = By.xpath(
-                "//*[contains(@content-desc, '" + deductibleAmount + "') or contains(@text, '" + deductibleAmount + "') or contains(@resource-id, 'deductible')]");
+                "//*[contains(@content-desc, '" + deductibleAmount + "') or contains(@text, '" + deductibleAmount + "')]");
             List<WebElement> options = driver.findElements(deductibleBy);
             if (!options.isEmpty()) {
                 tapElement(options.get(0));
@@ -479,7 +488,7 @@ public class MalpracticeScreen extends BasePage {
         System.out.println("Selecting Coverage Limit: " + limitAmount);
         try {
             By limitBy = By.xpath(
-                "//*[contains(@content-desc, '" + limitAmount + "') or contains(@text, '" + limitAmount + "') or contains(@resource-id, 'coverage_limit')]");
+                "//*[contains(@content-desc, '" + limitAmount + "') or contains(@text, '" + limitAmount + "')]");
             List<WebElement> options = driver.findElements(limitBy);
             if (!options.isEmpty()) {
                 tapElement(options.get(0));
@@ -639,7 +648,14 @@ public class MalpracticeScreen extends BasePage {
     public boolean isUnderwritingReferralDisplayed() {
         try {
             return !driver.findElements(By.xpath(
-                "//*[contains(@text, 'Underwriting') or contains(@content-desc, 'Underwriting') or contains(@text, 'Review') or contains(@content-desc, 'Review') or contains(@text, 'Something Went Wrong') or contains(@content-desc, 'referral') or contains(@text, 'referral') or contains(@text, 'excluded') or contains(@content-desc, 'excluded')]")).isEmpty();
+                "//*[contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'underwriting') "
+                + "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'underwriting') "
+                + "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'review') "
+                + "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'review') "
+                + "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'referral') "
+                + "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'referral') "
+                + "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'excluded') "
+                + "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'excluded')]")).isEmpty();
         } catch (Exception e) {
             return false;
         }

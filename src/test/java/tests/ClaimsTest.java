@@ -50,7 +50,7 @@ public class ClaimsTest extends BaseTest {
 
         System.out.println("[Step 4] Filling Claimant Details & Date of Birth...");
         claimsScreen.fillClaimantDetails(CLAIMANT_ID, CLAIMANT_PHONE, CLAIMANT_SEQ, true);
-        boolean progressed = claimsScreen.isAccidentDetailsDisplayed() || claimsScreen.isDocumentUploadDisplayed() || claimsScreen.isClaimantFormDisplayed();
+        boolean progressed = claimsScreen.isAccidentDetailsDisplayed() || claimsScreen.isDocumentUploadDisplayed();
         Assert.assertTrue(progressed,
                 "Claimant details form should submit and advance in flow");
 
@@ -89,7 +89,7 @@ public class ClaimsTest extends BaseTest {
 
         System.out.println("[Step 4] Filling Claimant Details for Property Damage...");
         claimsScreen.fillClaimantDetails(CLAIMANT_ID, CLAIMANT_PHONE, CLAIMANT_SEQ, true);
-        Assert.assertTrue(claimsScreen.isAccidentDetailsDisplayed() || claimsScreen.isDocumentUploadDisplayed() || claimsScreen.isClaimantFormDisplayed(),
+        Assert.assertTrue(claimsScreen.isAccidentDetailsDisplayed() || claimsScreen.isDocumentUploadDisplayed(),
                 "Accident details or document upload should be displayed for property damage scenario");
         System.out.println(">> [SUCCESS] Claims Flow 2 passed: Property damage scenario navigated successfully!");
     }

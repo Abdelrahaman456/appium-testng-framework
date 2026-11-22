@@ -2,8 +2,11 @@ package tests;
 
 import base.BaseTest;
 import org.testng.Assert;
+import org.testng.SkipException;
 import org.testng.annotations.Test;
 import pages.AddNewCardModal;
+import pages.BasePage;
+import pages.CheckoutScreen;
 import pages.HomeScreen;
 import pages.IndividualHealthScreen;
 import pages.OtpModal;
@@ -65,6 +68,10 @@ public class IndividualHealthTest extends BaseTest {
         healthScreen.clickDeclarationProceed();
         PerformanceBenchmark.stopStage("Health_Form_Fill", PerformanceBenchmark.SLA_FORM_INPUT);
 
+        if (BasePage.uatElmDependentBlocked) {
+            throw new SkipException("Blocked by UAT Elm dependent validation");
+        }
+
         System.out.println("[Step 5] Selecting Gold Plan Tier & Deductible Co-pay...");
         PerformanceBenchmark.startStage("Health_Quote_Rating");
         healthScreen.waitForPlanSelectionScreen();
@@ -77,6 +84,9 @@ public class IndividualHealthTest extends BaseTest {
         PerformanceBenchmark.stopStage("Health_Plan_Selection", PerformanceBenchmark.SLA_ADDON_RERATE);
 
         System.out.println("[Step 6] Checkout & National Address...");
+        if (BasePage.uatElmDependentBlocked) {
+            throw new SkipException("Blocked by UAT Elm dependent validation");
+        }
         PerformanceBenchmark.startStage("Health_Checkout_Payment");
         healthScreen.fillNationalAddress("1234", "Riyadh", "Riyadh", "King Fahd Rd", "Al Olaya", "5678", "12211");
         healthScreen.fillIbanAndAcceptTerms(TestDataBuilder.DEFAULT_IBAN);
@@ -84,16 +94,15 @@ public class IndividualHealthTest extends BaseTest {
 
         System.out.println("[Step 7] Payment Card Processing...");
         AddNewCardModal cardModal = new AddNewCardModal();
-        if (cardModal.isModalDisplayed()) {
-            TestDataBuilder.CreditCard card = TestDataBuilder.CreditCard.defaultCard();
-            cardModal.enterCardNumber(card.number);
-            cardModal.enterExpiryDate(card.expiry);
-            cardModal.enterCvv(card.cvv);
-            cardModal.enterCardHolderName(card.holderName);
-            cardModal.clickSave();
-            try { Thread.sleep(2500); } catch (Exception ignore) {}
-            healthScreen.clickCheckoutPayNow();
-        }
+        Assert.assertTrue(cardModal.isModalDisplayed(), "Add New Card modal should be displayed on Individual Health Checkout!");
+        TestDataBuilder.CreditCard card = TestDataBuilder.CreditCard.defaultCard();
+        cardModal.enterCardNumber(card.number);
+        cardModal.enterExpiryDate(card.expiry);
+        cardModal.enterCvv(card.cvv);
+        cardModal.enterCardHolderName(card.holderName);
+        cardModal.clickSave();
+        try { Thread.sleep(2500); } catch (Exception ignore) {}
+        new CheckoutScreen().clickPayNow();
 
         System.out.println("[Step 8] Verifying Policy Issuance Confirmation...");
         PolicyConfirmationScreen confirmationScreen = new PolicyConfirmationScreen();
@@ -134,6 +143,10 @@ public class IndividualHealthTest extends BaseTest {
         healthScreen.answerAllDeclarationQuestions(false);
         healthScreen.clickDeclarationProceed();
 
+        if (BasePage.uatElmDependentBlocked) {
+            throw new SkipException("Blocked by UAT Elm dependent validation");
+        }
+
         System.out.println("[Step 1] Evaluating Bronze, Silver, Platinum and Gold Plan tiers...");
         healthScreen.waitForPlanSelectionScreen();
 
@@ -151,21 +164,23 @@ public class IndividualHealthTest extends BaseTest {
         healthScreen.selectDeductible("20%");
         healthScreen.clickBuyNow();
 
+        if (BasePage.uatElmDependentBlocked) {
+            throw new SkipException("Blocked by UAT Elm dependent validation");
+        }
         healthScreen.fillNationalAddress("1234", "Riyadh", "Riyadh", "King Fahd Rd", "Al Olaya", "5678", "12211");
         healthScreen.fillIbanAndAcceptTerms(TestDataBuilder.DEFAULT_IBAN);
         healthScreen.clickCheckoutPayNow();
 
         AddNewCardModal cardModal = new AddNewCardModal();
-        if (cardModal.isModalDisplayed()) {
-            TestDataBuilder.CreditCard card = TestDataBuilder.CreditCard.defaultCard();
-            cardModal.enterCardNumber(card.number);
-            cardModal.enterExpiryDate(card.expiry);
-            cardModal.enterCvv(card.cvv);
-            cardModal.enterCardHolderName(card.holderName);
-            cardModal.clickSave();
-            try { Thread.sleep(2500); } catch (Exception ignore) {}
-            healthScreen.clickCheckoutPayNow();
-        }
+        Assert.assertTrue(cardModal.isModalDisplayed(), "Add New Card modal should be displayed on Individual Health Flow 2 Checkout!");
+        TestDataBuilder.CreditCard card = TestDataBuilder.CreditCard.defaultCard();
+        cardModal.enterCardNumber(card.number);
+        cardModal.enterExpiryDate(card.expiry);
+        cardModal.enterCvv(card.cvv);
+        cardModal.enterCardHolderName(card.holderName);
+        cardModal.clickSave();
+        try { Thread.sleep(2500); } catch (Exception ignore) {}
+        new CheckoutScreen().clickPayNow();
 
         PolicyConfirmationScreen confirmationScreen = new PolicyConfirmationScreen();
         boolean isSuccess = confirmationScreen.isPolicyConfirmed();
@@ -204,6 +219,10 @@ public class IndividualHealthTest extends BaseTest {
         healthScreen.answerAllDeclarationQuestions(true);
         healthScreen.clickDeclarationProceed();
 
+        if (BasePage.uatElmDependentBlocked) {
+            throw new SkipException("Blocked by UAT Elm dependent validation");
+        }
+
         boolean isReferralTriggered = healthScreen.isUnderwritingReferralDisplayed();
         Assert.assertTrue(isReferralTriggered,
                 "Underwriting referral or review notice should be triggered on declared medical conditions!");
@@ -228,6 +247,7 @@ public class IndividualHealthTest extends BaseTest {
         healthScreen.enterNationalId(invalidId);
         healthScreen.enterPhoneNumber(VALID_PHONE);
         healthScreen.enterEmail("invalid.user@tree.com.sa");
+        healthScreen.selectDob();
         healthScreen.acceptPrivacyNotice();
         healthScreen.clickNext();
 

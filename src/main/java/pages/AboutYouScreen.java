@@ -91,26 +91,25 @@ public class AboutYouScreen extends BasePage {
     public void selectOwnershipTransferTab() {
         System.out.println("Clicking Ownership Transfer tab...");
         org.openqa.selenium.By locator = org.openqa.selenium.By.xpath("//android.widget.Button[@content-desc=\"Ownership Transfer\"]");
-        
+        org.openqa.selenium.By sellerNationalIdBy = org.openqa.selenium.By.xpath(
+            "//android.widget.EditText[@resource-id='textfield_about_you_page_motor_seller_national_id' or contains(@resource-id, 'seller_national_id')]"
+        );
+
         try {
-            // First click
             WebElement tab = getVisibleElement(locator);
-            click(tab);
-            
-            // Bug workaround: The button flickers and returns to New Insurance! 
-            // Wait 3 seconds and click it AGAIN.
-            System.out.println("Wait 3 seconds for state flicker to settle...");
-            try { Thread.sleep(3000); } catch (Exception e) {}
-            
-            System.out.println("Re-clicking Ownership Transfer tab to bypass flicker bug...");
-            WebElement freshTab = driver.findElement(locator);
-            click(freshTab);
-            
+            tapElement(tab);
+
+            // Allow initial Flutter tab-flicker window to settle before checking/re-tapping
+            try { Thread.sleep(2000); } catch (Exception ignore) {}
+            if (!isElementVisible(sellerNationalIdBy)) {
+                System.out.println("Seller National ID not visible after initial settle; re-clicking Ownership Transfer tab...");
+                WebElement freshTab = getVisibleElement(locator);
+                tapElement(freshTab);
+                waitUntil(() -> isElementVisible(sellerNationalIdBy), 5);
+            }
         } catch (Exception e) {
             System.out.println("Failed to click Ownership Transfer: " + e.getMessage());
         }
-        
-        try { Thread.sleep(1500); } catch (Exception e) {}
     }
 
     public void selectNewInsuranceTab() {
@@ -118,7 +117,14 @@ public class AboutYouScreen extends BasePage {
     }
 
     public void enterSellerId(String sellerId) {
-        sendKeys(sellerIdField, sellerId);
+        org.openqa.selenium.By sellerNationalIdBy = org.openqa.selenium.By.xpath(
+            "//android.widget.EditText[@resource-id='textfield_about_you_page_motor_seller_national_id' or contains(@resource-id, 'seller_national_id')]"
+        );
+        if (!isElementVisible(sellerNationalIdBy)) {
+            selectOwnershipTransferTab();
+        }
+        WebElement field = isElementVisible(sellerNationalIdBy) ? getVisibleElement(sellerNationalIdBy) : sellerIdField;
+        sendKeys(field, sellerId);
     }
 
     public void selectCarModelYear(String year) {
@@ -324,58 +330,39 @@ public class AboutYouScreen extends BasePage {
 
     public void clickPrivacyCheckbox() {
         System.out.println("Ensuring Privacy checkbox is checked...");
-        try {
-            if (driver instanceof io.appium.java_client.android.AndroidDriver) {
-                ((io.appium.java_client.android.AndroidDriver) driver).hideKeyboard();
-                Thread.sleep(400);
-            }
-        } catch (Exception ignore) {}
-
         org.openqa.selenium.By locator = org.openqa.selenium.By.xpath(
-            "//*[@resource-id='tgl_about_you_page_motor_checkbox' or @class='android.widget.Switch']"
+            "//*[@resource-id='tgl_about_you_page_motor_checkbox' or @resource-id='tgl_checkbox' or contains(@resource-id, 'checkbox') or @class='android.widget.Switch']"
         );
-        java.util.List<WebElement> list = driver.findElements(locator);
-        if (!list.isEmpty()) {
-            WebElement sw = list.get(0);
-            if ("true".equalsIgnoreCase(sw.getAttribute("checked"))) {
-                System.out.println("Privacy checkbox is already checked.");
-                return;
-            }
-            try {
-                tapElement(sw);
-                Thread.sleep(500);
-            } catch (Exception e) {
-                click(sw);
-            }
-        } else {
-            try {
-                tapElement(privacyCheckbox);
-            } catch (Exception e) {
-                tapCoordinates(68, 2101);
-            }
-            try { Thread.sleep(500); } catch (Exception ignore) {}
-        }
-        System.out.println("Privacy checkbox tapped.");
+        boolean checked = clickPrivacySwitch(locator);
+        System.out.println("Privacy checkbox interaction completed (checked=" + checked + ").");
     }
 
     public void clickNext() {
         System.out.println("Clicking Next button on About You screen...");
-        try {
-            if (driver instanceof io.appium.java_client.android.AndroidDriver) {
-                ((io.appium.java_client.android.AndroidDriver) driver).hideKeyboard();
-                Thread.sleep(400);
-            }
-        } catch (Exception ignore) {}
-        try {
-            tapElement(nextButton);
-        } catch (Exception e) {
-            try {
-                click(nextButton);
-            } catch (Exception ex) {
-                System.out.println("Standard click on Next failed, using coordinate tap (540, 2261)...");
-                tapCoordinates(540, 2261);
-            }
+        hideKeyboard();
+        org.openqa.selenium.By nextBy = org.openqa.selenium.By.xpath(
+            "//*[@resource-id='btn_about_you_page_motor_next_button' or @resource-id='btn_next_button']//*[@clickable='true'] " +
+            "| //android.widget.Button[@clickable='true' and (@content-desc='Next' or @text='Next')] " +
+            "| //*[@resource-id='btn_about_you_page_motor_next_button' or @resource-id='btn_next_button' or @content-desc='Next' or @text='Next']"
+        );
+        java.util.List<WebElement> candidates = findWithUnimportantViews(nextBy);
+        if (candidates.isEmpty()) {
+            scrollDown();
+            candidates = findWithUnimportantViews(nextBy);
         }
+        for (WebElement el : candidates) {
+            try {
+                if (el.isDisplayed()) {
+                    tapElement(el);
+                    return;
+                }
+            } catch (Exception ignore) {}
+        }
+        if (!candidates.isEmpty()) {
+            tapElement(candidates.get(candidates.size() - 1));
+            return;
+        }
+        click(nextButton);
     }
 
     public void selectSequenceNumberRadio() {
@@ -471,5 +458,52 @@ public class AboutYouScreen extends BasePage {
             }
             Thread.sleep(500);
         } catch (Exception ignore) {}
+    }
+
+    public String getSequenceNumberText() {
+        try {
+            org.openqa.selenium.By locator = org.openqa.selenium.By.xpath("//android.widget.EditText[contains(@resource-id, 'sequence_number')]");
+            java.util.List<WebElement> fields = findWithUnimportantViews(locator);
+            if (!fields.isEmpty()) {
+                String txt = fields.get(0).getText();
+                return txt != null ? txt.trim() : "";
+            }
+        } catch (Exception ignore) {}
+        return "";
+    }
+
+    public boolean isScreenDisplayed() {
+        try {
+            org.openqa.selenium.By screenBy = org.openqa.selenium.By.xpath(
+                "//android.widget.EditText[contains(@resource-id, 'national_id') or contains(@resource-id, 'sequence_number') or contains(@resource-id, 'custom_card')] " +
+                "| //*[@resource-id='btn_about_you_page_motor_next_button' or @resource-id='btn_next_button']"
+            );
+            return !findWithUnimportantViews(screenBy).isEmpty();
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    public boolean isValidationErrorDisplayed() {
+        try {
+            org.openqa.selenium.By errBy = org.openqa.selenium.By.xpath(
+                "//*[contains(@resource-id, 'error') " +
+                "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'invalid') " +
+                "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'invalid') " +
+                "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'required') " +
+                "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'required') " +
+                "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'please enter') " +
+                "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'please enter') " +
+                "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'must be') " +
+                "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'must be') " +
+                "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'digits') " +
+                "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'digits') " +
+                "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'something went wrong') " +
+                "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'something went wrong')]"
+            );
+            return !findWithUnimportantViews(errBy).isEmpty();
+        } catch (Exception e) {
+            return false;
+        }
     }
 }

@@ -68,11 +68,13 @@ public class HomeInsuranceScreen extends BasePage {
             if (!driver.findElements(landingBy).isEmpty() || !driver.findElements(insureBtnBy).isEmpty()) {
                 System.out.println("Detected Home Insurance Landing screen. Tapping Insure now...");
                 for (int attempt = 1; attempt <= 3; attempt++) {
-                    java.util.List<WebElement> btns = driver.findElements(insureBtnBy);
+                    java.util.List<WebElement> btns = findWithUnimportantViews(insureBtnBy);
+                    if (btns.isEmpty()) {
+                        scrollDown();
+                        btns = findWithUnimportantViews(insureBtnBy);
+                    }
                     if (!btns.isEmpty()) {
                         tapElement(btns.get(btns.size() - 1));
-                    } else {
-                        tapCoordinates(540, 2260);
                     }
                     try { Thread.sleep(1500); } catch (Exception ignore) {}
                     if (!driver.findElements(formTargetBy).isEmpty()) {
@@ -108,23 +110,33 @@ public class HomeInsuranceScreen extends BasePage {
     @AndroidFindBy(xpath = "//*[@resource-id='btn_next_button' or @content-desc='Next' or @text='Next']")
     private WebElement nextButton;
 
+    public HomeInsuranceScreen enterNationalId(String nationalId) {
+        System.out.println("Entering Policyholder National ID: " + nationalId);
+        By idBy = By.xpath("//*[@resource-id='textfield_national_id' or contains(@resource-id, 'national_id')]");
+        WebElement idField = getVisibleElement(idBy);
+        sendKeys(idField, nationalId);
+        hideKeyboard();
+        return this;
+    }
+
+    public HomeInsuranceScreen enterPhoneNumber(String phone) {
+        System.out.println("Entering Phone Number: " + phone);
+        By phoneBy = By.xpath("//*[@resource-id='textfield_phone_number' or contains(@resource-id, 'phone')]");
+        WebElement phoneField = getVisibleElement(phoneBy);
+        sendKeys(phoneField, phone);
+        hideKeyboard();
+        return this;
+    }
+
     public HomeInsuranceScreen fillPolicyholderDetails(String nationalId, String phone, String email) {
         System.out.println("Waiting for Policyholder details form...");
         WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(25));
         wait.until(ExpectedConditions.presenceOfElementLocated(
             By.xpath("//*[@resource-id='textfield_national_id' or contains(@resource-id, 'national_id')]")));
 
-        System.out.println("Entering Policyholder National ID: " + nationalId);
-        WebElement idField = driver.findElement(By.xpath("//*[@resource-id='textfield_national_id' or contains(@resource-id, 'national_id')]"));
-        sendKeys(idField, nationalId);
-        hideKeyboard();
-
+        enterNationalId(nationalId);
         selectDob();
-
-        System.out.println("Entering Phone Number: " + phone);
-        WebElement phoneField = driver.findElement(By.xpath("//*[@resource-id='textfield_phone_number' or contains(@resource-id, 'phone')]"));
-        sendKeys(phoneField, phone);
-        hideKeyboard();
+        enterPhoneNumber(phone);
 
         // Email field if optional or present
         try {
@@ -147,13 +159,8 @@ public class HomeInsuranceScreen extends BasePage {
 
     public HomeInsuranceScreen acceptPrivacyNotice() {
         System.out.println("Toggling Privacy notice switch...");
-        hideKeyboard();
-        try {
-            clickPrivacySwitch();
-        } catch (Exception e) {
-            tapCoordinates(68, 2101);
-        }
-        try { Thread.sleep(500); } catch (Exception ignore) {}
+        By switchBy = By.xpath("//*[@resource-id='tgl_checkbox' or contains(@resource-id, 'checkbox') or @class='android.widget.Switch' or @class='android.widget.CheckBox']");
+        clickPrivacySwitch(switchBy);
         return this;
     }
 
@@ -161,28 +168,33 @@ public class HomeInsuranceScreen extends BasePage {
         System.out.println("Clicking Next button on Policyholder Details...");
         hideKeyboard();
         tapClickableNextButton();
-        try { Thread.sleep(2000); } catch (Exception ignore) {}
+        try { Thread.sleep(1500); } catch (Exception ignore) {}
         return this;
     }
 
     private void tapClickableNextButton() {
-        try {
-            java.util.List<WebElement> btns = driver.findElements(By.xpath(
-                "//android.widget.Button[(@content-desc='Next' or @text='Next') and @clickable='true'] | //*[@resource-id='btn_next_button' and @clickable='true']"));
-            if (!btns.isEmpty()) {
-                tapElement(btns.get(0));
-            } else {
-                java.util.List<WebElement> anyBtns = driver.findElements(By.xpath(
-                    "//*[@content-desc='Next' or @text='Next' or @resource-id='btn_next_button']"));
-                if (!anyBtns.isEmpty()) {
-                    tapElement(anyBtns.get(anyBtns.size() - 1));
-                } else {
-                    tapCoordinates(540, 2261);
+        By nextBy = By.xpath(
+            "//android.widget.Button[(@content-desc='Next' or @text='Next') and @clickable='true'] "
+            + "| //*[@resource-id='btn_next_button']//*[@clickable='true'] "
+            + "| //*[@resource-id='btn_next_button' or @content-desc='Next' or @text='Next']"
+        );
+        List<WebElement> btns = findWithUnimportantViews(nextBy);
+        if (btns.isEmpty()) {
+            scrollDown();
+            btns = findWithUnimportantViews(nextBy);
+        }
+        for (WebElement btn : btns) {
+            try {
+                if (btn.isDisplayed()) {
+                    tapElement(btn);
+                    return;
                 }
-            }
-        } catch (Exception e) {
-            System.out.println("Next button tap: " + e.getMessage());
-            tapCoordinates(540, 2261);
+            } catch (Exception ignore) {}
+        }
+        if (!btns.isEmpty()) {
+            tapElement(btns.get(btns.size() - 1));
+        } else {
+            click(nextButton);
         }
     }
 
@@ -268,91 +280,62 @@ public class HomeInsuranceScreen extends BasePage {
                     By.xpath("//*[@resource-id='textfield_building_number']")));
                 Thread.sleep(1500); // Allow modal animation to fully settle
 
-                // Fill manual address form using sequential element targeting
+                // Fill manual address form using dynamic locators and sendKeys
                 try {
                     System.out.println("Entering manual address: Building 1234, Secondary 5678, Street King...");
+                    By bldgBy = By.xpath("//*[@resource-id='textfield_building_number' or contains(@hint, 'Building')]");
+                    By secBy = By.xpath("//*[@resource-id='textfield_secondary_number' or contains(@hint, 'Secondary')]");
+                    By streetBy = By.xpath("//*[@resource-id='textfield_street' or contains(@resource-id, 'street') or contains(@hint, 'Street')]");
+                    By saveBy = By.xpath(
+                        "//*[@resource-id='btn_save_button']//*[@clickable='true'] "
+                        + "| //android.widget.Button[@clickable='true' and (@content-desc='Save' or @text='Save')] "
+                        + "| //*[@resource-id='btn_save_button' or @content-desc='Save' or @text='Save']"
+                    );
+
                     for (int attempt = 0; attempt < 3; attempt++) {
-                        // 1. Building number
-                        try {
-                            List<WebElement> bldgList = driver.findElements(By.xpath("//*[@resource-id='textfield_building_number']"));
-                            if (!bldgList.isEmpty()) {
-                                WebElement bldgEl = bldgList.get(0);
-                                tapElement(bldgEl);
-                                sendKeys(bldgEl, "1234");
-                            } else {
-                                adbTap(286, 1585);
-                                adbInput("1234");
-                            }
-                        } catch (Exception ex) {
-                            adbTap(286, 1585);
-                            adbInput("1234");
+                        List<WebElement> bldgList = findWithUnimportantViews(bldgBy);
+                        if (!bldgList.isEmpty()) {
+                            sendKeys(bldgList.get(0), "1234");
                         }
-                        try { Thread.sleep(300); } catch (Exception ignore) {}
 
-                        // 2. Secondary number
-                        try {
-                            List<WebElement> secList = driver.findElements(By.xpath("//*[@resource-id='textfield_secondary_number']"));
-                            if (!secList.isEmpty()) {
-                                WebElement secEl = secList.get(0);
-                                tapElement(secEl);
-                                sendKeys(secEl, "5678");
-                            } else {
-                                adbTap(794, 1585);
-                                adbInput("5678");
-                            }
-                        } catch (Exception ex) {
-                            adbTap(794, 1585);
-                            adbInput("5678");
+                        List<WebElement> secList = findWithUnimportantViews(secBy);
+                        if (!secList.isEmpty()) {
+                            sendKeys(secList.get(0), "5678");
                         }
-                        try { Thread.sleep(300); } catch (Exception ignore) {}
 
-                        // 3. Street
-                        try {
-                            List<WebElement> streetList = driver.findElements(By.xpath("//*[@resource-id='textfield_street']"));
-                            if (!streetList.isEmpty()) {
-                                WebElement streetEl = streetList.get(0);
-                                tapElement(streetEl);
-                                sendKeys(streetEl, "King");
-                            } else {
-                                adbTap(286, 1806);
-                                adbInput("King");
-                            }
-                        } catch (Exception ex) {
-                            adbTap(286, 1806);
-                            adbInput("King");
+                        hideKeyboard();
+                        List<WebElement> streetList = findWithUnimportantViews(streetBy);
+                        if (streetList.isEmpty()) {
+                            scrollDown();
+                            streetList = findWithUnimportantViews(streetBy);
                         }
-                        try { Thread.sleep(300); } catch (Exception ignore) {}
+                        if (!streetList.isEmpty()) {
+                            sendKeys(streetList.get(0), "King");
+                        }
 
-                        // Hide keyboard so Save button is clearly displayed
                         hideKeyboard();
                         try { Thread.sleep(500); } catch (Exception ignore) {}
 
-                        // 4. Save address (tap Save button inside modal bounds [53,2153][1028,2274])
                         System.out.println("Tapping Save on address modal (attempt " + (attempt + 1) + ")...");
                         for (int s = 0; s < 3; s++) {
-                            try {
-                                List<WebElement> saveBtns = driver.findElements(By.xpath(
-                                    "//*[@content-desc='Save' or @text='Save'] | //*[@resource-id='btn_save_button']"));
-                                if (!saveBtns.isEmpty()) {
-                                    tapElement(saveBtns.get(saveBtns.size() - 1));
-                                } else {
-                                    tapCoordinates(540, 2213);
-                                }
-                            } catch (Exception ex) {
-                                tapCoordinates(540, 2213);
+                            List<WebElement> saveBtns = findWithUnimportantViews(saveBy);
+                            if (saveBtns.isEmpty()) {
+                                scrollDown();
+                                saveBtns = findWithUnimportantViews(saveBy);
                             }
-                            Thread.sleep(1200);
-                            if (driver.findElements(By.xpath("//*[@resource-id='textfield_building_number']")).isEmpty()) {
+                            if (!saveBtns.isEmpty()) {
+                                tapElement(saveBtns.get(saveBtns.size() - 1));
+                            }
+                            if (waitUntil(() -> findWithUnimportantViews(bldgBy).isEmpty(), 2)) {
                                 break;
                             }
                         }
 
-                        if (driver.findElements(By.xpath("//*[@resource-id='textfield_building_number']")).isEmpty()) {
+                        if (findWithUnimportantViews(bldgBy).isEmpty()) {
                             System.out.println("Address modal successfully saved and closed!");
                             break;
                         }
                     }
-                    Thread.sleep(1000);
                 } catch (Exception formEx) {
                     System.out.println("Address form dynamic fill error: " + formEx.getMessage());
                 }
@@ -364,108 +347,169 @@ public class HomeInsuranceScreen extends BasePage {
         // 2. Email address
         System.out.println("Entering Email address on About Your Home: " + email);
         try {
-            By emailBy = By.xpath("//*[@resource-id='textfield_email' or contains(@hint, 'Email') or contains(@text, 'Email')]");
-            List<WebElement> emailEls = driver.findElements(emailBy);
-            if (!emailEls.isEmpty()) {
-                tapElement(emailEls.get(0));
-            } else {
-                adbTap(540, 726);
+            By emailBy = By.xpath(
+                "//android.widget.EditText[@resource-id='textfield_email' or contains(@resource-id, 'email') or contains(@hint, 'Email') or contains(@text, 'Email')] "
+                + "| //*[@resource-id='textfield_email' or contains(@hint, 'Email')]"
+            );
+            List<WebElement> emailEls = findWithUnimportantViews(emailBy);
+            if (emailEls.isEmpty()) {
+                scrollDown();
+                emailEls = findWithUnimportantViews(emailBy);
             }
-            Thread.sleep(500);
-            Runtime.getRuntime().exec(new String[]{ADB_PATH, "-s", "emulator-5554", "shell", "input", "text", email}).waitFor();
-            Thread.sleep(400);
+            if (!emailEls.isEmpty()) {
+                sendKeys(emailEls.get(0), email);
+                hideKeyboard();
+            }
         } catch (Exception ex) {
             System.out.println("Email entry error: " + ex.getMessage());
         }
 
-        // 3. Underwriting Declaration questions (8 questions)
+        // 3. Underwriting Declaration questions (8 questions) via dynamic locators & scrolling
         System.out.println("Answering Home Underwriting Declaration questions (cleanEligibility=" + cleanEligibility + ")...");
-        try {
-            if (cleanEligibility) {
-                List<WebElement> yesBtns = driver.findElements(By.xpath("//*[@resource-id='btn_yes_button' or @content-desc='Yes']"));
-                List<WebElement> noBtns = driver.findElements(By.xpath("//*[@resource-id='btn_no_button' or @content-desc='No']"));
-                System.out.println("Underwriting elements detected: " + yesBtns.size() + " Yes buttons, " + noBtns.size() + " No buttons.");
+        answerHomeUnderwritingDeclarations(cleanEligibility);
 
-                if (yesBtns.size() >= 8 && noBtns.size() >= 8) {
-                    System.out.println("Answering 8 questions via WebElements...");
-                    // Q1: No
-                    tapElement(noBtns.get(0));
-                    Thread.sleep(250);
-                    // Q2: Yes (standard building materials)
-                    tapElement(yesBtns.get(1));
-                    Thread.sleep(250);
-                    // Q3: Yes (premises in good state of repair)
-                    tapElement(yesBtns.get(2));
-                    Thread.sleep(250);
-                    // Q4: No (business carried on)
-                    tapElement(noBtns.get(3));
-                    Thread.sleep(250);
-                    // Q5: No (additional facts)
-                    tapElement(noBtns.get(4));
-                    Thread.sleep(250);
-                    // Q6: No (basement)
-                    tapElement(noBtns.get(5));
-                    Thread.sleep(250);
-                    // Q7: No (PEP)
-                    tapElement(noBtns.get(6));
-                    Thread.sleep(250);
-                    // Q8: No (Related Party)
-                    tapElement(noBtns.get(7));
-                    Thread.sleep(250);
-                } else {
-                    System.out.println("Answering 8 questions via calibrated screen coordinates...");
-                    // Calibrated coordinate fallbacks matching exact button centers
-                    adbTap(776, 247); // Q1: No
-                    Thread.sleep(250);
-                    adbTap(304, 576); // Q2: Yes
-                    Thread.sleep(250);
-                    adbTap(304, 809); // Q3: Yes
-                    Thread.sleep(250);
-                    adbTap(776, 1090); // Q4: No
-                    Thread.sleep(250);
-                    adbTap(776, 1371); // Q5: No
-                    Thread.sleep(250);
-                    adbTap(776, 1605); // Q6: No
-                    Thread.sleep(250);
-                    adbTap(940, 1846); // Q7: No
-                    Thread.sleep(250);
-                    adbTap(940, 1977); // Q8: No
-                    Thread.sleep(250);
-                }
-            } else {
-                // Referral / Rejection test: answer Yes to Q1 (prior declined/special terms)
-                List<WebElement> yesBtns = driver.findElements(By.xpath("//*[@resource-id='btn_yes_button' or @content-desc='Yes']"));
-                if (!yesBtns.isEmpty()) {
-                    tapElement(yesBtns.get(0));
-                } else {
-                    adbTap(304, 247);
-                }
-                Thread.sleep(300);
-            }
-        } catch (Exception ex) {
-            System.out.println("Declaration questions handling: " + ex.getMessage());
-        }
-
-        // 4. Click Next button
+        // 4. Click Next button dynamically
         System.out.println("Clicking Next button on 'About your home'...");
+        hideKeyboard();
+        By nextBy = By.xpath(
+            "//*[@content-desc='Next' and @clickable='true'] "
+            + "| //*[@resource-id='btn_next_button']//*[@clickable='true'] "
+            + "| //android.widget.Button[@content-desc='Next' or @text='Next'] "
+            + "| //*[@content-desc='Next' or @text='Next' or @resource-id='btn_next_button']"
+        );
         for (int n = 1; n <= 3; n++) {
-            try {
-                By nextBy = By.xpath("//*[@content-desc='Next' and @clickable='true'] | //*[@resource-id='btn_next_button']//*[@clickable='true'] | //android.widget.Button[@content-desc='Next'] | //*[@content-desc='Next'] | //*[@resource-id='btn_next_button']");
-                List<WebElement> nextBtns = driver.findElements(nextBy);
-                if (!nextBtns.isEmpty()) {
-                    tapElement(nextBtns.get(nextBtns.size() - 1));
-                } else {
-                    adbTap(540, 2261);
-                }
-            } catch (Exception ignore) {
-                adbTap(540, 2261);
+            List<WebElement> nextBtns = findWithUnimportantViews(nextBy);
+            if (nextBtns.isEmpty()) {
+                scrollDown();
+                nextBtns = findWithUnimportantViews(nextBy);
             }
-            try { Thread.sleep(2000); } catch (Exception ignore) {}
-            if (isCheckoutLoaded() || !driver.findElements(By.xpath("//*[contains(@content-desc, 'Something Went Wrong') or contains(@text, 'Something Went Wrong')]")).isEmpty()) {
+            if (!nextBtns.isEmpty()) {
+                tapElement(nextBtns.get(nextBtns.size() - 1));
+            }
+            if (waitUntil(() -> isCheckoutLoaded() || isReferralModalDisplayed(), 3)) {
                 break;
             }
         }
         return this;
+    }
+
+    private void answerHomeUnderwritingDeclarations(boolean cleanEligibility) {
+        By yesBy = By.xpath("//*[@resource-id='btn_yes_button' or @content-desc='Yes' or @text='Yes']");
+        By noBy = By.xpath("//*[@resource-id='btn_no_button' or @content-desc='No' or @text='No']");
+        if (!waitUntil(() -> !findWithUnimportantViews(yesBy).isEmpty() || !findWithUnimportantViews(noBy).isEmpty(), 5)) {
+            System.out.println("No underwriting declaration questions detected on screen.");
+            return;
+        }
+
+        // Expected clean answers for Q1..Q8: Q1=No (Yes if referral test), Q2=Yes, Q3=Yes, Q4..Q8=No
+        boolean[] expectedYes = new boolean[]{!cleanEligibility, true, true, false, false, false, false, false};
+        String[][] questionKeywords = new String[][]{
+            {"loss", "damage", "claim", "declined", "cancel", "special terms", "3 years"},
+            {"building material", "standard", "constructed", "concrete"},
+            {"good state of repair", "state of repair", "repair", "maintained"},
+            {"business", "commercial", "profession"},
+            {"additional", "material fact", "other fact", "disclose"},
+            {"basement", "cellar"},
+            {"politically exposed", "pep"},
+            {"related party", "related"}
+        };
+
+        int screenHeight = getSafeWindowSize().height;
+        int maxTapY = (int) (screenHeight * 0.90);
+        boolean[] answered = new boolean[8];
+
+        for (int scrollPass = 0; scrollPass < 3; scrollPass++) {
+            for (int q = 0; q < 8; q++) {
+                if (answered[q]) continue;
+                WebElement questionEl = findQuestionLabel(questionKeywords[q], maxTapY);
+                if (questionEl == null) continue;
+
+                int qY = questionEl.getRect().getY();
+                List<WebElement> candidates = findWithUnimportantViews(expectedYes[q] ? yesBy : noBy);
+                WebElement bestBtn = null;
+                int bestDist = Integer.MAX_VALUE;
+                for (WebElement btn : candidates) {
+                    try {
+                        if (!btn.isDisplayed()) continue;
+                        int bY = btn.getRect().getY();
+                        if (bY >= qY - 20 && bY < maxTapY && (bY - qY) < (int) (screenHeight * 0.25)) {
+                            int dist = Math.abs(bY - qY);
+                            if (dist < bestDist) {
+                                bestDist = dist;
+                                bestBtn = btn;
+                            }
+                        }
+                    } catch (Exception ignore) {}
+                }
+                if (bestBtn != null) {
+                    tapElement(bestBtn);
+                    answered[q] = true;
+                    try { Thread.sleep(250); } catch (Exception ignore) {}
+                    if (!cleanEligibility && q == 0 && isReferralModalDisplayed()) {
+                        return;
+                    }
+                }
+            }
+            boolean allDone = true;
+            for (boolean a : answered) {
+                if (!a) {
+                    allDone = false;
+                    break;
+                }
+            }
+            if (allDone) {
+                return;
+            }
+            if (scrollPass < 2) {
+                scrollDown();
+            }
+        }
+
+        // Fallback if question labels could not be matched by text: answer sequentially by index with dynamic scroll
+        int matchedCount = 0;
+        for (boolean a : answered) if (a) matchedCount++;
+        if (matchedCount == 0) {
+            scrollUp();
+            for (int i = 0; i < 8; i++) {
+                By targetBy = expectedYes[i] ? yesBy : noBy;
+                List<WebElement> btns = findWithUnimportantViews(targetBy);
+                if (i < btns.size()) {
+                    WebElement btn = btns.get(i);
+                    for (int s = 0; s < 2 && btn.getRect().getY() >= maxTapY; s++) {
+                        scrollDown();
+                        btns = findWithUnimportantViews(targetBy);
+                        if (i >= btns.size()) break;
+                        btn = btns.get(i);
+                    }
+                    if (i < btns.size() && btn.isDisplayed() && btn.getRect().getY() > 0 && btn.getRect().getY() < maxTapY) {
+                        tapElement(btn);
+                        try { Thread.sleep(250); } catch (Exception ignore) {}
+                        if (!cleanEligibility && i == 0 && isReferralModalDisplayed()) {
+                            return;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private WebElement findQuestionLabel(String[] keywords, int maxY) {
+        StringBuilder predicate = new StringBuilder();
+        for (int i = 0; i < keywords.length; i++) {
+            if (i > 0) predicate.append(" or ");
+            String kw = keywords[i].toLowerCase();
+            predicate.append("contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), '").append(kw).append("')");
+            predicate.append(" or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), '").append(kw).append("')");
+        }
+        By labelBy = By.xpath("//*[" + predicate + "]");
+        for (WebElement el : findWithUnimportantViews(labelBy)) {
+            try {
+                if (el.isDisplayed() && el.getRect().getY() > 0 && el.getRect().getY() < maxY) {
+                    return el;
+                }
+            } catch (Exception ignore) {}
+        }
+        return null;
     }
 
     public HomeInsuranceScreen selectCoverType(String coverType) {
@@ -494,14 +538,40 @@ public class HomeInsuranceScreen extends BasePage {
     public HomeInsuranceScreen enterHighValueItems(String itemDescription, String estimatedValue) {
         System.out.println("Adding High-Value Valuables: " + itemDescription + " (SAR " + estimatedValue + ")");
         try {
-            By descBy = By.xpath("//*[@resource-id='textfield_valuable_desc' or contains(@hint, 'Valuable') or contains(@hint, 'Description')]");
-            WebElement descEl = driver.findElement(descBy);
-            sendKeys(descEl, itemDescription);
-
-            By valBy = By.xpath("//*[@resource-id='textfield_valuable_value' or contains(@hint, 'Value')]");
-            WebElement valEl = driver.findElement(valBy);
-            sendKeys(valEl, estimatedValue);
-            hideKeyboard();
+            By descBy = By.xpath(
+                "//*[@resource-id='textfield_valuable_desc' or contains(@resource-id, 'valuable') "
+                + "or contains(@hint, 'Valuable') or contains(@hint, 'Description') or contains(@hint, 'Item')]"
+            );
+            List<WebElement> descEls = findWithUnimportantViews(descBy);
+            if (descEls.isEmpty()) {
+                By toggleBy = By.xpath(
+                    "//*[contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'valuable') "
+                    + "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'valuable') "
+                    + "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'high-value') "
+                    + "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'high-value')]"
+                );
+                List<WebElement> toggles = findWithUnimportantViews(toggleBy);
+                if (toggles.isEmpty()) {
+                    scrollDown();
+                    toggles = findWithUnimportantViews(toggleBy);
+                }
+                if (!toggles.isEmpty()) {
+                    tapElement(toggles.get(0));
+                    waitUntil(() -> !findWithUnimportantViews(descBy).isEmpty(), 3);
+                }
+                descEls = findWithUnimportantViews(descBy);
+            }
+            if (!descEls.isEmpty()) {
+                sendKeys(descEls.get(0), itemDescription);
+                By valBy = By.xpath("//*[@resource-id='textfield_valuable_value' or contains(@hint, 'Value') or contains(@hint, 'Estimated')]");
+                List<WebElement> valEls = findWithUnimportantViews(valBy);
+                if (!valEls.isEmpty()) {
+                    sendKeys(valEls.get(0), estimatedValue);
+                }
+                hideKeyboard();
+            } else {
+                System.out.println("High-value item fields not present on current screen; continuing.");
+            }
         } catch (Exception ignore) {
             System.out.println("High-value item fields skipped or optional.");
         }
@@ -545,20 +615,38 @@ public class HomeInsuranceScreen extends BasePage {
     public HomeInsuranceScreen clickPropertyProceed() {
         System.out.println("Clicking Proceed button on Property Details...");
         hideKeyboard();
-        try {
-            By locator = By.xpath("//*[@resource-id='btn_proceed' or @resource-id='btn_next_button' or @content-desc='Proceed' or @text='Proceed']");
-            WebElement btn = driver.findElement(locator);
-            tapElement(btn);
-        } catch (Exception e) {
-            // dynamic locator used; coordinate fallback removed
+        By locator = By.xpath("//*[@resource-id='btn_proceed' or @resource-id='btn_next_button' or @content-desc='Proceed' or @text='Proceed']");
+        List<WebElement> btns = findWithUnimportantViews(locator);
+        if (btns.isEmpty()) {
+            scrollDown();
+            btns = findWithUnimportantViews(locator);
         }
-        try { Thread.sleep(2000); } catch (Exception ignore) {}
+        if (!btns.isEmpty()) {
+            tapElement(btns.get(btns.size() - 1));
+        }
+        try { Thread.sleep(1500); } catch (Exception ignore) {}
         return this;
     }
 
     public boolean isReferralModalDisplayed() {
         try {
-            return !driver.findElements(By.xpath("//*[contains(@text, 'Underwriting') or contains(@content-desc, 'Underwriting') or contains(@text, 'Review') or contains(@content-desc, 'Review') or contains(@text, 'Something Went Wrong') or contains(@content-desc, 'Something Went Wrong') or contains(@content-desc, 'Cannot') or contains(@text, 'Cannot') or contains(@content-desc, 'Sorry') or contains(@text, 'Sorry') or contains(@content-desc, 'refer') or contains(@text, 'refer')]")).isEmpty();
+            By referralBy = By.xpath(
+                "//*[contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'underwriting') "
+                + "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'underwriting') "
+                + "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'manual review') "
+                + "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'manual review') "
+                + "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'under review') "
+                + "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'under review') "
+                + "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'referral') "
+                + "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'referral') "
+                + "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'referred') "
+                + "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'referred') "
+                + "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'not eligible') "
+                + "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'not eligible') "
+                + "or contains(@content-desc, 'Cannot') or contains(@text, 'Cannot') "
+                + "or contains(@content-desc, 'Sorry') or contains(@text, 'Sorry')]"
+            );
+            return !findWithUnimportantViews(referralBy).isEmpty();
         } catch (Exception e) {
             return false;
         }
@@ -606,26 +694,26 @@ public class HomeInsuranceScreen extends BasePage {
         By quoteHeaderBy = By.xpath("//*[contains(@content-desc, 'Here') and contains(@content-desc, 'quote')]");
 
         for (int attempt = 1; attempt <= 5; attempt++) {
-            try {
-                // Select first available plan card (Standard, Premium, Silver, Gold, Platinum)
-                By planCardBy = By.xpath("//*[contains(@content-desc, 'Standard') or contains(@content-desc, 'Premium') or contains(@content-desc, 'Silver') or contains(@content-desc, 'Gold') or contains(@content-desc, 'Platinum')]");
-                List<WebElement> plans = driver.findElements(planCardBy);
-                if (!plans.isEmpty()) {
-                    try { tapElement(plans.get(0)); Thread.sleep(1000); } catch (Exception ignore) {}
-                }
-
-                By proceedBy = By.xpath("//android.widget.Button[@content-desc='Proceed' or @text='Proceed'] | //*[@content-desc='Proceed'] | //*[@resource-id='btn_proceed']");
-                List<WebElement> proceedBtns = driver.findElements(proceedBy);
-                if (!proceedBtns.isEmpty()) {
-                    tapElement(proceedBtns.get(proceedBtns.size() - 1));
-                } else {
-                    adbTap(540, 2261);
-                }
-            } catch (Exception e) {
-                adbTap(540, 2261);
+            // Select first available plan card (Standard, Premium, Silver, Gold, Platinum)
+            By planCardBy = By.xpath("//*[contains(@content-desc, 'Standard') or contains(@content-desc, 'Premium') or contains(@content-desc, 'Silver') or contains(@content-desc, 'Gold') or contains(@content-desc, 'Platinum')]");
+            List<WebElement> plans = findWithUnimportantViews(planCardBy);
+            if (!plans.isEmpty()) {
+                try { tapElement(plans.get(0)); Thread.sleep(800); } catch (Exception ignore) {}
             }
-            try { Thread.sleep(3000); } catch (Exception ignore) {}
-            if (driver.findElements(quoteHeaderBy).isEmpty()) {
+
+            By proceedBy = By.xpath(
+                "//android.widget.Button[@clickable='true' and (@content-desc='Proceed' or @text='Proceed' or @content-desc='Buy now' or @text='Buy now')] "
+                + "| //*[@resource-id='btn_proceed' or @resource-id='btn_buy_now' or @resource-id='btn_sales_quote_page_buy_now_button' or @content-desc='Proceed' or @content-desc='Buy now']"
+            );
+            List<WebElement> proceedBtns = findWithUnimportantViews(proceedBy);
+            if (proceedBtns.isEmpty()) {
+                scrollDown();
+                proceedBtns = findWithUnimportantViews(proceedBy);
+            }
+            if (!proceedBtns.isEmpty()) {
+                tapElement(proceedBtns.get(proceedBtns.size() - 1));
+            }
+            if (waitUntil(() -> driver.findElements(quoteHeaderBy).isEmpty(), 4)) {
                 System.out.println("Successfully transitioned past Quote screen!");
                 break;
             }
@@ -664,7 +752,7 @@ public class HomeInsuranceScreen extends BasePage {
     private WebElement checkoutPayNowButton;
 
     public HomeInsuranceScreen fillNationalAddress(String bldg, String region, String city, String street, String dist, String addNo, String zip) {
-        System.out.println("Waiting for Checkout screen or UAT backend response to appear...");
+        System.out.println("Waiting for Checkout screen to appear...");
         By checkoutBy = By.xpath("//*[@resource-id='textfield_iban' or contains(@resource-id, 'iban') or @resource-id='btn_pay_now' or contains(@content-desc, 'Checkout') or contains(@text, 'Checkout') or contains(@text, 'Total premium') or contains(@content-desc, 'Total premium')]");
         By swwBy = By.xpath("//*[contains(@content-desc, 'Something Went Wrong') or contains(@text, 'Something Went Wrong')]");
 
@@ -675,7 +763,7 @@ public class HomeInsuranceScreen extends BasePage {
                 return this;
             }
             if (!driver.findElements(swwBy).isEmpty()) {
-                System.out.println("[UAT Sandbox Notice] 'Something Went Wrong' returned by UAT backend on Home details submission; attempting Try Again...");
+                System.out.println("'Something Went Wrong' error displayed during Home submission; attempting Try Again...");
                 try {
                     WebElement tryAgain = driver.findElement(By.xpath("//*[@resource-id='btn_try_again_button'] | //*[@content-desc='Try Again'] | //*[@text='Try Again']"));
                     tapElement(tryAgain);
@@ -686,15 +774,14 @@ public class HomeInsuranceScreen extends BasePage {
                     return this;
                 }
                 if (!driver.findElements(swwBy).isEmpty()) {
-                    System.out.println("[UAT Sandbox Notice] UAT backend returned sandbox 'Something Went Wrong' response for Home Insurance; setting UAT sandbox flag.");
-                    BasePage.uatElmDependentBlocked = true;
+                    System.out.println("Home Checkout did not recover after Try Again.");
                     return this;
                 }
             }
             // If still on 'About your home' with Next button, tap it again
             try {
                 By nextBy = By.xpath("//*[@content-desc='Next' and @clickable='true'] | //android.widget.Button[@content-desc='Next'] | //*[@resource-id='btn_next_button']");
-                List<WebElement> nBtns = driver.findElements(nextBy);
+                List<WebElement> nBtns = findWithUnimportantViews(nextBy);
                 if (!nBtns.isEmpty()) {
                     tapElement(nBtns.get(nBtns.size() - 1));
                     Thread.sleep(2000);
@@ -706,10 +793,6 @@ public class HomeInsuranceScreen extends BasePage {
     }
 
     public HomeInsuranceScreen fillIbanAndAcceptTerms(String iban) {
-        if (BasePage.uatElmDependentBlocked) {
-            System.out.println("[UAT Sandbox Notice] Skipping IBAN on UAT sandbox response.");
-            return this;
-        }
         System.out.println("Entering IBAN and accepting Terms on Home Insurance Checkout...");
         try {
             CheckoutScreen checkout = new CheckoutScreen();
@@ -722,10 +805,6 @@ public class HomeInsuranceScreen extends BasePage {
     }
 
     public HomeInsuranceScreen clickCheckoutPayNow() {
-        if (BasePage.uatElmDependentBlocked) {
-            System.out.println("[UAT Sandbox Notice] Skipping Pay Now on UAT sandbox response.");
-            return this;
-        }
         if (isPaymentOrConfirmationAlreadyActive()) {
             return this;
         }
@@ -736,6 +815,19 @@ public class HomeInsuranceScreen extends BasePage {
             checkout.clickPayNow();
         } catch (Exception e) {
             System.out.println("CheckoutScreen pay now warning: " + e.getMessage());
+        }
+        return this;
+    }
+
+    public HomeInsuranceScreen clickPayNowOnly() {
+        if (isPaymentOrConfirmationAlreadyActive()) {
+            return this;
+        }
+        System.out.println("Clicking Pay now on Home Insurance Checkout (without re-selecting payment card)...");
+        try {
+            new CheckoutScreen().clickPayNow();
+        } catch (Exception e) {
+            System.out.println("CheckoutScreen clickPayNow warning: " + e.getMessage());
         }
         return this;
     }

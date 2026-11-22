@@ -10,6 +10,7 @@ import org.openqa.selenium.support.ui.WebDriverWait;
 
 import java.time.Duration;
 import java.util.List;
+import utils.TestDataBuilder;
 
 /**
  * Page Object for Pet Insurance product in Tree Digital Insurance.
@@ -78,7 +79,7 @@ public class PetScreen extends BasePage {
     @AndroidFindBy(xpath = "//*[@resource-id='btn_next_button' or @content-desc='Next' or @text='Next']")
     private WebElement nextButton;
 
-    @AndroidFindBy(xpath = "//*[contains(@resource-id, 'error') or contains(@content-desc, 'invalid') or contains(@text, 'invalid') or contains(@text, 'Invalid') or contains(@content-desc, 'Age') or contains(@text, 'Age limit')]")
+    @AndroidFindBy(xpath = "//*[contains(@resource-id, 'error') or contains(@content-desc, 'invalid') or contains(@text, 'invalid') or contains(@content-desc, 'Invalid') or contains(@text, 'Invalid') or contains(@content-desc, 'required') or contains(@text, 'required') or contains(@content-desc, 'Age limit') or contains(@text, 'Age limit')]")
     private WebElement validationErrorMessage;
 
     // =========================================================================
@@ -212,12 +213,16 @@ public class PetScreen extends BasePage {
 
     public PetScreen enterMicrochipId(String microchipId) {
         System.out.println("Entering Pet 15-digit Microchip ID: " + microchipId);
+        By microchipBy = By.xpath("//*[@resource-id='textfield_microchip_id' or contains(@resource-id, 'microchip') or contains(@hint, 'Microchip')]");
         try {
+            waitUntil(() -> isElementVisible(microchipInput) || !findWithUnimportantViews(microchipBy).isEmpty(), 4);
             if (isElementVisible(microchipInput)) {
                 sendKeys(microchipInput, microchipId);
             } else {
-                WebElement fallback = driver.findElement(By.xpath("//*[contains(@resource-id, 'microchip') or contains(@hint, 'Microchip')]"));
-                sendKeys(fallback, microchipId);
+                List<WebElement> fields = findWithUnimportantViews(microchipBy);
+                if (!fields.isEmpty()) {
+                    sendKeys(fields.get(0), microchipId);
+                }
             }
             hideKeyboard();
         } catch (Exception ignore) {
@@ -506,7 +511,9 @@ public class PetScreen extends BasePage {
                 try {
                     String val = phoneInput.getText();
                     if (val == null || val.trim().isEmpty()) {
-                        new ProcessBuilder(ADB_PATH, "-s", "emulator-5554", "shell", "input", "text", phone).start().waitFor();
+                        tapElement(phoneInput);
+                        try { Thread.sleep(200); } catch (Exception ignore) {}
+                        adbInput(phone);
                     }
                 } catch (Exception ignore) {}
             }
@@ -532,17 +539,32 @@ public class PetScreen extends BasePage {
     public PetScreen clickNext() {
         System.out.println("Clicking Next button on 'About your pet'...");
         hideKeyboard();
+        By nextBtnBy = By.xpath(
+                "//*[@resource-id='btn_next_button']//*[@clickable='true']"
+                + " | //android.widget.Button[(@content-desc='Next' or @text='Next') and @clickable='true']"
+                + " | //*[@resource-id='btn_next_button']"
+                + " | //android.widget.Button[@content-desc='Next' or @text='Next']");
         for (int retry = 0; retry < 3; retry++) {
             try {
-                By nextBtnBy = By.xpath("//android.widget.Button[(@content-desc='Next' or @text='Next') and @clickable='true'] | //*[@resource-id='btn_next_button' and @clickable='true']");
-                List<WebElement> btns = driver.findElements(nextBtnBy);
+                List<WebElement> btns = findWithUnimportantViews(nextBtnBy);
+                if (btns.isEmpty()) {
+                    scrollDown();
+                    btns = findWithUnimportantViews(nextBtnBy);
+                }
                 if (!btns.isEmpty()) {
-                    tapElement(btns.get(0));
-                } else {
-                    tapCoordinates(540, 2261);
+                    WebElement target = btns.get(btns.size() - 1);
+                    for (WebElement b : btns) {
+                        if ("true".equals(b.getAttribute("clickable"))) {
+                            target = b;
+                            break;
+                        }
+                    }
+                    tapElement(target);
+                } else if (isElementVisible(nextButton)) {
+                    tapElement(nextButton);
                 }
             } catch (Exception e) {
-                tapCoordinates(540, 2261);
+                System.out.println("Pet clickNext lookup note: " + e.getMessage());
             }
             try {
                 Thread.sleep(2500);
@@ -556,7 +578,7 @@ public class PetScreen extends BasePage {
                 OtpModal otpModal = new OtpModal();
                 if (otpModal.isModalDisplayed()) {
                     System.out.println("OTP modal detected after Pet 'Next'; verifying OTP...");
-                    otpModal.enterOtp("1234");
+                    otpModal.enterOtp(TestDataBuilder.DEFAULT_OTP);
                 }
             } catch (Exception ignore) {}
 
@@ -574,6 +596,13 @@ public class PetScreen extends BasePage {
      * Fills the complete "About your pet" screen according to CRITICAL DOMAIN RULE 3.
      */
     public PetScreen fillAboutYourPet(String name, String type, int years, int months, String gender, String city, String email, String phone) {
+        return fillAboutYourPet(name, type, years, months, gender, city, email, phone, null);
+    }
+
+    /**
+     * Fills the complete "About your pet" screen including optional microchip ID before clicking Next.
+     */
+    public PetScreen fillAboutYourPet(String name, String type, int years, int months, String gender, String city, String email, String phone, String microchipId) {
         System.out.println("Filling 'About your pet' screen: Name=" + name + ", Type=" + type + ", Age=" + years + "y " + months + "m");
         enterPetName(name);
         selectPetType(type);
@@ -582,6 +611,9 @@ public class PetScreen extends BasePage {
         selectPetGender(gender);
         selectCity(city);
         enterContactInfo(email, phone);
+        if (microchipId != null && !microchipId.isEmpty()) {
+            enterMicrochipId(microchipId);
+        }
         try {
             List<WebElement> nameFields = driver.findElements(By.xpath("//*[@resource-id='textfield_your_pet_name' or @resource-id='textfield_pet_name']"));
             if (!nameFields.isEmpty()) {
@@ -607,11 +639,23 @@ public class PetScreen extends BasePage {
             return waitErr.until(d -> {
                 if (isElementVisible(validationErrorMessage)) return true;
                 return !driver.findElements(By.xpath(
-                    "//*[contains(@resource-id, 'error') or contains(@text, 'invalid') or contains(@content-desc, 'invalid') "
-                    + "or contains(@text, 'Age') or contains(@content-desc, 'Age') "
-                    + "or contains(@content-desc, 'required') or contains(@text, 'required') "
-                    + "or contains(@content-desc, 'between') or contains(@text, 'between') "
-                    + "or contains(@content-desc, 'years old') or contains(@text, 'years old')]")).isEmpty();
+                    "//*[contains(@resource-id, 'error')"
+                    + " or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'invalid')"
+                    + " or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'invalid')"
+                    + " or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'required')"
+                    + " or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'required')"
+                    + " or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'older')"
+                    + " or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'older')"
+                    + " or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'maximum')"
+                    + " or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'maximum')"
+                    + " or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'between')"
+                    + " or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'between')"
+                    + " or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'age must')"
+                    + " or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'age must')"
+                    + " or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'years old')"
+                    + " or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'years old')"
+                    + " or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'age limit')"
+                    + " or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'age limit')]")).isEmpty();
             });
         } catch (Exception e) {
             return false;
@@ -711,12 +755,14 @@ public class PetScreen extends BasePage {
             return waitReferral.until(d -> {
                 if (isElementVisible(underwritingNotice)) return true;
                 return !driver.findElements(By.xpath(
-                    "//*[contains(@content-desc, 'referral') or contains(@text, 'referral') "
-                    + "or contains(@content-desc, 'exclusion') or contains(@text, 'exclusion') "
-                    + "or contains(@content-desc, 'not eligible') or contains(@text, 'not eligible') "
-                    + "or contains(@content-desc, 'underwriting') or contains(@text, 'underwriting') "
-                    + "or contains(@content-desc, 'A bit more about') or contains(@text, 'A bit more about') "
-                    + "or contains(@content-desc, 'Something Went Wrong') or contains(@text, 'Something Went Wrong')]")).isEmpty();
+                    "//*[contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'referral') "
+                    + "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'referral') "
+                    + "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'exclusion') "
+                    + "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'exclusion') "
+                    + "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'not eligible') "
+                    + "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'not eligible') "
+                    + "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'underwriting') "
+                    + "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'underwriting')]")).isEmpty();
             });
         } catch (Exception e) {
             return false;
@@ -813,7 +859,7 @@ public class PetScreen extends BasePage {
                 OtpModal otpModal = new OtpModal();
                 if (otpModal.isModalDisplayed()) {
                     System.out.println("OTP modal detected after Pet declarations/owner; verifying OTP...");
-                    otpModal.enterOtp("1234");
+                    otpModal.enterOtp(TestDataBuilder.DEFAULT_OTP);
                     Thread.sleep(2500);
                     continue;
                 }
@@ -824,8 +870,8 @@ public class PetScreen extends BasePage {
                 System.out.println("Pet Owner Details screen detected; filling National ID & DOB...");
                 try {
                     String currentVal = ownerIdFields.get(0).getText();
-                    if (currentVal == null || !currentVal.contains("1313424273")) {
-                        sendKeys(ownerIdFields.get(0), "1313424273");
+                    if (currentVal == null || !currentVal.contains(TestDataBuilder.DEFAULT_SELLER_ID)) {
+                        sendKeys(ownerIdFields.get(0), TestDataBuilder.DEFAULT_SELLER_ID);
                     }
                     hideKeyboard();
                     List<WebElement> dobFields = driver.findElements(By.xpath("//*[@resource-id='textfield_month_year_of_birth_txt' or @resource-id='textfield_year_monthof_birth' or contains(@resource-id, 'birth') or contains(@resource-id, 'dob') or @hint='Month/Year of birth' or contains(@hint, 'birth')]"));
@@ -836,17 +882,27 @@ public class PetScreen extends BasePage {
                         }
                     }
                     // Tap Next button on Owner Details (no privacy switch on this screen)
-                    List<WebElement> nextBtns = driver.findElements(By.xpath("//android.widget.Button[(@content-desc='Next' or @text='Next' or @content-desc='Proceed' or @text='Proceed') and @clickable='true'] | //*[@resource-id='btn_next_button' and @clickable='true']"));
+                    By ownerNextBy = By.xpath("//android.widget.Button[(@content-desc='Next' or @text='Next' or @content-desc='Proceed' or @text='Proceed') and @clickable='true'] | //*[@resource-id='btn_next_button' and @clickable='true'] | //*[@resource-id='btn_next_button' or @content-desc='Next' or @text='Next' or @content-desc='Proceed' or @text='Proceed']");
+                    List<WebElement> nextBtns = findWithUnimportantViews(ownerNextBy);
+                    if (nextBtns.isEmpty()) {
+                        scrollDown();
+                        nextBtns = findWithUnimportantViews(ownerNextBy);
+                    }
                     if (!nextBtns.isEmpty()) {
-                        tapElement(nextBtns.get(0));
-                    } else {
-                        tapCoordinates(540, 2261);
+                        WebElement target = nextBtns.get(0);
+                        for (WebElement b : nextBtns) {
+                            if ("true".equals(b.getAttribute("clickable"))) {
+                                target = b;
+                                break;
+                            }
+                        }
+                        tapElement(target);
                     }
                     Thread.sleep(2500);
                     OtpModal otpModal = new OtpModal();
                     if (otpModal.isModalDisplayed()) {
                         System.out.println("OTP modal detected after Pet owner Next; entering OTP...");
-                        otpModal.enterOtp("1234");
+                        otpModal.enterOtp(TestDataBuilder.DEFAULT_OTP);
                         Thread.sleep(2500);
                     }
                 } catch (Exception ignore) {}

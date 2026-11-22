@@ -234,10 +234,58 @@ public class QuoteScreen extends BasePage {
 
     public boolean isPromoCodeInvalid() {
         try {
-            return isElementVisible(promoErrorBadge) || !driver.findElements(org.openqa.selenium.By.xpath("//*[contains(@content-desc, 'Invalid') or contains(@text, 'Invalid') or contains(@content-desc, 'invalid') or contains(@text, 'invalid')]")).isEmpty();
+            org.openqa.selenium.By invalidPromoBy = org.openqa.selenium.By.xpath(
+                "//*[contains(@resource-id, 'promo_error') " +
+                "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'invalid') " +
+                "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'invalid') " +
+                "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'not valid') " +
+                "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'not valid') " +
+                "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'incorrect') " +
+                "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'incorrect') " +
+                "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'expired') " +
+                "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'expired') " +
+                "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'not found') " +
+                "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'not found')]"
+            );
+            return isElementVisible(promoErrorBadge)
+                    || waitUntil(() -> !findWithUnimportantViews(invalidPromoBy).isEmpty(), 4);
         } catch (Exception e) {
             return false;
         }
+    }
+
+    public boolean isQuoteVisibleNow() {
+        try {
+            org.openqa.selenium.By quoteIndicator = org.openqa.selenium.By.xpath(
+                "//*[@content-desc=\"Here's your quote\" or @text=\"Here's your quote\" " +
+                "or @resource-id='btn_quote_page_motor_buy_now' " +
+                "or contains(@content-desc, 'Smart Cover') or contains(@text, 'Smart Cover') " +
+                "or contains(@content-desc, 'Saver Cover') or contains(@text, 'Saver Cover') " +
+                "or contains(@content-desc, 'Comprehensive Cover') or contains(@text, 'Comprehensive Cover')]"
+            );
+            return !driver.findElements(quoteIndicator).isEmpty();
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    public boolean isUnderwritingOrReferralDisplayed() {
+        org.openqa.selenium.By referralBy = org.openqa.selenium.By.xpath(
+            "//*[contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'referral') " +
+            "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'referral') " +
+            "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'underwriting') " +
+            "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'underwriting') " +
+            "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'manual review') " +
+            "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'manual review') " +
+            "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'not eligible') " +
+            "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'not eligible') " +
+            "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'cannot') " +
+            "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'cannot') " +
+            "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'sorry') " +
+            "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'sorry') " +
+            "or contains(@content-desc, 'Something Went Wrong') or contains(@text, 'Something Went Wrong')]"
+        );
+        return waitUntil(() -> !findWithUnimportantViews(referralBy).isEmpty(), 5);
     }
 
     public String getTotalPremiumText() {
@@ -284,48 +332,120 @@ public class QuoteScreen extends BasePage {
 
 
 
+    private boolean isCoverCardExpanded(String coverName) {
+        try {
+            org.openqa.selenium.By coverHeaderBy = org.openqa.selenium.By.xpath(
+                "//*[contains(@content-desc, '" + coverName + "') or contains(@text, '" + coverName + "')]"
+            );
+            java.util.List<WebElement> headers = findWithUnimportantViews(coverHeaderBy);
+            WebElement coverHeader = null;
+            for (WebElement h : headers) {
+                if (h.isDisplayed()) {
+                    coverHeader = h;
+                    break;
+                }
+            }
+            if (coverHeader == null) {
+                return false;
+            }
+            int coverTop = coverHeader.getRect().getY();
+
+            // Determine where the next cover card starts below this card so we never match another cover's Buy now/details
+            int nextCoverTop = Integer.MAX_VALUE;
+            for (String otherCover : new String[]{"Comprehensive Cover", "Smart Cover", "Saver Cover"}) {
+                if (otherCover.equalsIgnoreCase(coverName)) {
+                    continue;
+                }
+                org.openqa.selenium.By otherBy = org.openqa.selenium.By.xpath(
+                    "//*[contains(@content-desc, '" + otherCover + "') or contains(@text, '" + otherCover + "')]"
+                );
+                for (WebElement otherEl : findWithUnimportantViews(otherBy)) {
+                    try {
+                        if (otherEl.isDisplayed()) {
+                            int oy = otherEl.getRect().getY();
+                            if (oy > coverTop + 20 && oy < nextCoverTop) {
+                                nextCoverTop = oy;
+                            }
+                        }
+                    } catch (Exception ignore) {}
+                }
+            }
+
+            org.openqa.selenium.By buyNowMarker = org.openqa.selenium.By.xpath(
+                "//android.widget.Button[@clickable='true' and (@content-desc='Buy now' or @text='Buy now')] " +
+                "| //*[@resource-id='btn_quote_page_motor_buy_now' or @resource-id='btn_buy_now' or @content-desc='Buy now' or @text='Buy now']"
+            );
+            for (WebElement bn : findWithUnimportantViews(buyNowMarker)) {
+                try {
+                    if (bn.isDisplayed()) {
+                        int byY = bn.getRect().getY();
+                        if (byY >= coverTop && byY < nextCoverTop) {
+                            return true;
+                        }
+                    }
+                } catch (Exception ignore) {}
+            }
+
+            org.openqa.selenium.By detailMarker = org.openqa.selenium.By.xpath(
+                "//*[contains(@content-desc, 'Agency') or contains(@text, 'Agency') " +
+                "or contains(@content-desc, 'Workshop') or contains(@text, 'Workshop') " +
+                "or contains(@content-desc, 'Vehicle value') or contains(@text, 'Vehicle value') " +
+                "or contains(@content-desc, 'Deductible') or contains(@text, 'Deductible')]"
+            );
+            for (WebElement det : findWithUnimportantViews(detailMarker)) {
+                try {
+                    if (det.isDisplayed()) {
+                        String desc = det.getAttribute("content-desc");
+                        String txt = det.getText();
+                        boolean isHeaderItself = (desc != null && desc.contains(coverName)) || (txt != null && txt.contains(coverName));
+                        int dy = det.getRect().getY();
+                        if (!isHeaderItself && dy > coverTop + 20 && dy < nextCoverTop) {
+                            return true;
+                        }
+                    }
+                } catch (Exception ignore) {}
+            }
+        } catch (Exception ignore) {}
+        return false;
+    }
+
     private void selectCoverCard(String coverName, WebElement fallbackOption, boolean skipIfExpanded) {
-        waitForVisibility(fallbackOption);
-        org.openqa.selenium.By expandedMarker = org.openqa.selenium.By.xpath(
-            "//android.widget.Button[@clickable='true' and (@content-desc='Buy now' or @text='Buy now')] " +
-            "| //*[@resource-id='btn_quote_page_motor_buy_now' or @resource-id='btn_buy_now' " +
-            "or contains(@content-desc, 'Repair') or contains(@text, 'Repair') " +
-            "or contains(@content-desc, 'Vehicle value') or contains(@text, 'Vehicle value') " +
-            "or contains(@content-desc, 'Deductible') or contains(@text, 'Deductible') " +
-            "or contains(@content-desc, 'Agency') or contains(@text, 'Agency') " +
-            "or contains(@content-desc, 'Workshop') or contains(@text, 'Workshop')]"
+        org.openqa.selenium.By coverHeaderBy = org.openqa.selenium.By.xpath(
+            "//*[contains(@content-desc, '" + coverName + "') or contains(@text, '" + coverName + "')]"
         );
-        if (skipIfExpanded && !driver.findElements(expandedMarker).isEmpty()) {
-            System.out.println(coverName + " already expanded (Buy now / details visible); skipping toggle tap.");
+        if (!isElementVisible(coverHeaderBy)) {
+            scrollUp();
+        }
+        waitForVisibility(fallbackOption);
+        if (skipIfExpanded && isCoverCardExpanded(coverName)) {
+            System.out.println(coverName + " is already expanded (its Buy now / details are visible); skipping toggle tap.");
             return;
         }
         org.openqa.selenium.By clickableCardBy = org.openqa.selenium.By.xpath(
             "//*[@clickable='true' and (contains(@content-desc, '" + coverName + "') or contains(@text, '" + coverName + "'))]"
         );
-        java.util.List<WebElement> clickableNodes = driver.findElements(clickableCardBy);
+        java.util.List<WebElement> clickableNodes = findWithUnimportantViews(clickableCardBy);
         WebElement target = clickableNodes.isEmpty() ? fallbackOption : clickableNodes.get(0);
         tapElement(target);
-        if (waitUntil(() -> !driver.findElements(expandedMarker).isEmpty(), 3)) {
+        if (waitUntil(() -> isCoverCardExpanded(coverName), 3)) {
             return;
         }
         System.out.println(coverName + " did not expand on first tap; trying native click / alternate card node...");
         try {
             target.click();
         } catch (Exception ignore) {}
-        if (waitUntil(() -> !driver.findElements(expandedMarker).isEmpty(), 2)) {
+        if (waitUntil(() -> isCoverCardExpanded(coverName), 2)) {
             return;
         }
         try {
-            java.util.List<WebElement> allMatches = driver.findElements(org.openqa.selenium.By.xpath(
-                "//*[contains(@content-desc, '" + coverName + "') or contains(@text, '" + coverName + "')]"
-            ));
+            java.util.List<WebElement> allMatches = findWithUnimportantViews(coverHeaderBy);
             for (WebElement node : allMatches) {
                 System.out.println("Quote card candidate [" + coverName + "]: class=" + node.getAttribute("className")
                     + " clickable=" + node.getAttribute("clickable") + " bounds=" + node.getAttribute("bounds"));
             }
             if (!allMatches.isEmpty()) {
                 tapElement(allMatches.get(allMatches.size() - 1));
-                waitUntil(() -> !driver.findElements(expandedMarker).isEmpty(), 2);
+                waitUntil(() -> isCoverCardExpanded(coverName), 2);
             }
         } catch (Exception e) {
             System.out.println("Retry expand failed for " + coverName + ": " + e.getMessage());
@@ -374,8 +494,8 @@ public class QuoteScreen extends BasePage {
 
     public void answerRelatedPartyQuestion(boolean isYes) {
         org.openqa.selenium.By relatedLocator = org.openqa.selenium.By.xpath(
-            "//*[contains(@content-desc, 'related party') or contains(@text, 'related party') " +
-            "or (//*[@content-desc='Yes' or @text='Yes'])[2]]"
+            "//*[contains(@content-desc, 'related party') or contains(@text, 'related party')] " +
+            "| (//*[@resource-id='btn_yes_button' or @content-desc='Yes' or @text='Yes'])[2]"
         );
         for (int i = 0; i < 3; i++) {
             if (!driver.findElements(relatedLocator).isEmpty()) {
@@ -412,6 +532,19 @@ public class QuoteScreen extends BasePage {
             "or @resource-id='textfield_checkout_page_motor_email' or @resource-id='textfield_email']"
         );
 
+        org.openqa.selenium.By referralDialogBy = org.openqa.selenium.By.xpath(
+            "//*[contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'referral') " +
+            "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'referral') " +
+            "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'underwriting') " +
+            "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'underwriting') " +
+            "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'manual review') " +
+            "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'manual review') " +
+            "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'not eligible') " +
+            "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'not eligible') " +
+            "or contains(@content-desc, 'Something Went Wrong') or contains(@text, 'Something Went Wrong')]"
+        );
+
+        boolean tappedBuyNow = false;
         for (int i = 0; i < 5; i++) {
             WebElement target = null;
             java.util.List<WebElement> preferred = driver.findElements(clickableBuyNowBy);
@@ -424,23 +557,35 @@ public class QuoteScreen extends BasePage {
                 }
             }
             if (target != null) {
+                if ("false".equalsIgnoreCase(target.getAttribute("enabled"))) {
+                    System.out.println("Buy Now button is currently disabled.");
+                    return;
+                }
                 System.out.println("Buy Now button located! Tapping...");
                 tapElement(target);
-                boolean navigated = waitUntil(() -> !driver.findElements(postQuoteBy).isEmpty() || driver.findElements(quoteHeaderBy).isEmpty(), 4);
-                if (navigated) {
+                tappedBuyNow = true;
+                boolean transitioned = waitUntil(() -> !driver.findElements(postQuoteBy).isEmpty()
+                        || driver.findElements(quoteHeaderBy).isEmpty()
+                        || !driver.findElements(referralDialogBy).isEmpty(), 4);
+                if (transitioned) {
                     return;
                 }
                 System.out.println("Still on Quote screen after Buy Now tap; retrying tap...");
                 java.util.List<WebElement> retry = findWithUnimportantViews(buyNowBy);
                 if (!retry.isEmpty()) {
                     tapElement(retry.get(0));
-                    if (waitUntil(() -> !driver.findElements(postQuoteBy).isEmpty() || driver.findElements(quoteHeaderBy).isEmpty(), 4)) {
+                    if (waitUntil(() -> !driver.findElements(postQuoteBy).isEmpty()
+                            || driver.findElements(quoteHeaderBy).isEmpty()
+                            || !driver.findElements(referralDialogBy).isEmpty(), 4)) {
                         return;
                     }
                 }
             }
             System.out.println("Scrolling down (attempt " + (i + 1) + ")...");
             scrollDown();
+        }
+        if (tappedBuyNow) {
+            return;
         }
         click(buyNowButton);
     }

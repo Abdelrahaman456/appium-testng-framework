@@ -193,6 +193,10 @@ public class FamilyHealthScreen extends BasePage {
             System.out.println("Family Health clickNext attempt " + attempt + " of 3...");
             List<WebElement> btns = driver.findElements(nextBtnBy);
             if (btns.isEmpty()) btns = findWithUnimportantViews(nextBtnBy);
+            if (btns.isEmpty()) {
+                scrollDown();
+                btns = findWithUnimportantViews(nextBtnBy);
+            }
             if (!btns.isEmpty()) {
                 WebElement targetBtn = btns.get(btns.size() - 1);
                 for (WebElement b : btns) {
@@ -202,16 +206,15 @@ public class FamilyHealthScreen extends BasePage {
                     }
                 }
                 tapElement(targetBtn);
-            } else {
-                tapCoordinates(540, 2261);
-                adbTap(540, 2261);
+            } else if (isElementVisible(nextButton)) {
+                tapElement(nextButton);
             }
 
             boolean transitioned = waitUntil(() -> {
                 boolean onOtp = !driver.findElements(By.xpath(
                     "//*[contains(@content-desc, 'OTP') or contains(@text, 'OTP') or contains(@content-desc, 'Verification') or contains(@text, 'Verification') or @resource-id='textfield_otp_code' or contains(@resource-id, 'otp_pin')]")).isEmpty();
                 boolean onDependent = !driver.findElements(By.xpath(
-                    "//*[@resource-id='textfield_national_id' or @resource-id='textfield_dependent_id' or @resource-id='btn_add' or @content-desc='Add' or contains(@content-desc, 'Dependent') or contains(@content-desc, 'Member')]")).isEmpty();
+                    "//*[@resource-id='textfield_iqama_id' or @resource-id='textfield_dependent_id' or @resource-id='btn_add' or @content-desc='Add' or contains(@content-desc, 'Dependent') or contains(@content-desc, 'Member')]")).isEmpty();
                 boolean onError = isErrorDialogDisplayed() || isValidationErrorDisplayed();
                 return onOtp || onDependent || onError;
             }, 6);
@@ -231,7 +234,9 @@ public class FamilyHealthScreen extends BasePage {
             return waitErr.until(d -> {
                 if (isElementVisible(validationErrorMessage)) return true;
                 return !driver.findElements(By.xpath(
-                    "//*[contains(@resource-id, 'error') or contains(@text, 'invalid') or contains(@content-desc, 'invalid') or contains(@text, 'Invalid')]")).isEmpty();
+                    "//*[contains(@resource-id, 'error') "
+                    + "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'invalid') "
+                    + "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'invalid')]")).isEmpty();
             });
         } catch (Exception e) {
             return false;
@@ -339,7 +344,7 @@ public class FamilyHealthScreen extends BasePage {
     @AndroidFindBy(xpath = "//*[@resource-id='btn_proceed' or @resource-id='btn_next_button' or @content-desc='Proceed' or @content-desc='Next' or @text='Proceed' or @text='Next']")
     private WebElement declarationProceedButton;
 
-    @AndroidFindBy(xpath = "//*[contains(@content-desc, 'referral') or contains(@text, 'referral') or contains(@content-desc, 'underwriting') or contains(@text, 'underwriting') or contains(@content-desc, 'manual review') or contains(@text, 'manual review')]")
+    @AndroidFindBy(xpath = "//*[contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'referral') or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'referral') or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'underwriting') or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'underwriting') or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'manual review') or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'manual review')]")
     private WebElement underwritingNotice;
 
     public FamilyHealthScreen answerAllDeclarationQuestions(boolean answerYes) {
@@ -390,17 +395,25 @@ public class FamilyHealthScreen extends BasePage {
     public boolean isUnderwritingReferralDisplayed() {
         if (BasePage.uatElmDependentBlocked) {
             System.out.println("[UAT Elm Notice] Underwriting referral blocked at UAT Elm dependent verification.");
-            return true;
+            return false;
         }
         try {
             WebDriverWait waitReferral = new WebDriverWait(driver, Duration.ofSeconds(10));
             return waitReferral.until(d -> {
                 if (isElementVisible(underwritingNotice)) return true;
                 return !driver.findElements(By.xpath(
-                    "//*[contains(@content-desc, 'referral') or contains(@text, 'referral') "
-                    + "or contains(@content-desc, 'underwriting') or contains(@text, 'underwriting') "
-                    + "or contains(@content-desc, 'apologize') or contains(@text, 'apologize') "
-                    + "or contains(@content-desc, 'not currently covered') or contains(@text, 'not currently covered')]")).isEmpty();
+                    "//*[contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'referral') "
+                    + "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'referral') "
+                    + "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'underwriting') "
+                    + "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'underwriting') "
+                    + "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'manual review') "
+                    + "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'manual review') "
+                    + "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'apologize') "
+                    + "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'apologize') "
+                    + "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'not currently covered') "
+                    + "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'not currently covered') "
+                    + "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'exclusion') "
+                    + "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'exclusion')]")).isEmpty();
             });
         } catch (Exception e) {
             return false;
@@ -416,7 +429,7 @@ public class FamilyHealthScreen extends BasePage {
     @AndroidFindBy(xpath = "//*[contains(@content-desc, 'Silver') or contains(@text, 'Silver') or contains(@content-desc, 'Comfort') or contains(@resource-id, 'silver')]")
     private WebElement silverPlanCard;
 
-    @AndroidFindBy(xpath = "//*[contains(@content-desc, 'Gold') or contains(@text, 'Gold') or contains(@content-desc, 'Beyond') or (contains(@content-desc, 'Diamond') and not(contains(@content-desc, 'Plus'))) or contains(@resource-id, 'gold')]")
+    @AndroidFindBy(xpath = "//*[contains(@content-desc, 'Gold') or contains(@text, 'Gold') or (contains(@content-desc, 'Diamond') and not(contains(@content-desc, 'Plus'))) or contains(@resource-id, 'gold')]")
     private WebElement goldPlanCard;
 
     @AndroidFindBy(xpath = "//*[contains(@content-desc, 'Platinum') or contains(@text, 'Platinum') or contains(@content-desc, 'Beyond') or contains(@content-desc, 'Diamond Plus') or contains(@resource-id, 'platinum')]")
@@ -474,12 +487,12 @@ public class FamilyHealthScreen extends BasePage {
 
     public FamilyHealthScreen selectGoldPlan() {
         if (BasePage.uatElmDependentBlocked) return this;
-        System.out.println("Selecting Gold / Diamond / Beyond Plan tier...");
+        System.out.println("Selecting Gold / Diamond Plan tier...");
         try {
             if (isElementVisible(goldPlanCard)) {
                 tapElement(goldPlanCard);
             } else {
-                WebElement card = driver.findElement(By.xpath("//*[contains(@content-desc, 'Gold') or contains(@text, 'Gold') or contains(@content-desc, 'Beyond') or (contains(@content-desc, 'Diamond') and not(contains(@content-desc, 'Plus')))]"));
+                WebElement card = driver.findElement(By.xpath("//*[contains(@content-desc, 'Gold') or contains(@text, 'Gold') or (contains(@content-desc, 'Diamond') and not(contains(@content-desc, 'Plus')))]"));
                 tapElement(card);
             }
         } catch (Exception e) {
@@ -621,6 +634,14 @@ public class FamilyHealthScreen extends BasePage {
         }
     }
 
+    private void enterAddressField(WebElement field, String value) {
+        for (int i = 0; i < 2 && !isElementVisible(field); i++) {
+            hideKeyboard();
+            scrollDown();
+        }
+        sendKeys(field, value);
+    }
+
     public FamilyHealthScreen fillNationalAddress(String bldg, String region, String city, String street, String dist, String addNo, String zip) {
         if (BasePage.uatElmDependentBlocked) return this;
         System.out.println("Waiting for Checkout screen...");
@@ -634,13 +655,13 @@ public class FamilyHealthScreen extends BasePage {
         }
 
         System.out.println("Filling National Address: Bldg=" + bldg + ", Region=" + region + ", City=" + city + ", Street=" + street);
-        sendKeys(buildingNumberInput, bldg);
-        sendKeys(regionInput, region);
-        sendKeys(cityInput, city);
-        sendKeys(streetNameInput, street);
-        sendKeys(districtInput, dist);
-        sendKeys(additionalNumberInput, addNo);
-        sendKeys(zipCodeInput, zip);
+        enterAddressField(buildingNumberInput, bldg);
+        enterAddressField(regionInput, region);
+        enterAddressField(cityInput, city);
+        enterAddressField(streetNameInput, street);
+        enterAddressField(districtInput, dist);
+        enterAddressField(additionalNumberInput, addNo);
+        enterAddressField(zipCodeInput, zip);
         hideKeyboard();
         return this;
     }

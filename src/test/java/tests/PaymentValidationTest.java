@@ -191,7 +191,8 @@ public class PaymentValidationTest extends BaseTest {
         }
 
         System.out.println("[Step 3] Switching back to Credit/Debit Card payment method...");
-        checkoutScreen.selectCreditDebitCard();
+        Assert.assertTrue(checkoutScreen.selectCreditDebitCard(),
+                "Moyasar Direct Pay / Credit-Debit Card option should be selected.");
 
         Assert.assertTrue(checkoutScreen.isCheckoutScreenDisplayed(),
                 "Checkout screen must remain stable and intact after switching payment methods.");

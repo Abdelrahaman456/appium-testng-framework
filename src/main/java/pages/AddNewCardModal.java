@@ -34,7 +34,7 @@ public class AddNewCardModal extends BasePage {
     @AndroidFindBy(xpath = "//*[@resource-id='textfield_credit_debit_card_bottom_sheet_expiry_date' or @resource-id='textfield_expiry_date' or contains(@resource-id, 'expiry_date') or contains(@hint, 'Expiry') or contains(@hint, 'MM') or contains(@content-desc, 'Expiry') or contains(@text, 'Expiry')]")
     private WebElement expiryDateField;
 
-    @AndroidFindBy(xpath = "//*[@resource-id='textfield_credit_debit_card_bottom_sheet_cvv' or @resource-id='textfield_cvv' or contains(@resource-id, 'cvv') or contains(@hint, 'CVV') or contains(@content-desc, 'CVV') or contains(@text, 'CVV')]")
+    @AndroidFindBy(xpath = "//*[@resource-id='textfield_credit_debit_card_bottom_sheet_cvv' or @resource-id='textfield_cvv' or contains(@resource-id, 'cvv') or contains(@resource-id, 'cvc') or contains(@hint, 'CVV') or contains(@hint, 'CVC') or contains(@content-desc, 'CVV') or contains(@content-desc, 'CVC') or contains(@text, 'CVV') or contains(@text, 'CVC')]")
     private WebElement cvvField;
 
     @AndroidFindBy(xpath = "//*[@resource-id='textfield_credit_debit_card_bottom_sheet_card_holder_name' or @resource-id='textfield_card_holder_name' or contains(@resource-id, 'card_holder_name') or contains(@hint, 'Card holder') or contains(@hint, 'Name') or contains(@content-desc, 'Card holder') or contains(@text, 'Card holder')]")
@@ -49,13 +49,38 @@ public class AddNewCardModal extends BasePage {
     }
 
     public void enterExpiryDate(String expiry) {
-        System.out.println("Opening Expiry Date picker...");
+        int targetMonth = 12;
+        int targetYear = 2026;
+        if (expiry != null && expiry.contains("/")) {
+            String[] parts = expiry.split("/");
+            if (parts.length == 2) {
+                int parsedMonth = parseMonthNumber(parts[0].trim());
+                if (parsedMonth >= 1 && parsedMonth <= 12) {
+                    targetMonth = parsedMonth;
+                }
+                if (parts[1].trim().matches("\\d{2,4}")) {
+                    int parsedYear = Integer.parseInt(parts[1].trim());
+                    targetYear = parsedYear < 100 ? 2000 + parsedYear : parsedYear;
+                }
+            }
+        }
+
+        System.out.println("Opening Expiry Date picker (target=" + String.format("%02d/%d", targetMonth, targetYear) + ")...");
         try {
+            waitForVisibility(expiryDateField);
             expiryDateField.click();
         } catch (Exception e) {
             tapElement(expiryDateField);
         }
-        try { Thread.sleep(1500); } catch (Exception e) {}
+
+        org.openqa.selenium.By allSeekBarsBy = org.openqa.selenium.By.xpath("//android.widget.SeekBar");
+        boolean hasSeekBars = waitUntil(() -> driver.findElements(allSeekBarsBy).size() >= 2, 4);
+        if (!hasSeekBars && driver.findElements(allSeekBarsBy).isEmpty()) {
+            String formattedExpiry = String.format("%02d/%02d", targetMonth, targetYear % 100);
+            System.out.println("No SeekBar date picker appeared within 4s; falling back to sendKeys: " + formattedExpiry);
+            sendKeys(expiryDateField, formattedExpiry);
+            return;
+        }
 
         try {
             org.openqa.selenium.By seek1By = org.openqa.selenium.By.xpath("(//android.widget.SeekBar)[1]");
@@ -65,47 +90,56 @@ public class AddNewCardModal extends BasePage {
             String d1 = getWheelValue(s1);
             String d2 = getWheelValue(s2);
 
-            boolean s2IsYear = !d1.matches("\\d{4}") && d2.matches("\\d{4}");
+            boolean d1IsYear = d1.matches("\\d{4}");
+            boolean d2IsYear = d2.matches("\\d{4}");
+            boolean s2IsYear;
+            if (d2IsYear && !d1IsYear) {
+                s2IsYear = true;
+            } else if (d1IsYear && !d2IsYear) {
+                s2IsYear = false;
+            } else {
+                boolean d1IsMonth = parseMonthNumber(d1) != -1;
+                boolean d2IsMonth = parseMonthNumber(d2) != -1;
+                s2IsYear = d1IsMonth && !d2IsMonth;
+            }
             org.openqa.selenium.By yearBy = s2IsYear ? seek2By : seek1By;
             org.openqa.selenium.By monthBy = s2IsYear ? seek1By : seek2By;
             System.out.println("Expiry wheels initial state -> Year=" + (s2IsYear ? d2 : d1) + ", Month=" + (s2IsYear ? d1 : d2));
 
-            int targetYear = 2030;
-            if (expiry != null && expiry.contains("/")) {
-                String[] parts = expiry.split("/");
-                if (parts.length == 2 && parts[1].trim().matches("\\d{2,4}")) {
-                    int parsed = Integer.parseInt(parts[1].trim());
-                    targetYear = parsed < 100 ? 2000 + parsed : parsed;
-                    if (targetYear < 2028) targetYear = 2030;
-                }
-            }
             boolean swipeUpToIncreaseYear = true;
             Integer lastYear = null;
-            for (int attempt = 0; attempt < 8; attempt++) {
+            for (int attempt = 0; attempt < 12; attempt++) {
                 WebElement yearPicker = getVisibleElement(yearBy);
                 String yearVal = getWheelValue(yearPicker);
+                org.openqa.selenium.Rectangle yr = yearPicker.getRect();
+                int h = Math.max(yr.getHeight(), 100);
+                int yearX = yr.getX() + (yr.getWidth() / 2);
+                int centerY = yr.getY() + (yr.getHeight() / 2);
+
                 if (!yearVal.matches("\\d{4}")) {
-                    org.openqa.selenium.Rectangle yr = yearPicker.getRect();
-                    int yearX = yr.getX() + (yr.getWidth() / 2);
-                    scrollWheel(yearX, yr.getY() + (int) (yr.getHeight() * 0.70), yr.getY() + (int) (yr.getHeight() * 0.45));
-                    Thread.sleep(500);
+                    int nudge = Math.max(40, (int) (h * 0.25));
+                    scrollWheel(yearX, centerY + (nudge / 2), centerY - (nudge / 2));
+                    Thread.sleep(300);
                     continue;
                 }
                 int currentYear = Integer.parseInt(yearVal);
                 System.out.println("Expiry Year wheel attempt " + (attempt + 1) + ": current=" + currentYear + ", target=" + targetYear);
-                if (currentYear >= 2028 && currentYear <= 2035) {
+                if (currentYear == targetYear) {
                     System.out.println("Expiry Year '" + currentYear + "' selected!");
                     break;
                 }
-                if (lastYear != null && ((targetYear > lastYear && currentYear < lastYear) || (targetYear < lastYear && currentYear > lastYear))) {
-                    swipeUpToIncreaseYear = !swipeUpToIncreaseYear;
+                if (lastYear != null) {
+                    boolean movedAway = (lastYear < targetYear && currentYear < lastYear)
+                            || (lastYear > targetYear && currentYear > lastYear);
+                    boolean stalled = (currentYear == lastYear);
+                    if (movedAway || stalled) {
+                        swipeUpToIncreaseYear = !swipeUpToIncreaseYear;
+                    }
                 }
                 lastYear = currentYear;
 
-                org.openqa.selenium.Rectangle yr = yearPicker.getRect();
-                int yearX = yr.getX() + (yr.getWidth() / 2);
-                int centerY = yr.getY() + (yr.getHeight() / 2);
-                int deltaY = Math.min(180, Math.max(60, Math.abs(targetYear - currentYear) * 30));
+                int diff = Math.abs(targetYear - currentYear);
+                int deltaY = Math.max((int) (h * 0.22), Math.min((int) (h * 0.55), diff * (int) (h * 0.14)));
                 boolean needHigher = currentYear < targetYear;
                 boolean moveUp = needHigher ? swipeUpToIncreaseYear : !swipeUpToIncreaseYear;
                 if (moveUp) {
@@ -113,28 +147,56 @@ public class AddNewCardModal extends BasePage {
                 } else {
                     scrollWheel(yearX, centerY - (deltaY / 2), centerY + (deltaY / 2));
                 }
-                Thread.sleep(500);
+                Thread.sleep(300);
             }
 
-            for (int i = 1; i <= 4; i++) {
+            boolean swipeUpToIncreaseMonth = true;
+            Integer lastMonth = null;
+            for (int attempt = 0; attempt < 14; attempt++) {
                 WebElement monthPicker = getVisibleElement(monthBy);
                 String monthVal = getWheelValue(monthPicker);
-                if (monthVal.contains("01") || monthVal.toLowerCase().contains("jan")
-                        || monthVal.contains("12") || monthVal.toLowerCase().contains("dec")) {
-                    System.out.println("Expiry Month '" + monthVal + "' selected!");
-                    break;
-                }
-                System.out.println("Adjusting Expiry Month wheel (attempt " + i + "/4, current='" + monthVal + "')...");
+                int currentMonth = parseMonthNumber(monthVal);
                 org.openqa.selenium.Rectangle mr = monthPicker.getRect();
+                int mh = Math.max(mr.getHeight(), 100);
                 int monthX = mr.getX() + (mr.getWidth() / 2);
                 int centerY = mr.getY() + (mr.getHeight() / 2);
-                scrollWheel(monthX, centerY - 60, centerY + 60);
-                Thread.sleep(500);
+
+                if (currentMonth == -1) {
+                    int nudge = Math.max(40, (int) (mh * 0.25));
+                    scrollWheel(monthX, centerY + (nudge / 2), centerY - (nudge / 2));
+                    Thread.sleep(300);
+                    continue;
+                }
+                System.out.println("Expiry Month wheel attempt " + (attempt + 1) + ": current=" + currentMonth + " ('" + monthVal + "'), target=" + targetMonth);
+                if (currentMonth == targetMonth) {
+                    System.out.println("Expiry Month '" + monthVal + "' (" + currentMonth + ") selected!");
+                    break;
+                }
+                if (lastMonth != null) {
+                    boolean movedAway = (lastMonth < targetMonth && currentMonth < lastMonth)
+                            || (lastMonth > targetMonth && currentMonth > lastMonth);
+                    boolean stalled = (currentMonth == lastMonth);
+                    if (movedAway || stalled) {
+                        swipeUpToIncreaseMonth = !swipeUpToIncreaseMonth;
+                    }
+                }
+                lastMonth = currentMonth;
+
+                int diff = Math.abs(targetMonth - currentMonth);
+                int deltaY = Math.max((int) (mh * 0.22), Math.min((int) (mh * 0.55), diff * (int) (mh * 0.14)));
+                boolean needHigher = currentMonth < targetMonth;
+                boolean moveUp = needHigher ? swipeUpToIncreaseMonth : !swipeUpToIncreaseMonth;
+                if (moveUp) {
+                    scrollWheel(monthX, centerY + (deltaY / 2), centerY - (deltaY / 2));
+                } else {
+                    scrollWheel(monthX, centerY - (deltaY / 2), centerY + (deltaY / 2));
+                }
+                Thread.sleep(300);
             }
 
             try {
                 WebElement confirmBtn = driver.findElement(org.openqa.selenium.By.xpath(
-                    "(//*[@text='Confirm' or @content-desc='Confirm' or @text='Done' or @content-desc='Done' or @text='Select'])[last()]"));
+                    "(//*[@text='Confirm' or @content-desc='Confirm' or @text='Done' or @content-desc='Done' or @text='Select' or @content-desc='Select'])[last()]"));
                 tapElement(confirmBtn);
             } catch (Exception ex) {
                 System.out.println("Confirm button not found, picker auto-confirmed.");
@@ -144,6 +206,43 @@ public class AddNewCardModal extends BasePage {
         }
 
         try { Thread.sleep(1000); } catch (Exception e) {}
+    }
+
+    private int parseMonthNumber(String val) {
+        if (val == null) return -1;
+        String s = val.trim().toLowerCase();
+        if (s.isEmpty()) return -1;
+        if (s.matches("\\d{1,2}")) {
+            int m = Integer.parseInt(s);
+            return (m >= 1 && m <= 12) ? m : -1;
+        }
+        switch (s) {
+            case "jan": case "january": return 1;
+            case "feb": case "february": return 2;
+            case "mar": case "march": return 3;
+            case "apr": case "april": return 4;
+            case "may": return 5;
+            case "jun": case "june": return 6;
+            case "jul": case "july": return 7;
+            case "aug": case "august": return 8;
+            case "sep": case "sept": case "september": return 9;
+            case "oct": case "october": return 10;
+            case "nov": case "november": return 11;
+            case "dec": case "december": return 12;
+            default: break;
+        }
+        java.util.regex.Matcher numMatcher = java.util.regex.Pattern.compile("\\b(1[0-2]|0?[1-9])\\b").matcher(s);
+        if (numMatcher.find()) {
+            int m = Integer.parseInt(numMatcher.group(1));
+            if (m >= 1 && m <= 12) return m;
+        }
+        String[] abbrs = {"jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"};
+        for (int i = 0; i < abbrs.length; i++) {
+            if (s.contains(abbrs[i])) {
+                return i + 1;
+            }
+        }
+        return -1;
     }
 
     private String getWheelValue(WebElement wheel) {
@@ -194,19 +293,18 @@ public class AddNewCardModal extends BasePage {
      * Checks if any inline card validation error message is displayed inside the Add New Card bottom sheet.
      */
     public boolean isCardValidationErrorDisplayed() {
-        org.openqa.selenium.By errorBy = org.openqa.selenium.By.xpath(
-            "//*[contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'invalid') " +
-            "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'invalid') " +
-            "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'required') " +
-            "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'required') " +
-            "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'expired') " +
-            "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'expired') " +
-            "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'valid') " +
-            "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'valid') " +
-            "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'incorrect') " +
-            "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'incorrect')]"
-        );
-        return !driver.findElements(errorBy).isEmpty();
+        String[] errorKeywords = {"invalid", "required", "expired", "incorrect", "enter a valid", "not valid"};
+        StringBuilder xpath = new StringBuilder("//*[");
+        for (int i = 0; i < errorKeywords.length; i++) {
+            if (i > 0) {
+                xpath.append(" or ");
+            }
+            String kw = errorKeywords[i];
+            xpath.append("contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), '").append(kw).append("')")
+                 .append(" or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), '").append(kw).append("')");
+        }
+        xpath.append("]");
+        return !driver.findElements(org.openqa.selenium.By.xpath(xpath.toString())).isEmpty();
     }
 
     /**

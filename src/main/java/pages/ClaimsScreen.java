@@ -26,8 +26,9 @@ public class ClaimsScreen extends BasePage {
     private final By againstOwnPolicyBy = By.xpath("//*[@content-desc='Against my own policy']");
 
     private final By nationalIdBy = By.xpath("//*[@resource-id='textfield_national_id' or @hint='Your Id/Iqama number']");
-    private final By dobPickerBy = By.xpath("//*[@hint='Date of birth' or contains(@hint, 'Date of birth') or @resource-id='textfield_national_id']/following-sibling::android.widget.ImageView[1]");
+    private final By dobPickerBy = By.xpath("//*[@hint='Date of birth' or contains(@hint, 'Date of birth')] | //*[@resource-id='textfield_national_id']/following-sibling::android.widget.ImageView[1]");
     private final By phoneBy = By.xpath("//*[@resource-id='textfield_claims_user_phone' or @hint='Mobile phone']");
+    private final By emailBy = By.xpath("//*[@resource-id='textfield_email' or @hint='Email address']");
     private final By sequenceBy = By.xpath("//*[@resource-id='textfield_sequence_number' or @hint='Sequence Number']");
     private final By ownCarBy = By.xpath("//*[@content-desc='I own this car']");
     private final By notOwnCarBy = By.xpath("//*[@content-desc=\"I don't own this car\"]");
@@ -43,20 +44,23 @@ public class ClaimsScreen extends BasePage {
     public ClaimsScreen navigateToClaimsLanding() {
         System.out.println("Navigating to Support -> Claims Landing via locators...");
         try {
-            waitUntil(() -> isElementVisible(supportTabBy), 8);
-            WebElement supportEl = getVisibleElement(supportTabBy);
-            tapElement(supportEl);
-            Thread.sleep(1200);
+            waitUntil(() -> !findWithUnimportantViews(supportTabBy).isEmpty(), 8);
+            List<WebElement> supportEls = findWithUnimportantViews(supportTabBy);
+            if (!supportEls.isEmpty()) {
+                tapElement(supportEls.get(0));
+                Thread.sleep(1200);
+            }
 
-            waitUntil(() -> isElementVisible(submitClaimCardBy), 8);
-            WebElement submitEl = getVisibleElement(submitClaimCardBy);
-            tapElement(submitEl);
-            Thread.sleep(1500);
+            if (!waitUntil(() -> !findWithUnimportantViews(submitClaimCardBy).isEmpty(), 6)) {
+                scrollDown();
+            }
+            List<WebElement> submitEls = findWithUnimportantViews(submitClaimCardBy);
+            if (!submitEls.isEmpty()) {
+                tapElement(submitEls.get(0));
+                Thread.sleep(1500);
+            }
         } catch (Exception e) {
-            System.out.println("Claims landing navigation fallback: " + e.getMessage());
-            adbTap(720, 2260);
-            try { Thread.sleep(1200); } catch (Exception ignore) {}
-            adbTap(500, 840);
+            System.out.println("Claims landing navigation note: " + e.getMessage());
         }
         return this;
     }
@@ -64,20 +68,23 @@ public class ClaimsScreen extends BasePage {
     public ClaimsScreen navigateToTrackClaim() {
         System.out.println("Navigating to Support -> Track Claim via locators...");
         try {
-            waitUntil(() -> isElementVisible(supportTabBy), 8);
-            WebElement supportEl = getVisibleElement(supportTabBy);
-            tapElement(supportEl);
-            Thread.sleep(1200);
+            waitUntil(() -> !findWithUnimportantViews(supportTabBy).isEmpty(), 8);
+            List<WebElement> supportEls = findWithUnimportantViews(supportTabBy);
+            if (!supportEls.isEmpty()) {
+                tapElement(supportEls.get(0));
+                Thread.sleep(1200);
+            }
 
-            waitUntil(() -> isElementVisible(trackClaimCardBy), 8);
-            WebElement trackEl = getVisibleElement(trackClaimCardBy);
-            tapElement(trackEl);
-            Thread.sleep(1500);
+            if (!waitUntil(() -> !findWithUnimportantViews(trackClaimCardBy).isEmpty(), 6)) {
+                scrollDown();
+            }
+            List<WebElement> trackEls = findWithUnimportantViews(trackClaimCardBy);
+            if (!trackEls.isEmpty()) {
+                tapElement(trackEls.get(0));
+                Thread.sleep(1500);
+            }
         } catch (Exception e) {
-            System.out.println("Track claim navigation fallback: " + e.getMessage());
-            adbTap(720, 2260);
-            try { Thread.sleep(1200); } catch (Exception ignore) {}
-            adbTap(500, 1080);
+            System.out.println("Track claim navigation note: " + e.getMessage());
         }
         return this;
     }
@@ -88,12 +95,16 @@ public class ClaimsScreen extends BasePage {
     public ClaimsScreen selectClaimAgainstTreeCustomer() {
         System.out.println("Selecting 'Against a Tree customer' claim type...");
         try {
-            waitUntil(() -> isElementVisible(againstTreeCustomerBy), 8);
-            WebElement btn = getVisibleElement(againstTreeCustomerBy);
-            tapElement(btn);
-            Thread.sleep(2000);
+            if (!waitUntil(() -> !findWithUnimportantViews(againstTreeCustomerBy).isEmpty(), 8)) {
+                scrollDown();
+            }
+            List<WebElement> btns = findWithUnimportantViews(againstTreeCustomerBy);
+            if (!btns.isEmpty()) {
+                tapElement(btns.get(0));
+                Thread.sleep(2000);
+            }
         } catch (Exception e) {
-            adbTap(500, 2200);
+            System.out.println("selectClaimAgainstTreeCustomer note: " + e.getMessage());
         }
         return this;
     }
@@ -101,12 +112,16 @@ public class ClaimsScreen extends BasePage {
     public ClaimsScreen selectClaimAgainstOwnPolicy() {
         System.out.println("Selecting 'Against my own policy' claim type...");
         try {
-            waitUntil(() -> isElementVisible(againstOwnPolicyBy), 8);
-            WebElement btn = getVisibleElement(againstOwnPolicyBy);
-            tapElement(btn);
-            Thread.sleep(2000);
+            if (!waitUntil(() -> !findWithUnimportantViews(againstOwnPolicyBy).isEmpty(), 8)) {
+                scrollDown();
+            }
+            List<WebElement> btns = findWithUnimportantViews(againstOwnPolicyBy);
+            if (!btns.isEmpty()) {
+                tapElement(btns.get(0));
+                Thread.sleep(2000);
+            }
         } catch (Exception e) {
-            adbTap(500, 2050);
+            System.out.println("selectClaimAgainstOwnPolicy note: " + e.getMessage());
         }
         return this;
     }
@@ -114,11 +129,15 @@ public class ClaimsScreen extends BasePage {
     public ClaimsScreen selectSituation(String situationKeyword) {
         System.out.println("Selecting claim situation matching keyword: " + situationKeyword);
         try {
-            By locator = By.xpath("//*[contains(@content-desc, '" + situationKeyword + "')]");
-            waitUntil(() -> isElementVisible(locator), 10);
-            WebElement el = getVisibleElement(locator);
-            tapElement(el);
-            Thread.sleep(1500);
+            By locator = By.xpath("//*[contains(@content-desc, '" + situationKeyword + "') or contains(@text, '" + situationKeyword + "')]");
+            if (!waitUntil(() -> !findWithUnimportantViews(locator).isEmpty(), 8)) {
+                scrollDown();
+            }
+            List<WebElement> els = findWithUnimportantViews(locator);
+            if (!els.isEmpty()) {
+                tapElement(els.get(0));
+                Thread.sleep(1500);
+            }
 
             // If an accident date/time field appears on the situation screen (e.g. for property damage)
             List<WebElement> inlineDateFields = driver.findElements(accidentDateTimeBy);
@@ -139,8 +158,7 @@ public class ClaimsScreen extends BasePage {
                 Thread.sleep(1000);
             }
         } catch (Exception e) {
-            System.out.println("Situation element tap error, attempting fallback: " + e.getMessage());
-            adbTap(300, 1210);
+            System.out.println("Situation element tap note: " + e.getMessage());
         }
         clickNext();
         return this;
@@ -156,44 +174,36 @@ public class ClaimsScreen extends BasePage {
             enterRobustText(nationalIdBy, nationalId);
 
             // Date of birth
-            System.out.println("Selecting Date of Birth via calendar trigger...");
-            List<WebElement> dobTriggers = driver.findElements(dobPickerBy);
+            System.out.println("Selecting Date of Birth via dynamic DOB wheel...");
+            waitUntil(() -> !findWithUnimportantViews(dobPickerBy).isEmpty(), 5);
+            List<WebElement> dobTriggers = findWithUnimportantViews(dobPickerBy);
             if (!dobTriggers.isEmpty()) {
-                tapElement(dobTriggers.get(0));
-            } else {
-                adbTap(910, 791);
+                scrollDobWheelAndConfirm(dobTriggers.get(0));
             }
-            Thread.sleep(1200);
-
-            // Smooth swipe year column downwards to reach eligible adult birth year (~1986-1998)
-            adbSwipe(670, 1000, 670, 1600, 350);
-            Thread.sleep(600);
-
-            // Confirm DOB picker
-            By confirmBy = By.xpath("//*[@content-desc='Confirm' or @text='Confirm']");
-            List<WebElement> confirmBtns = driver.findElements(confirmBy);
-            if (!confirmBtns.isEmpty()) {
-                tapElement(confirmBtns.get(0));
-            } else {
-                adbTap(695, 1435);
-            }
-            Thread.sleep(1000);
 
             // Mobile Phone
             enterRobustText(phoneBy, phone);
 
-            // Sequence Number (if present)
-            if (sequenceNumber != null && !sequenceNumber.isEmpty()) {
+            // Email Address (required on Property Damage claimant details)
+            if (!driver.findElements(emailBy).isEmpty()) {
+                enterRobustText(emailBy, utils.TestDataBuilder.DEFAULT_EMAIL);
+            }
+
+            // Sequence Number (if present; Vehicle Damage has it, Property Damage does not)
+            boolean hasSequenceField = !driver.findElements(sequenceBy).isEmpty();
+            if (sequenceNumber != null && !sequenceNumber.isEmpty() && hasSequenceField) {
                 enterRobustText(sequenceBy, sequenceNumber);
             }
 
-            // Car Ownership
+            // Car Ownership (only scroll for it when Sequence Number flow is active or already visible)
             By ownBy = ownCar ? ownCarBy : notOwnCarBy;
-            List<WebElement> ownBtns = driver.findElements(ownBy);
+            List<WebElement> ownBtns = findWithUnimportantViews(ownBy);
+            if (ownBtns.isEmpty() && hasSequenceField) {
+                scrollDown();
+                ownBtns = findWithUnimportantViews(ownBy);
+            }
             if (!ownBtns.isEmpty()) {
                 tapElement(ownBtns.get(0));
-            } else {
-                adbTap(180, 1260);
             }
             Thread.sleep(500);
 
@@ -267,18 +277,27 @@ public class ClaimsScreen extends BasePage {
         System.out.println("Clicking Next button on Claims flow...");
         try {
             hideKeyboard();
-            Thread.sleep(500);
-            for (int i = 0; i < 2; i++) {
-                List<WebElement> btns = driver.findElements(nextBtnBy);
-                if (!btns.isEmpty() && btns.get(0).isDisplayed()) {
-                    tapElement(btns.get(0));
-                    Thread.sleep(1500);
-                } else {
-                    break;
+            Thread.sleep(400);
+            List<WebElement> btns = findWithUnimportantViews(nextBtnBy);
+            if (btns.isEmpty()) {
+                scrollDown();
+                btns = findWithUnimportantViews(nextBtnBy);
+            }
+            WebElement target = null;
+            for (WebElement btn : btns) {
+                if (btn.isDisplayed()) {
+                    target = btn;
+                    if ("true".equals(btn.getAttribute("clickable"))) {
+                        break;
+                    }
                 }
             }
+            if (target != null) {
+                tapElement(target);
+                Thread.sleep(1500);
+            }
         } catch (Exception e) {
-            adbTap(540, 2261);
+            System.out.println("Claims clickNext error: " + e.getMessage());
         }
         return this;
     }
@@ -308,15 +327,12 @@ public class ClaimsScreen extends BasePage {
     }
 
     public boolean isTrackClaimDisplayed() {
-        // Track claim requires authentication for guest users
-        return waitUntil(() -> isElementVisible(By.xpath("//*[contains(@content-desc, 'Welcome to') or contains(@content-desc, 'Login') or contains(@content-desc, 'Track')]")), 10);
-    }
-
-    public void adbSwipe(int x1, int y1, int x2, int y2, int durationMs) {
-        try {
-            Runtime.getRuntime().exec(new String[]{ADB_PATH, "-s", "emulator-5554", "shell", "input", "swipe",
-                    String.valueOf(x1), String.valueOf(y1), String.valueOf(x2), String.valueOf(y2), String.valueOf(durationMs)}).waitFor();
-        } catch (Exception ignore) {}
+        // Verify leaving Support Hub and presenting either claim lookup input or auth/track screen
+        By lookupFieldBy = By.xpath("//android.widget.EditText");
+        By trackOrLoginBy = By.xpath("//*[contains(@content-desc, 'Welcome to') or contains(@content-desc, 'Login') or @resource-id='btn_guest_login_or_register_part1' or contains(@content-desc, 'Track')]");
+        return waitUntil(() -> isElementVisible(lookupFieldBy)
+                || (!isElementVisible(trackClaimCardBy) && isElementVisible(trackOrLoginBy))
+                || (!isElementVisible(submitClaimCardBy) && isElementVisible(trackOrLoginBy)), 10);
     }
 
     /**
@@ -353,7 +369,7 @@ public class ClaimsScreen extends BasePage {
                 System.out.println("[Self-Healing] Keystrokes not detected in Flutter widget for " + locator + ". Applying native input injection...");
                 tapElement(field);
                 Thread.sleep(250);
-                Runtime.getRuntime().exec(new String[]{ADB_PATH, "-s", "emulator-5554", "shell", "input", "text", text}).waitFor();
+                adbInput(text);
                 Thread.sleep(250);
             }
             hideKeyboard();

@@ -4,6 +4,7 @@ import base.BaseTest;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 import pages.AddNewCardModal;
+import pages.CheckoutScreen;
 import pages.HomeScreen;
 import pages.OtpModal;
 import pages.PetScreen;
@@ -52,22 +53,22 @@ public class PetTest extends BaseTest {
         petScreen.clickCheckoutPayNow();
 
         AddNewCardModal cardModal = new AddNewCardModal();
-        if (cardModal.isModalDisplayed()) {
-            TestDataBuilder.CreditCard card = TestDataBuilder.CreditCard.defaultCard();
-            cardModal.enterCardNumber(card.number);
-            cardModal.enterExpiryDate(card.expiry);
-            cardModal.enterCvv(card.cvv);
-            cardModal.enterCardHolderName(card.holderName);
-            cardModal.clickSave();
-            try { Thread.sleep(2500); } catch (Exception ignore) {}
-            petScreen.clickCheckoutPayNow();
-        }
+        Assert.assertTrue(cardModal.isModalDisplayed(), "Add New Card modal should be displayed on Pet Checkout!");
+        TestDataBuilder.CreditCard card = TestDataBuilder.CreditCard.defaultCard();
+        cardModal.enterCardNumber(card.number);
+        cardModal.enterExpiryDate(card.expiry);
+        cardModal.enterCvv(card.cvv);
+        cardModal.enterCardHolderName(card.holderName);
+        cardModal.clickSave();
+        try { Thread.sleep(2500); } catch (Exception ignore) {}
+        new CheckoutScreen().clickPayNow();
 
         PolicyConfirmationScreen confirmationScreen = new PolicyConfirmationScreen();
         boolean isSuccess = confirmationScreen.isPolicyConfirmed();
         PerformanceBenchmark.stopStage("Pet_Checkout_Payment", PerformanceBenchmark.SLA_CHECKOUT_PREP + PerformanceBenchmark.SLA_3DS_PAYMENT);
         Assert.assertTrue(isSuccess, "Policy Confirmation screen was not reached for Pet Insurance!");
         System.out.println("=== Pet Insurance Flow 1 Completed Successfully! ===");
+        confirmationScreen.clickCloseToHome();
     }
 
     private void completeCheckoutAndPayment(PetScreen petScreen, String flowLabel) {
@@ -76,21 +77,21 @@ public class PetTest extends BaseTest {
         petScreen.clickCheckoutPayNow();
 
         AddNewCardModal cardModal = new AddNewCardModal();
-        if (cardModal.isModalDisplayed()) {
-            TestDataBuilder.CreditCard card = TestDataBuilder.CreditCard.defaultCard();
-            cardModal.enterCardNumber(card.number);
-            cardModal.enterExpiryDate(card.expiry);
-            cardModal.enterCvv(card.cvv);
-            cardModal.enterCardHolderName(card.holderName);
-            cardModal.clickSave();
-            try { Thread.sleep(2500); } catch (Exception ignore) {}
-            petScreen.clickCheckoutPayNow();
-        }
+        Assert.assertTrue(cardModal.isModalDisplayed(), "Add New Card modal should be displayed for " + flowLabel + "!");
+        TestDataBuilder.CreditCard card = TestDataBuilder.CreditCard.defaultCard();
+        cardModal.enterCardNumber(card.number);
+        cardModal.enterExpiryDate(card.expiry);
+        cardModal.enterCvv(card.cvv);
+        cardModal.enterCardHolderName(card.holderName);
+        cardModal.clickSave();
+        try { Thread.sleep(2500); } catch (Exception ignore) {}
+        new CheckoutScreen().clickPayNow();
 
         PolicyConfirmationScreen confirmationScreen = new PolicyConfirmationScreen();
         boolean isSuccess = confirmationScreen.isPolicyConfirmed();
         Assert.assertTrue(isSuccess, "Policy Confirmation screen was not reached for " + flowLabel + "!");
         System.out.println("=== " + flowLabel + " Completed Successfully! ===");
+        confirmationScreen.clickCloseToHome();
     }
 
     @Test(priority = 2, groups = {"pet", "variant"}, description = "Pet Flow 2: Tier & Animal Comparison (Cat 'Meow' Premium vs Dog 'Woof' Basic)")
@@ -185,9 +186,8 @@ public class PetTest extends BaseTest {
         petScreen.clickInsureNowIfPresent();
 
         String email = TestDataBuilder.generateUniqueEmail();
-        petScreen.fillAboutYourPet("Bella", "Woof", 2, 0, "Female", "Riyadh", email, DEFAULT_PHONE);
-        // ISO 11784/11785 15-digit microchip number
-        petScreen.enterMicrochipId("985141001234567");
+        // Enter ISO 11784/11785 15-digit microchip number before fillAboutYourPet submits Next
+        petScreen.fillAboutYourPet("Bella", "Woof", 2, 0, "Female", "Riyadh", email, DEFAULT_PHONE, "985141001234567");
 
         petScreen.answerAllDeclarationQuestions(false);
         petScreen.clickDeclarationProceed();

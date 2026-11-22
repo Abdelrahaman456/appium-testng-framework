@@ -3,8 +3,10 @@ package tests;
 import base.BaseTest;
 import pages.BasePage;
 import org.testng.Assert;
+import org.testng.SkipException;
 import org.testng.annotations.Test;
 import pages.AddNewCardModal;
+import pages.CheckoutScreen;
 import pages.DomesticWorkerScreen;
 import pages.HomeScreen;
 import pages.OtpModal;
@@ -63,6 +65,10 @@ public class DomesticWorkerTest extends BaseTest {
         dwScreen.clickProceedToQuote();
         PerformanceBenchmark.stopStage("DomesticWorker_Form_Fill", PerformanceBenchmark.SLA_FORM_INPUT);
 
+        if (BasePage.uatElmDependentBlocked) {
+            throw new SkipException("Blocked by UAT Elm dependent validation");
+        }
+
         System.out.println("[Step 4] Quote Screen - Selecting Comfort Plan & Medical Emergency Cover...");
         PerformanceBenchmark.startStage("DomesticWorker_Quote_Rating");
         dwScreen.waitForQuoteScreen();
@@ -75,6 +81,9 @@ public class DomesticWorkerTest extends BaseTest {
         PerformanceBenchmark.stopStage("DomesticWorker_Plan_Selection", PerformanceBenchmark.SLA_ADDON_RERATE);
 
         System.out.println("[Step 5] Checkout & National Address...");
+        if (BasePage.uatElmDependentBlocked) {
+            throw new SkipException("Blocked by UAT Elm dependent validation");
+        }
         PerformanceBenchmark.startStage("DomesticWorker_Checkout_Payment");
         dwScreen.fillNationalAddress("1234", "Riyadh", "Riyadh", "King Fahd Rd", "Al Olaya", "5678", "12211");
         dwScreen.fillIbanAndAcceptTerms(TestDataBuilder.DEFAULT_IBAN);
@@ -82,16 +91,15 @@ public class DomesticWorkerTest extends BaseTest {
 
         System.out.println("[Step 6] Payment Card Modal & Submission...");
         AddNewCardModal cardModal = new AddNewCardModal();
-        if (cardModal.isModalDisplayed()) {
-            TestDataBuilder.CreditCard card = TestDataBuilder.CreditCard.defaultCard();
-            cardModal.enterCardNumber(card.number);
-            cardModal.enterExpiryDate(card.expiry);
-            cardModal.enterCvv(card.cvv);
-            cardModal.enterCardHolderName(card.holderName);
-            cardModal.clickSave();
-            try { Thread.sleep(2500); } catch (Exception ignore) {}
-            dwScreen.clickCheckoutPayNow();
-        }
+        Assert.assertTrue(cardModal.isModalDisplayed(), "Add New Card modal should be displayed on Domestic Worker Checkout!");
+        TestDataBuilder.CreditCard card = TestDataBuilder.CreditCard.defaultCard();
+        cardModal.enterCardNumber(card.number);
+        cardModal.enterExpiryDate(card.expiry);
+        cardModal.enterCvv(card.cvv);
+        cardModal.enterCardHolderName(card.holderName);
+        cardModal.clickSave();
+        try { Thread.sleep(2500); } catch (Exception ignore) {}
+        new CheckoutScreen().clickPayNow();
 
         System.out.println("[Step 7] Verifying Policy Issuance Confirmation...");
         PolicyConfirmationScreen confirmationScreen = new PolicyConfirmationScreen();
@@ -134,6 +142,10 @@ public class DomesticWorkerTest extends BaseTest {
         dwScreen.addMultipleWorkers(workerList);
         dwScreen.clickProceedToQuote();
 
+        if (BasePage.uatElmDependentBlocked) {
+            throw new SkipException("Blocked by UAT Elm dependent validation");
+        }
+
         System.out.println("[Step 4] Verifying Quote Screen & Selecting Primary Plan...");
         dwScreen.waitForQuoteScreen();
         dwScreen.selectPrimaryPlan();
@@ -143,22 +155,24 @@ public class DomesticWorkerTest extends BaseTest {
         dwScreen.clickBuyNow();
 
         System.out.println("[Step 5] Checkout & National Address...");
+        if (BasePage.uatElmDependentBlocked) {
+            throw new SkipException("Blocked by UAT Elm dependent validation");
+        }
         dwScreen.fillNationalAddress("1234", "Riyadh", "Riyadh", "King Fahd Rd", "Al Olaya", "5678", "12211");
         dwScreen.fillIbanAndAcceptTerms(TestDataBuilder.DEFAULT_IBAN);
         dwScreen.clickCheckoutPayNow();
 
         System.out.println("[Step 6] Payment Card Modal & Submission...");
         AddNewCardModal cardModal = new AddNewCardModal();
-        if (cardModal.isModalDisplayed()) {
-            TestDataBuilder.CreditCard card = TestDataBuilder.CreditCard.defaultCard();
-            cardModal.enterCardNumber(card.number);
-            cardModal.enterExpiryDate(card.expiry);
-            cardModal.enterCvv(card.cvv);
-            cardModal.enterCardHolderName(card.holderName);
-            cardModal.clickSave();
-            try { Thread.sleep(2500); } catch (Exception ignore) {}
-            dwScreen.clickCheckoutPayNow();
-        }
+        Assert.assertTrue(cardModal.isModalDisplayed(), "Add New Card modal should be displayed on Domestic Worker Flow 2 Checkout!");
+        TestDataBuilder.CreditCard card = TestDataBuilder.CreditCard.defaultCard();
+        cardModal.enterCardNumber(card.number);
+        cardModal.enterExpiryDate(card.expiry);
+        cardModal.enterCvv(card.cvv);
+        cardModal.enterCardHolderName(card.holderName);
+        cardModal.clickSave();
+        try { Thread.sleep(2500); } catch (Exception ignore) {}
+        new CheckoutScreen().clickPayNow();
 
         System.out.println("[Step 7] Verifying Policy Issuance Confirmation...");
         PolicyConfirmationScreen confirmationScreen = new PolicyConfirmationScreen();

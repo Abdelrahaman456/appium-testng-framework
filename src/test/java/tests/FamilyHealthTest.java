@@ -2,8 +2,11 @@ package tests;
 
 import base.BaseTest;
 import org.testng.Assert;
+import org.testng.SkipException;
 import org.testng.annotations.Test;
 import pages.AddNewCardModal;
+import pages.BasePage;
+import pages.CheckoutScreen;
 import pages.FamilyHealthScreen;
 import pages.HomeScreen;
 import pages.OtpModal;
@@ -62,6 +65,10 @@ public class FamilyHealthTest extends BaseTest {
         familyScreen.answerAllDeclarationQuestions(false);
         familyScreen.clickDeclarationProceed();
 
+        if (BasePage.uatElmDependentBlocked) {
+            throw new SkipException("Blocked by UAT Elm dependent validation");
+        }
+
         System.out.println("[Step 5] Selecting Gold Plan Tier & Maternity/Dental Add-ons...");
         familyScreen.waitForPlanSelectionScreen();
         familyScreen.selectGoldPlan();
@@ -70,22 +77,24 @@ public class FamilyHealthTest extends BaseTest {
         familyScreen.clickBuyNow();
 
         System.out.println("[Step 6] Checkout & National Address with IBAN...");
+        if (BasePage.uatElmDependentBlocked) {
+            throw new SkipException("Blocked by UAT Elm dependent validation");
+        }
         familyScreen.fillNationalAddress("1234", "Riyadh", "Riyadh", "King Fahd Rd", "Al Olaya", "5678", "12211");
         familyScreen.fillIbanAndAcceptTerms(TestDataBuilder.DEFAULT_IBAN);
         familyScreen.clickCheckoutPayNow();
 
         System.out.println("[Step 7] Processing Payment Card Modal...");
         AddNewCardModal cardModal = new AddNewCardModal();
-        if (cardModal.isModalDisplayed()) {
-            TestDataBuilder.CreditCard card = TestDataBuilder.CreditCard.defaultCard();
-            cardModal.enterCardNumber(card.number);
-            cardModal.enterExpiryDate(card.expiry);
-            cardModal.enterCvv(card.cvv);
-            cardModal.enterCardHolderName(card.holderName);
-            cardModal.clickSave();
-            try { Thread.sleep(2500); } catch (Exception ignore) {}
-            familyScreen.clickCheckoutPayNow();
-        }
+        Assert.assertTrue(cardModal.isModalDisplayed(), "Add New Card modal should be displayed on Family Health Checkout!");
+        TestDataBuilder.CreditCard card = TestDataBuilder.CreditCard.defaultCard();
+        cardModal.enterCardNumber(card.number);
+        cardModal.enterExpiryDate(card.expiry);
+        cardModal.enterCvv(card.cvv);
+        cardModal.enterCardHolderName(card.holderName);
+        cardModal.clickSave();
+        try { Thread.sleep(2500); } catch (Exception ignore) {}
+        new CheckoutScreen().clickPayNow();
 
         System.out.println("[Step 8] Verifying Policy Issuance Confirmation...");
         PolicyConfirmationScreen confirmationScreen = new PolicyConfirmationScreen();
@@ -125,6 +134,10 @@ public class FamilyHealthTest extends BaseTest {
         familyScreen.answerAllDeclarationQuestions(false);
         familyScreen.clickDeclarationProceed();
 
+        if (BasePage.uatElmDependentBlocked) {
+            throw new SkipException("Blocked by UAT Elm dependent validation");
+        }
+
         System.out.println("[Step 1] Comparing Bronze, Silver, Platinum and Gold Plan tiers...");
         familyScreen.waitForPlanSelectionScreen();
 
@@ -142,21 +155,23 @@ public class FamilyHealthTest extends BaseTest {
         familyScreen.toggleDentalAddon();
         familyScreen.clickBuyNow();
 
+        if (BasePage.uatElmDependentBlocked) {
+            throw new SkipException("Blocked by UAT Elm dependent validation");
+        }
         familyScreen.fillNationalAddress("1234", "Riyadh", "Riyadh", "King Fahd Rd", "Al Olaya", "5678", "12211");
         familyScreen.fillIbanAndAcceptTerms(TestDataBuilder.DEFAULT_IBAN);
         familyScreen.clickCheckoutPayNow();
 
         AddNewCardModal cardModal = new AddNewCardModal();
-        if (cardModal.isModalDisplayed()) {
-            TestDataBuilder.CreditCard card = TestDataBuilder.CreditCard.defaultCard();
-            cardModal.enterCardNumber(card.number);
-            cardModal.enterExpiryDate(card.expiry);
-            cardModal.enterCvv(card.cvv);
-            cardModal.enterCardHolderName(card.holderName);
-            cardModal.clickSave();
-            try { Thread.sleep(2500); } catch (Exception ignore) {}
-            familyScreen.clickCheckoutPayNow();
-        }
+        Assert.assertTrue(cardModal.isModalDisplayed(), "Add New Card modal should be displayed on Family Health Flow 2 Checkout!");
+        TestDataBuilder.CreditCard card = TestDataBuilder.CreditCard.defaultCard();
+        cardModal.enterCardNumber(card.number);
+        cardModal.enterExpiryDate(card.expiry);
+        cardModal.enterCvv(card.cvv);
+        cardModal.enterCardHolderName(card.holderName);
+        cardModal.clickSave();
+        try { Thread.sleep(2500); } catch (Exception ignore) {}
+        new CheckoutScreen().clickPayNow();
 
         PolicyConfirmationScreen confirmationScreen = new PolicyConfirmationScreen();
         boolean isSuccess = confirmationScreen.isPolicyConfirmed();
@@ -195,6 +210,10 @@ public class FamilyHealthTest extends BaseTest {
         familyScreen.answerAllDeclarationQuestions(true);
         familyScreen.clickDeclarationProceed();
 
+        if (BasePage.uatElmDependentBlocked) {
+            throw new SkipException("Blocked by UAT Elm dependent validation");
+        }
+
         boolean isReferral = familyScreen.isUnderwritingReferralDisplayed();
         Assert.assertTrue(isReferral, "Underwriting referral notice should display for pre-existing family health condition!");
         System.out.println("Family health underwriting referral verified: " + isReferral);
@@ -218,6 +237,7 @@ public class FamilyHealthTest extends BaseTest {
         familyScreen.enterNationalId(invalidId);
         familyScreen.enterPhoneNumber(SPONSOR_PHONE);
         familyScreen.enterEmail("invalid.sponsor@tree.com.sa");
+        familyScreen.selectSponsorDob();
         familyScreen.acceptPrivacyNotice();
         familyScreen.clickNext();
 

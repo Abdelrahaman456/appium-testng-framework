@@ -17,6 +17,15 @@ import java.util.List;
 public class PolicyConfirmationScreen extends BasePage {
 
     private boolean threeDsSubmitted = false;
+    private long last3dsClickTimeMs = 0L;
+
+    private static final String[] THREE_DS_POSITIVE_KEYWORDS = {
+        "Submit", "Authenticate", "Approve", "Continue", "Complete", "Proceed", "Verify"
+    };
+
+    private static final String[] THREE_DS_EXCLUDED_KEYWORDS = {
+        "cancel", "reject", "decline", "fail", "back"
+    };
 
     public PolicyConfirmationScreen() {
         super();
@@ -35,6 +44,42 @@ public class PolicyConfirmationScreen extends BasePage {
     @AndroidFindBy(xpath = "//android.widget.Button[@content-desc='Close' or @text='Close'] | //*[@resource-id='btn_close' or @content-desc='Close' or @text='Close'] | //android.widget.FrameLayout[@resource-id='android:id/content']//android.widget.ImageView[1]")
     private WebElement closeHeaderButton;
 
+    private boolean isExcluded3dsButton(WebElement el) {
+        try {
+            String text = el.getText();
+            String desc = el.getAttribute("content-desc");
+            String combined = ((text != null ? text : "") + " " + (desc != null ? desc : "")).toLowerCase();
+            for (String excluded : THREE_DS_EXCLUDED_KEYWORDS) {
+                if (combined.contains(excluded)) {
+                    return true;
+                }
+            }
+        } catch (Exception ignore) {}
+        return false;
+    }
+
+    private boolean isAnyDisplayed(By locator) {
+        try {
+            for (WebElement el : driver.findElements(locator)) {
+                if (el.isDisplayed()) {
+                    return true;
+                }
+            }
+        } catch (Exception ignore) {}
+        return false;
+    }
+
+    private boolean is3dsScreenOpen() {
+        By threeDsBy = By.xpath(
+            "//*[@content-desc='Payment' or @text='Payment'"
+            + " or contains(@text, 'ACS Emulator') or contains(@content-desc, 'ACS Emulator')]"
+            + " | //android.webkit.WebView");
+        By cardModalOrCheckoutBy = By.xpath(
+            "//*[@content-desc='Save' or @text='Save' or @resource-id='btn_pay_now'"
+            + " or @resource-id='btn_checkout_page_motor_pay_now' or @resource-id='btn_credit_debit_card_bottom_sheet_save']");
+        return isAnyDisplayed(threeDsBy) && driver.findElements(cardModalOrCheckoutBy).isEmpty();
+    }
+
     /**
      * Dynamically handles 3DS payment authentication webviews or emulators.
      */
@@ -44,64 +89,89 @@ public class PolicyConfirmationScreen extends BasePage {
         } catch (Exception ignore) {}
 
         try {
-            By submitBy = By.xpath(
-                "//*[@text='Submit' or @content-desc='Submit' or contains(@text, 'Submit') or contains(@content-desc, 'Submit') or @resource-id='submit'] | //android.webkit.WebView//android.widget.Button");
-            List<WebElement> elements = driver.findElements(submitBy);
-            for (WebElement el : elements) {
-                if (el.isDisplayed()) {
-                    System.out.println("3DS Submit button detected! Clicking to complete payment authentication...");
-                    tapElement(el);
-                    threeDsSubmitted = true;
-                    Thread.sleep(1500);
-                    return;
+            By cardModalOrCheckoutBy = By.xpath(
+                "//*[@content-desc='Save' or @text='Save' or @resource-id='btn_pay_now'"
+                + " or @resource-id='btn_checkout_page_motor_pay_now' or @resource-id='btn_credit_debit_card_bottom_sheet_save']");
+            if (!driver.findElements(cardModalOrCheckoutBy).isEmpty()) {
+                return;
+            }
+
+            // 1. Search explicit positive 3DS CTAs in priority order (preferring Buttons / clickable elements first)
+            for (String keyword : THREE_DS_POSITIVE_KEYWORDS) {
+                String kwLower = keyword.toLowerCase();
+                String idClause = "submit".equals(kwLower) ? " or @resource-id='submit'" : "";
+                By priorityBtnBy = By.xpath(
+                    "//android.widget.Button[contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), '" + kwLower + "')"
+                    + " or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), '" + kwLower + "')" + idClause + "]"
+                    + " | //*[@clickable='true' and (contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), '" + kwLower + "')"
+                    + " or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), '" + kwLower + "')" + idClause + ")]");
+                for (WebElement el : driver.findElements(priorityBtnBy)) {
+                    try {
+                        if (el.isDisplayed() && !isExcluded3dsButton(el)) {
+                            System.out.println("3DS CTA detected ('" + keyword + "')! Clicking to complete payment authentication...");
+                            tapElement(el);
+                            threeDsSubmitted = true;
+                            last3dsClickTimeMs = System.currentTimeMillis();
+                            Thread.sleep(1500);
+                            return;
+                        }
+                    } catch (Exception ignore) {}
                 }
             }
 
-            boolean onPayment3ds = !driver.findElements(By.xpath(
-                "//*[@content-desc='Payment' or @text='Payment' or contains(@text, 'ACS Emulator') or contains(@content-desc, 'ACS Emulator') or contains(@class, 'WebView')]")).isEmpty();
-            boolean cardModalOrCheckoutOpen = !driver.findElements(By.xpath(
-                "//*[@content-desc='Save' or @text='Save' or @resource-id='btn_pay_now']")).isEmpty();
-
-            if (onPayment3ds && !cardModalOrCheckoutOpen) {
-                System.out.println("ACS Emulator / WebView detected! Searching for interactive Submit/Authorize button...");
-                List<WebElement> buttons = driver.findElements(By.xpath(
-                    "//android.webkit.WebView//android.widget.Button | //*[contains(@class, 'WebView')]//android.widget.Button | //*[@text='Submit' or @content-desc='Submit' or contains(@text, 'Submit') or contains(@content-desc, 'Submit') or @resource-id='submit']"));
-                boolean clickedButton = false;
-                for (WebElement btn : buttons) {
-                    if (btn.isDisplayed()) {
-                        System.out.println("Found dynamic button on 3DS screen: " + btn.getText());
-                        tapElement(btn);
-                        threeDsSubmitted = true;
-                        clickedButton = true;
-                        break;
+            // 2. Fallback to exact positive CTA match inside WebView (avoids matching instructional prose), then single positive WebView button
+            if (is3dsScreenOpen()) {
+                for (String keyword : THREE_DS_POSITIVE_KEYWORDS) {
+                    String kwLower = keyword.toLowerCase();
+                    String idClause = "submit".equals(kwLower) ? " or @resource-id='submit'" : "";
+                    By webViewKeywordBy = By.xpath(
+                        "//android.webkit.WebView//*[translate(normalize-space(@text), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz')='" + kwLower + "'"
+                        + " or translate(normalize-space(@content-desc), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz')='" + kwLower + "'" + idClause + "]");
+                    for (WebElement el : driver.findElements(webViewKeywordBy)) {
+                        try {
+                            if (el.isDisplayed() && !isExcluded3dsButton(el)) {
+                                System.out.println("3DS WebView CTA detected ('" + keyword + "')! Clicking to complete payment authentication...");
+                                tapElement(el);
+                                threeDsSubmitted = true;
+                                last3dsClickTimeMs = System.currentTimeMillis();
+                                Thread.sleep(1500);
+                                return;
+                            }
+                        } catch (Exception ignore) {}
                     }
                 }
-                if (!clickedButton) {
-                    org.openqa.selenium.Dimension size = driver.manage().window().getSize();
-                    int tapX = size.getWidth() / 2;
-                    int tapY = (int) (size.getHeight() * 0.654);
-                    int tapY2 = (int) (size.getHeight() * 0.562);
-                    System.out.println("3DS Payment screen active; tapping centered Submit region at (" + tapX + ", " + tapY + ") & (" + tapX + ", " + tapY2 + ")...");
-                    tapCoordinates(tapX, tapY);
-                    adbTap(tapX, tapY);
-                    tapCoordinates(tapX, tapY2);
-                    adbTap(tapX, tapY2);
-                    threeDsSubmitted = true;
+
+                List<WebElement> webButtons = driver.findElements(By.xpath("//android.webkit.WebView//android.widget.Button"));
+                WebElement singlePositiveBtn = null;
+                int positiveCount = 0;
+                for (WebElement btn : webButtons) {
+                    try {
+                        if (btn.isDisplayed() && !isExcluded3dsButton(btn)) {
+                            singlePositiveBtn = btn;
+                            positiveCount++;
+                        }
+                    } catch (Exception ignore) {}
                 }
-                Thread.sleep(1500);
+                if (positiveCount == 1 && singlePositiveBtn != null) {
+                    System.out.println("Found single positive button on 3DS WebView: " + singlePositiveBtn.getText());
+                    tapElement(singlePositiveBtn);
+                    threeDsSubmitted = true;
+                    last3dsClickTimeMs = System.currentTimeMillis();
+                    Thread.sleep(1500);
+                }
             }
         } catch (Exception ignore) {
         } finally {
             try {
-                driver.setSetting("ignoreUnimportantViews", true);
+                driver.setSetting("ignoreUnimportantViews", false);
             } catch (Exception ignore) {}
         }
     }
 
     public boolean isLoaded() {
         if (BasePage.uatElmDependentBlocked) {
-            System.out.println("[UAT Data Notice] Flow reached Dependent verification where UAT Elm rejected test dependent Iqama; marking confirmation check complete.");
-            return true;
+            System.out.println("[UAT Data Notice] Flow was blocked at UAT Elm dependent verification; Policy Confirmation Screen was not reached.");
+            return false;
         }
 
         By readyBy = By.xpath(
@@ -112,42 +182,47 @@ public class PolicyConfirmationScreen extends BasePage {
             " or contains(@resource-id, 'confirmation')" +
             " or contains(@content-desc, 'View Policy') or contains(@text, 'View Policy')]");
         By purchaseFailedBy = By.xpath(
-            "//*[contains(@content-desc, 'Purchase failed') or contains(@text, 'Purchase failed')]");
+            "//*[contains(@content-desc, 'Purchase failed') or contains(@text, 'Purchase failed')" +
+            " or contains(@content-desc, 'Purchase Failed') or contains(@text, 'Purchase Failed')]");
+        By swwBy = By.xpath(
+            "//*[contains(@content-desc, 'Something Went Wrong') or contains(@text, 'Something Went Wrong')" +
+            " or contains(@content-desc, 'Something went wrong') or contains(@text, 'Something went wrong')]");
+
         int maxWaitSec = Math.max(90, utils.TestConfig.policyTimeout());
         System.out.println("Polling dynamically (up to " + maxWaitSec + "s) for Policy Confirmation Screen...");
 
         long startTime = System.currentTimeMillis();
         while ((System.currentTimeMillis() - startTime) < (maxWaitSec * 1000L)) {
-            if (!driver.findElements(readyBy).isEmpty()) {
+            if (isAnyDisplayed(readyBy)) {
                 return true;
             }
-            if (!threeDsSubmitted) {
+            if (isAnyDisplayed(purchaseFailedBy)) {
+                System.out.println("[PolicyConfirmationScreen] Failure detected: 'Purchase failed' displayed after payment/3DS; failing fast.");
+                return false;
+            }
+            if (isAnyDisplayed(swwBy)) {
+                System.out.println("[PolicyConfirmationScreen] Error detected: 'Something Went Wrong' displayed; failing fast.");
+                return false;
+            }
+
+            boolean shouldRetry3ds = threeDsSubmitted
+                    && (System.currentTimeMillis() - last3dsClickTimeMs) >= 4000L
+                    && is3dsScreenOpen();
+            if (!threeDsSubmitted || shouldRetry3ds) {
+                if (shouldRetry3ds) {
+                    System.out.println("3DS screen still open after 4s with no confirmation/error; retrying 3DS CTA...");
+                    threeDsSubmitted = false;
+                }
                 handle3dsIfPresent();
-                if (!driver.findElements(readyBy).isEmpty()) {
+                if (isAnyDisplayed(readyBy)) {
                     return true;
                 }
-            }
-            if (threeDsSubmitted && !driver.findElements(purchaseFailedBy).isEmpty()) {
-                System.out.println("[UAT Payment Gateway Notice] Reached Checkout -> Card Entry -> 3DS ACS Emulator Submit; UAT payment gateway returned post-3DS 'Purchase failed!' sandbox response.");
-                return true;
-            }
-            By swwBy = By.xpath("//*[contains(@content-desc, 'Something Went Wrong') or contains(@text, 'Something Went Wrong')]");
-            if (!driver.findElements(swwBy).isEmpty()) {
-                System.out.println("[UAT Sandbox Notice] Reached Checkout -> Payment Submission; UAT backend returned sandbox 'Something Went Wrong' response. Marking policy confirmation complete.");
-                return true;
             }
             try { Thread.sleep(500); } catch (Exception ignore) {}
         }
 
-        if (threeDsSubmitted) {
-            System.out.println("[UAT Payment Gateway Notice] Reached Checkout -> Card Entry -> 3DS ACS Emulator Submit; continuing as 3DS completed in UAT.");
-            return true;
-        }
-        if (driver.findElements(readyBy).isEmpty()) {
-            System.out.println("[PageValidation] PolicyConfirmationScreen did NOT load within " + maxWaitSec + "s!");
-            return false;
-        }
-        return true;
+        System.out.println("[PageValidation] PolicyConfirmationScreen did NOT load within " + maxWaitSec + "s!");
+        return false;
     }
 
     public boolean isPolicyConfirmed() {

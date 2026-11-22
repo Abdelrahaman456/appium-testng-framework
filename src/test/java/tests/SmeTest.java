@@ -49,13 +49,23 @@ public class SmeTest extends BaseTest {
         Assert.assertTrue(smeScreen.isSmeHealthProductDisplayed(),
                 "SME Health Insurance card should be displayed.");
 
-        smeScreen.openSmeHealthInsurance();
-        Assert.assertTrue(smeScreen.isExternalSmePortalOpened(),
-                "Tapping SME Health Insurance should launch the external Chrome SME web portal.");
+        boolean returned = false;
+        try {
+            smeScreen.openSmeHealthInsurance();
+            Assert.assertTrue(smeScreen.isExternalSmePortalOpened(),
+                    "Tapping SME Health Insurance should launch the external Chrome SME web portal.");
 
-        Assert.assertTrue(smeScreen.returnToTreeApp(),
-                "Returning from external SME portal should cleanly restore Tree UAT app Home.");
-        System.out.println(">> [SUCCESS] SME Flow 2 passed: SME Health external portal handoff and clean return verified!");
+            returned = smeScreen.returnToTreeApp();
+            Assert.assertTrue(returned,
+                    "Returning from external SME portal should cleanly restore Tree UAT app Home.");
+            System.out.println(">> [SUCCESS] SME Flow 2 passed: SME Health external portal handoff and clean return verified!");
+        } finally {
+            if (!returned) {
+                try {
+                    smeScreen.returnToTreeApp();
+                } catch (Exception ignore) {}
+            }
+        }
     }
 
     @Test(priority = 3, groups = {"sme", "quick-actions"},

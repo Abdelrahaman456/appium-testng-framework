@@ -99,23 +99,37 @@ public class SupportAndLocalizationTest extends BaseTest {
         System.out.println("=============================================================");
 
         SupportAndLocalizationScreen screen = new SupportAndLocalizationScreen();
-        screen.openMyProfileTab();
+        boolean arabicSwitched = false;
+        try {
+            screen.openMyProfileTab();
 
-        Assert.assertTrue(screen.isEnglishLtrActive(),
-                "Baseline app state should be English LTR with Home tab on the left.");
+            Assert.assertTrue(screen.isEnglishLtrActive(),
+                    "Baseline app state should be English LTR with Home tab on the left.");
 
-        System.out.println("[Step 1] Switching app language from English (EN) to Arabic (AR)...");
-        screen.toggleLanguagePreference(true);
+            System.out.println("[Step 1] Switching app language from English (EN) to Arabic (AR)...");
+            arabicSwitched = true;
+            screen.toggleLanguagePreference(true);
 
-        Assert.assertTrue(screen.isArabicRtlActive(),
-                "App should render Arabic strings and mirror layout to RTL!");
+            Assert.assertTrue(screen.isArabicRtlActive(),
+                    "App should render Arabic strings and mirror layout to RTL!");
 
-        System.out.println("[Step 2] Restoring app language back to English (EN)...");
-        screen.openMyProfileTab();
-        screen.toggleLanguagePreference(false);
+            System.out.println("[Step 2] Restoring app language back to English (EN)...");
+            screen.openMyProfileTab();
+            screen.toggleLanguagePreference(false);
 
-        Assert.assertTrue(screen.isEnglishLtrActive(),
-                "App should cleanly restore English LTR layout after switching back!");
-        System.out.println(">> [SUCCESS] Localization Flow 5 passed: Arabic RTL & English LTR verified!");
+            Assert.assertTrue(screen.isEnglishLtrActive(),
+                    "App should cleanly restore English LTR layout after switching back!");
+            arabicSwitched = false;
+            System.out.println(">> [SUCCESS] Localization Flow 5 passed: Arabic RTL & English LTR verified!");
+        } finally {
+            if (arabicSwitched) {
+                try {
+                    System.out.println("[Cleanup] Restoring English (EN) language preference...");
+                    screen.openMyProfileTab();
+                    screen.toggleLanguagePreference(false);
+                    screen.isEnglishLtrActive();
+                } catch (Exception ignore) {}
+            }
+        }
     }
 }

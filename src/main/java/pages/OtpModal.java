@@ -73,10 +73,8 @@ public class OtpModal extends BasePage {
                 }
             }
         }
-        try {
-            Runtime.getRuntime().exec(new String[]{BasePage.ADB_PATH, "-s", "emulator-5554", "shell", "input", "text", digits}).waitFor();
-            Thread.sleep(400);
-        } catch (Exception ignore) {}
+        adbInput(digits);
+        try { Thread.sleep(400); } catch (Exception ignore) {}
     }
 
     public void enterOtp(String otp) {

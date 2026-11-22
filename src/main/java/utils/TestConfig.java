@@ -93,9 +93,9 @@ public class TestConfig {
     public static String iban()    { return get("default.iban",   "SA6530400108071059170014"); }
 
     // ─── Vehicle Data ────────────────────────────────────────────────────────────
-    public static String cardNumber()   { return get("default.card.number",  "5123456789012346"); }
-    public static String cardExpiry()   { return get("default.card.expiry",  "01/2031"); }
-    public static String cardCvv()      { return get("default.card.cvv",     "100"); }
+    public static String cardNumber()   { return get("default.card.number",  "4111111111111111"); }
+    public static String cardExpiry()   { return get("default.card.expiry",  "12/2026"); }
+    public static String cardCvv()      { return get("default.card.cvv",     "911"); }
     public static String cardHolder()   { return get("default.card.holder",  "Tree User"); }
     public static String sellerId()     { return get("default.seller.id",    "1313424273"); }
     public static String carYear()      { return get("default.car.year",     "2026"); }

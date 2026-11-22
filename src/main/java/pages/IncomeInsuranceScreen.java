@@ -56,7 +56,7 @@ public class IncomeInsuranceScreen extends BasePage {
     // =========================================================================
     // 3. EMPLOYMENT & INCOME DETAILS
     // =========================================================================
-    @AndroidFindBy(xpath = "//*[@resource-id='btn_employed' or @content-desc='Employed' or @text='Employed' or contains(@content-desc, 'Employed')]")
+    @AndroidFindBy(xpath = "//*[@resource-id='btn_employed' or @content-desc='Employed' or @text='Employed' or starts-with(@content-desc, 'Employed') or starts-with(@text, 'Employed')]")
     private WebElement employedButton;
 
     @AndroidFindBy(xpath = "//*[@resource-id='btn_self_employed' or @content-desc='Self-Employed' or @text='Self-Employed' or contains(@content-desc, 'Self')]")
@@ -95,7 +95,7 @@ public class IncomeInsuranceScreen extends BasePage {
     @AndroidFindBy(xpath = "//*[contains(@content-desc, 'Basic Cover') or contains(@content-desc, 'Basic') or contains(@text, 'Basic') or contains(@resource-id, 'basic')]")
     private WebElement basicPlanCard;
 
-    @AndroidFindBy(xpath = "//*[contains(@content-desc, 'Silver Cover') or contains(@content-desc, 'Standard') or contains(@text, 'Standard') or contains(@resource-id, 'standard') or contains(@content-desc, 'Gold Cover')]")
+    @AndroidFindBy(xpath = "//*[contains(@content-desc, 'Silver Cover') or contains(@content-desc, 'Standard') or contains(@text, 'Standard') or contains(@resource-id, 'standard')]")
     private WebElement standardPlanCard;
 
     @AndroidFindBy(xpath = "//*[contains(@content-desc, 'Gold Cover') or contains(@content-desc, 'Comprehensive') or contains(@text, 'Comprehensive') or contains(@content-desc, 'Premium') or contains(@resource-id, 'premium')]")
@@ -285,6 +285,10 @@ public class IncomeInsuranceScreen extends BasePage {
             System.out.println("Income Insurance clickNext attempt " + attempt + " of 3...");
             List<WebElement> btns = driver.findElements(nextBtnBy);
             if (btns.isEmpty()) btns = findWithUnimportantViews(nextBtnBy);
+            if (btns.isEmpty()) {
+                scrollDown();
+                btns = findWithUnimportantViews(nextBtnBy);
+            }
             if (!btns.isEmpty()) {
                 WebElement targetBtn = btns.get(btns.size() - 1);
                 for (WebElement b : btns) {
@@ -294,9 +298,8 @@ public class IncomeInsuranceScreen extends BasePage {
                     }
                 }
                 tapElement(targetBtn);
-            } else {
-                tapCoordinates(540, 2261);
-                adbTap(540, 2261);
+            } else if (isElementVisible(nextButton)) {
+                tapElement(nextButton);
             }
 
             boolean transitioned = waitUntil(() -> {
@@ -317,14 +320,6 @@ public class IncomeInsuranceScreen extends BasePage {
         return this;
     }
 
-    private boolean isOnQuoteScreenNotCheckout() {
-        boolean onQuote = !driver.findElements(By.xpath(
-                "//*[contains(@content-desc, 'pre-existing diseases') or contains(@content-desc, 'Claims cannot be made') or contains(@content-desc, 'quote')]")).isEmpty();
-        boolean onCheckout = !driver.findElements(By.xpath(
-                "//*[@content-desc='Checkout' or @resource-id='textfield_iban' or @resource-id='textfield_building_number']")).isEmpty();
-        return onQuote && !onCheckout;
-    }
-
     private void tapPreferredClickable(By clickableBy, WebElement fallbackElement) {
         List<WebElement> candidates = driver.findElements(clickableBy);
         if (!candidates.isEmpty() && candidates.get(0).isDisplayed()) {
@@ -341,10 +336,14 @@ public class IncomeInsuranceScreen extends BasePage {
             WebDriverWait waitErr = new WebDriverWait(driver, Duration.ofSeconds(5));
             return waitErr.until(d -> {
                 if (isElementVisible(validationErrorMessage)) return true;
-                if (!driver.findElements(By.xpath("//*[contains(@resource-id, 'error') or contains(@text, 'invalid') or contains(@content-desc, 'invalid') or contains(@text, 'Minimum') or contains(@content-desc, 'Minimum')]")).isEmpty()) {
-                    return true;
-                }
-                return isOnQuoteScreenNotCheckout();
+                return !driver.findElements(By.xpath(
+                    "//*[contains(@resource-id, 'error') "
+                    + "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'invalid') "
+                    + "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'invalid') "
+                    + "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'minimum') "
+                    + "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'minimum') "
+                    + "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'required') "
+                    + "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'required')]")).isEmpty();
             });
         } catch (Exception e) {
             return false;
@@ -369,7 +368,7 @@ public class IncomeInsuranceScreen extends BasePage {
             try {
                 if (isElementVisible(employedButton)) tapElement(employedButton);
                 else {
-                    WebElement btn = driver.findElement(By.xpath("//*[contains(@content-desc, 'Employed') or contains(@text, 'Employed')]"));
+                    WebElement btn = driver.findElement(By.xpath("//*[@resource-id='btn_employed' or @content-desc='Employed' or @text='Employed' or starts-with(@content-desc, 'Employed') or starts-with(@text, 'Employed')]"));
                     tapElement(btn);
                 }
             } catch (Exception e) {
@@ -504,10 +503,13 @@ public class IncomeInsuranceScreen extends BasePage {
             WebDriverWait waitReferral = new WebDriverWait(driver, Duration.ofSeconds(10));
             return waitReferral.until(d -> {
                 if (isElementVisible(underwritingNotice)) return true;
-                if (!driver.findElements(By.xpath("//*[contains(@content-desc, 'referral') or contains(@text, 'referral') or contains(@content-desc, 'underwriting') or contains(@text, 'underwriting')]")).isEmpty()) {
-                    return true;
-                }
-                return isOnQuoteScreenNotCheckout();
+                return !driver.findElements(By.xpath(
+                    "//*[contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'referral') "
+                    + "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'referral') "
+                    + "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'underwriting') "
+                    + "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'underwriting') "
+                    + "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'not eligible') "
+                    + "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'not eligible')]")).isEmpty();
             });
         } catch (Exception e) {
             return false;
@@ -544,7 +546,7 @@ public class IncomeInsuranceScreen extends BasePage {
             waitForVisibility(standardPlanCard);
             tapElement(standardPlanCard);
         } catch (Exception e) {
-            WebElement card = driver.findElement(By.xpath("//*[contains(@content-desc, 'Silver Cover') or contains(@content-desc, 'Standard') or contains(@content-desc, 'Gold Cover')]"));
+            WebElement card = driver.findElement(By.xpath("//*[contains(@content-desc, 'Silver Cover') or contains(@content-desc, 'Standard')]"));
             tapElement(card);
         }
         try { Thread.sleep(1000); } catch (Exception ignore) {}

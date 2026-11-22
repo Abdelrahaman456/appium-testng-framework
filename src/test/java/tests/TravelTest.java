@@ -103,58 +103,34 @@ public class TravelTest extends BaseTest {
 
         // Checkout & Address
         PerformanceBenchmark.startStage("Travel_Checkout_Payment");
-        travelScreen.fillNationalAddress("1234", "Riyadh", "Riyadh", "King Fahd Rd", "Al Olaya", "5678", "12211");
-        pages.CheckoutScreen checkoutScreen = new pages.CheckoutScreen();
-        checkoutScreen.waitForPageToLoad();
-        checkoutScreen.selectCreditDebitCard();
-        checkoutScreen.enterIban(TestDataBuilder.DEFAULT_IBAN);
-        checkoutScreen.clickTermsCheckbox();
-        checkoutScreen.clickPayNow();
-
-        // Card Entry & Payment
-        AddNewCardModal cardModal = new AddNewCardModal();
-        if (cardModal.isModalDisplayed()) {
-            System.out.println("AddNewCardModal displayed, entering payment card details...");
-            TestDataBuilder.CreditCard card = TestDataBuilder.CreditCard.defaultCard();
-            cardModal.enterCardNumber(card.number);
-            cardModal.enterExpiryDate(card.expiry);
-            cardModal.enterCvv(card.cvv);
-            cardModal.enterCardHolderName(card.holderName);
-            cardModal.clickSave();
-            try { Thread.sleep(2500); } catch (Exception ignore) {}
-            travelScreen.clickCheckoutPayNow();
-        }
-
-        // Policy Confirmation Assertion
-        PolicyConfirmationScreen confirmationScreen = new PolicyConfirmationScreen();
-        boolean isSuccess = confirmationScreen.isPolicyConfirmed();
+        completeCheckoutAndPayment(travelScreen, "Travel Flow 1 Single Trip");
         PerformanceBenchmark.stopStage("Travel_Checkout_Payment", PerformanceBenchmark.SLA_CHECKOUT_PREP + PerformanceBenchmark.SLA_3DS_PAYMENT);
-        Assert.assertTrue(isSuccess, "Policy Confirmation screen was not reached for Travel Insurance!");
-        System.out.println("=== Travel Flow 1 Completed Successfully! ===");
     }
 
     private void completeCheckoutAndPayment(TravelAboutYouScreen travelScreen, String flowLabel) {
         travelScreen.fillNationalAddress("1234", "Riyadh", "Riyadh", "King Fahd Rd", "Al Olaya", "5678", "12211");
         pages.CheckoutScreen checkoutScreen = new pages.CheckoutScreen();
-        checkoutScreen.waitForPageToLoad();
-        checkoutScreen.enterEmail(TestDataBuilder.DEFAULT_EMAIL);
+        Assert.assertTrue(checkoutScreen.waitForPageToLoad(),
+                "Checkout screen did not load for " + flowLabel + "!");
+        TestDataBuilder.CustomerProfile profile = TestDataBuilder.CustomerProfile.createDefault(TestDataBuilder.DEFAULT_SELLER_ID);
+        checkoutScreen.enterEmail(profile.email);
+        checkoutScreen.enterIban(profile.iban);
         checkoutScreen.selectCreditDebitCard();
-        checkoutScreen.enterIban(TestDataBuilder.DEFAULT_IBAN);
         checkoutScreen.clickTermsCheckbox();
         checkoutScreen.clickPayNow();
 
         AddNewCardModal cardModal = new AddNewCardModal();
-        if (cardModal.isModalDisplayed()) {
-            System.out.println("AddNewCardModal displayed, entering payment card details...");
-            TestDataBuilder.CreditCard card = TestDataBuilder.CreditCard.defaultCard();
-            cardModal.enterCardNumber(card.number);
-            cardModal.enterExpiryDate(card.expiry);
-            cardModal.enterCvv(card.cvv);
-            cardModal.enterCardHolderName(card.holderName);
-            cardModal.clickSave();
-            try { Thread.sleep(2500); } catch (Exception ignore) {}
-            checkoutScreen.clickPayNow();
-        }
+        Assert.assertTrue(cardModal.isModalDisplayed(),
+                "Add New Card bottom sheet should appear for " + flowLabel + "!");
+        System.out.println("AddNewCardModal displayed, entering payment card details...");
+        TestDataBuilder.CreditCard card = TestDataBuilder.CreditCard.defaultCard();
+        cardModal.enterCardNumber(card.number);
+        cardModal.enterExpiryDate(card.expiry);
+        cardModal.enterCvv(card.cvv);
+        cardModal.enterCardHolderName(card.holderName);
+        cardModal.clickSave();
+        try { Thread.sleep(2500); } catch (Exception ignore) {}
+        checkoutScreen.clickPayNow();
 
         PolicyConfirmationScreen confirmationScreen = new PolicyConfirmationScreen();
         boolean isSuccess = confirmationScreen.isPolicyConfirmed();

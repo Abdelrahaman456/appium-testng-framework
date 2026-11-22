@@ -35,10 +35,10 @@ public class TravelAboutYouScreen extends BasePage {
 
     private WebElement destinationDropdown;
 
-    @AndroidFindBy(xpath = "//*[contains(@resource-id, 'departure') or contains(@hint, 'Departure') or contains(@content-desc, 'Departure') or contains(@text, 'Departure')] | (//android.widget.ImageView[contains(@resource-id, 'textfield') or @clickable='true'])[1]")
+    @AndroidFindBy(xpath = "//*[contains(@resource-id, 'departure') or contains(@hint, 'Departure') or contains(@content-desc, 'Departure') or contains(@text, 'Departure')] | (//android.widget.ImageView[contains(@resource-id, 'textfield') or contains(@resource-id, 'date')])[1]")
     private WebElement departureDatepicker;
 
-    @AndroidFindBy(xpath = "//*[contains(@resource-id, 'return') or contains(@hint, 'Return') or contains(@content-desc, 'Return') or contains(@text, 'Return')] | (//android.widget.ImageView[contains(@resource-id, 'textfield') or @clickable='true'])[2]")
+    @AndroidFindBy(xpath = "//*[contains(@resource-id, 'return') or contains(@hint, 'Return') or contains(@content-desc, 'Return') or contains(@text, 'Return')] | (//android.widget.ImageView[contains(@resource-id, 'textfield') or contains(@resource-id, 'date')])[2]")
     private WebElement returnDatepicker;
 
     @AndroidFindBy(xpath = "//android.widget.EditText[@resource-id='textfield_phone_number' or contains(@resource-id, 'phone') or contains(@hint, 'Phone') or contains(@hint, 'phone') or contains(@hint, 'Mobile') or contains(@text, 'Mobile')]")
@@ -161,8 +161,110 @@ public class TravelAboutYouScreen extends BasePage {
 
     }
 
-    private void selectCalendarDay(String dayNumber) {
-        System.out.println("Selecting calendar day: " + dayNumber);
+    private int calendarMonthOffset = 0;
+
+    private WebElement findDatePicker(boolean isReturn) {
+        int minPickerY = (int) (getSafeWindowSize().height * 0.15);
+        org.openqa.selenium.By primaryBy = isReturn
+            ? org.openqa.selenium.By.xpath("//*[contains(@resource-id, 'return') or contains(@hint, 'Return') or contains(@content-desc, 'Return') or contains(@text, 'Return')]")
+            : org.openqa.selenium.By.xpath("//*[contains(@resource-id, 'departure') or contains(@hint, 'Departure') or contains(@content-desc, 'Departure') or contains(@text, 'Departure')]");
+        for (WebElement el : findWithUnimportantViews(primaryBy)) {
+            try {
+                if (el.isDisplayed() && el.getRect().getY() > minPickerY) {
+                    return el;
+                }
+            } catch (Exception ignore) {}
+        }
+        org.openqa.selenium.By fallbackBy = org.openqa.selenium.By.xpath(
+            "//android.widget.ImageView[contains(@resource-id, 'textfield') or contains(@resource-id, 'date') or @clickable='true']"
+        );
+        java.util.List<WebElement> filtered = new java.util.ArrayList<>();
+        for (WebElement el : findWithUnimportantViews(fallbackBy)) {
+            try {
+                if (el.isDisplayed() && el.getRect().getY() > minPickerY) {
+                    filtered.add(el);
+                }
+            } catch (Exception ignore) {}
+        }
+        if (isReturn && filtered.size() >= 2) {
+            return filtered.get(1);
+        }
+        if (!isReturn && !filtered.isEmpty()) {
+            return filtered.get(0);
+        }
+        WebElement boundEl = isReturn ? returnDatepicker : departureDatepicker;
+        try {
+            if (isElementVisible(boundEl) && boundEl.getRect().getY() > minPickerY) {
+                return boundEl;
+            }
+        } catch (Exception ignore) {}
+        return null;
+    }
+
+    private boolean tapNextMonthArrowIfPresent() {
+        org.openqa.selenium.Dimension size = getSafeWindowSize();
+        int minHeaderY = (int) (size.height * 0.15);
+        int maxHeaderY = (int) (size.height * 0.65);
+
+        org.openqa.selenium.By nextMonthBy = org.openqa.selenium.By.xpath(
+            "//*[contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'next month') " +
+            "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'forward') " +
+            "or contains(@resource-id, 'next_month') or contains(@resource-id, 'arrow_right') or @resource-id='next']"
+        );
+        for (WebElement arrow : findWithUnimportantViews(nextMonthBy)) {
+            try {
+                org.openqa.selenium.Rectangle r = arrow.getRect();
+                if (arrow.isDisplayed() && r.getY() > minHeaderY && r.getY() < maxHeaderY) {
+                    System.out.println("Tapping next-month arrow for rolled-over target month...");
+                    tapElement(arrow);
+                    try { Thread.sleep(500); } catch (Exception ignore) {}
+                    return true;
+                }
+            } catch (Exception ignore) {}
+        }
+        return false;
+    }
+
+    private void selectCalendarDate(java.time.LocalDate targetDate, java.time.LocalDate today) {
+        String dayNumber = String.valueOf(targetDate.getDayOfMonth());
+        String monthFull = targetDate.getMonth().getDisplayName(java.time.format.TextStyle.FULL, java.util.Locale.ENGLISH);
+        String monthShort = targetDate.getMonth().getDisplayName(java.time.format.TextStyle.SHORT, java.util.Locale.ENGLISH);
+        int monthsAhead = (targetDate.getYear() - today.getYear()) * 12 + (targetDate.getMonthValue() - today.getMonthValue());
+        System.out.println("Selecting dynamic calendar date: " + targetDate + " (monthsAhead=" + monthsAhead + ")");
+
+        org.openqa.selenium.Dimension size = getSafeWindowSize();
+        int minCalY = (int) (size.height * 0.18);
+        int maxCalY = (int) (size.height * 0.88);
+        int minCellW = (int) (size.width * 0.02);
+        int maxCellW = (int) (size.width * 0.32);
+        int minCellH = (int) (size.height * 0.01);
+        int maxCellH = (int) (size.height * 0.11);
+        int secondMonthMinY = (int) (size.height * 0.60);
+        int secondMonthMaxY = (int) (size.height * 0.82);
+
+        if (monthsAhead > calendarMonthOffset) {
+            org.openqa.selenium.By targetMonthLabelBy = org.openqa.selenium.By.xpath(
+                "//*[contains(@content-desc, '" + monthFull + "') or contains(@text, '" + monthFull + "')]"
+            );
+            boolean targetMonthVisible = false;
+            for (WebElement ml : findWithUnimportantViews(targetMonthLabelBy)) {
+                try {
+                    if (ml.isDisplayed() && ml.getRect().getY() > minCalY && ml.getRect().getY() < maxCalY) {
+                        targetMonthVisible = true;
+                        break;
+                    }
+                } catch (Exception ignore) {}
+            }
+            if (!targetMonthVisible) {
+                while (calendarMonthOffset < monthsAhead) {
+                    if (!tapNextMonthArrowIfPresent()) {
+                        scrollDown();
+                    }
+                    calendarMonthOffset++;
+                }
+            }
+        }
+
         org.openqa.selenium.By dayBy = org.openqa.selenium.By.xpath(
             "//*[@enabled='true' and (" +
             "@content-desc='" + dayNumber + "' or @text='" + dayNumber + "' " +
@@ -171,45 +273,61 @@ public class TravelAboutYouScreen extends BasePage {
             "or contains(@content-desc, ' " + dayNumber + ", ')" +
             ") and not(@content-desc='0 days')]"
         );
+
         try {
             java.util.List<WebElement> candidates = findWithUnimportantViews(dayBy);
+            java.util.List<WebElement> validCells = new java.util.ArrayList<>();
             for (WebElement el : candidates) {
                 try {
                     org.openqa.selenium.Rectangle r = el.getRect();
-                    if (el.isDisplayed() && r.getY() > 450 && r.getY() < 2100 && r.getWidth() > 20 && r.getWidth() < 350 && r.getHeight() > 20) {
-                        tapElement(el);
-                        return;
+                    if (el.isDisplayed() && r.getY() > minCalY && r.getY() < maxCalY
+                            && r.getWidth() > minCellW && r.getWidth() < maxCellW && r.getHeight() > minCellH) {
+                        String desc = el.getAttribute("content-desc");
+                        String txt = el.getText();
+                        String combined = ((desc != null ? desc : "") + " " + (txt != null ? txt : "")).toLowerCase();
+                        if (combined.contains(monthFull.toLowerCase()) || combined.contains(monthShort.toLowerCase())) {
+                            tapElement(el);
+                            return;
+                        }
+                        validCells.add(el);
                     }
                 } catch (Exception ignore) {}
             }
-            // Fallback: log calendar nodes once and tap an enabled day cell in December (second visible month)
+            if (!validCells.isEmpty()) {
+                WebElement chosen = validCells.get(0);
+                int bestY = (monthsAhead > 0 && validCells.size() > 1) ? Integer.MIN_VALUE : Integer.MAX_VALUE;
+                for (WebElement cell : validCells) {
+                    try {
+                        int cy = cell.getRect().getY();
+                        if ((monthsAhead > 0 && validCells.size() > 1) ? (cy > bestY) : (cy < bestY)) {
+                            bestY = cy;
+                            chosen = cell;
+                        }
+                    } catch (Exception ignore) {}
+                }
+                tapElement(chosen);
+                return;
+            }
+
+            // Fallback: inspect calendar nodes using proportional screen bounds
             System.out.println("Day '" + dayNumber + "' not matched by text/desc; inspecting calendar grid nodes...");
             java.util.List<WebElement> allNodes = findWithUnimportantViews(org.openqa.selenium.By.xpath("//*"));
-            int logged = 0;
-            java.util.List<WebElement> decDayCells = new java.util.ArrayList<>();
+            java.util.List<WebElement> monthDayCells = new java.util.ArrayList<>();
             for (WebElement node : allNodes) {
                 try {
                     org.openqa.selenium.Rectangle r = node.getRect();
-                    if (r.getY() > 450 && r.getY() < 2100 && r.getWidth() > 20 && r.getHeight() > 20) {
-                        if (logged < 25) {
-                            System.out.println("  CalNode: cls=" + node.getAttribute("className")
-                                + " txt='" + node.getText() + "' desc='" + node.getAttribute("content-desc")
-                                + "' clk=" + node.getAttribute("clickable") + " en=" + node.getAttribute("enabled")
-                                + " rect=[" + r.getX() + "," + r.getY() + " " + r.getWidth() + "x" + r.getHeight() + "]");
-                            logged++;
-                        }
-                        if ("true".equalsIgnoreCase(node.getAttribute("enabled"))
-                                && r.getY() >= 1450 && r.getY() <= 1950
-                                && r.getWidth() < 300 && r.getHeight() < 250) {
-                            decDayCells.add(node);
-                        }
+                    if ("true".equalsIgnoreCase(node.getAttribute("enabled"))
+                            && r.getY() >= secondMonthMinY && r.getY() <= secondMonthMaxY
+                            && r.getWidth() > minCellW && r.getWidth() < maxCellW
+                            && r.getHeight() > minCellH && r.getHeight() < maxCellH) {
+                        monthDayCells.add(node);
                     }
                 } catch (Exception ignore) {}
             }
-            if (!decDayCells.isEmpty()) {
-                int idx = "26".equals(dayNumber) ? Math.min(decDayCells.size() - 1, decDayCells.size() / 2 + 4) : Math.min(decDayCells.size() - 1, decDayCells.size() / 2);
-                System.out.println("Tapping fallback December calendar cell index " + idx + " of " + decDayCells.size());
-                tapElement(decDayCells.get(idx));
+            if (!monthDayCells.isEmpty()) {
+                int idx = Math.min(monthDayCells.size() - 1, Math.max(0, targetDate.getDayOfMonth() - 1));
+                System.out.println("Tapping fallback calendar cell index " + idx + " of " + monthDayCells.size());
+                tapElement(monthDayCells.get(idx));
             }
         } catch (Exception e) {
             System.out.println("Calendar day selection warning: " + e.getMessage());
@@ -230,9 +348,15 @@ public class TravelAboutYouScreen extends BasePage {
 
     public void selectDepartureDate() {
         System.out.println("Selecting Departure Date...");
+        calendarMonthOffset = 0;
         try {
-            waitForVisibility(departureDatepicker);
-            tapElement(departureDatepicker);
+            WebElement picker = findDatePicker(false);
+            if (picker != null) {
+                tapElement(picker);
+            } else {
+                waitForVisibility(departureDatepicker);
+                tapElement(departureDatepicker);
+            }
         } catch (Exception e) {
             System.out.println("Departure datepicker tap warning: " + e.getMessage());
         }
@@ -241,7 +365,11 @@ public class TravelAboutYouScreen extends BasePage {
         waitUntil(() -> !driver.findElements(sheetReadyBy).isEmpty(), 3);
         try { Thread.sleep(500); } catch (Exception ignore) {}
 
-        selectCalendarDay("22");
+        java.time.LocalDate today = java.time.LocalDate.now();
+        java.time.LocalDate departureDate = today.plusDays(2);
+        java.time.LocalDate returnDate = today.plusDays(6);
+
+        selectCalendarDate(departureDate, today);
 
         org.openqa.selenium.By rangeMarkerBy = org.openqa.selenium.By.xpath(
             "//*[contains(@content-desc, 'Return') or contains(@text, 'Return') " +
@@ -249,7 +377,7 @@ public class TravelAboutYouScreen extends BasePage {
         );
         if (!findWithUnimportantViews(rangeMarkerBy).isEmpty()) {
             try { Thread.sleep(400); } catch (Exception ignore) {}
-            selectCalendarDay("26");
+            selectCalendarDate(returnDate, today);
         }
 
         confirmCalendarPicker();
@@ -263,7 +391,8 @@ public class TravelAboutYouScreen extends BasePage {
             System.out.println("Return Date already confirmed in range calendar; skipping redundant picker open.");
             return;
         }
-        selectCalendarDay("26");
+        java.time.LocalDate today = java.time.LocalDate.now();
+        selectCalendarDate(today.plusDays(6), today);
         confirmCalendarPicker();
         try { Thread.sleep(700); } catch (Exception ignore) {}
     }
@@ -369,11 +498,13 @@ public class TravelAboutYouScreen extends BasePage {
             if (!driver.findElements(landingBy).isEmpty() || !driver.findElements(insureBtnBy).isEmpty()) {
                 System.out.println("Detected Travel Landing screen. Tapping Insure now...");
                 for (int attempt = 1; attempt <= 3; attempt++) {
-                    java.util.List<WebElement> btns = driver.findElements(insureBtnBy);
+                    java.util.List<WebElement> btns = findWithUnimportantViews(insureBtnBy);
+                    if (btns.isEmpty()) {
+                        scrollDown();
+                        btns = findWithUnimportantViews(insureBtnBy);
+                    }
                     if (!btns.isEmpty()) {
                         tapElement(btns.get(btns.size() - 1));
-                    } else {
-                        tapCoordinates(540, 2260);
                     }
                     try { Thread.sleep(1500); } catch (Exception ignore) {}
                     if (isInitialTripInfoScreenVisible() || !driver.findElements(org.openqa.selenium.By.xpath("//*[@text='Single trip' or @content-desc='Single trip']")).isEmpty()) {
@@ -411,26 +542,24 @@ public class TravelAboutYouScreen extends BasePage {
 
     public void selectDob() {
         System.out.println("Opening Month/Year of birth dropdown on Travel screen...");
+        int minY = (int) (getSafeWindowSize().height * 0.15);
         org.openqa.selenium.By locator = org.openqa.selenium.By.xpath(
             "//android.widget.EditText[@resource-id='textfield_national_id']/following::android.widget.ImageView[1] " +
             "| //*[contains(@resource-id, 'dob') or contains(@resource-id, 'birth') or @hint='Month/Year of birth' or contains(@hint, 'birth') or @content-desc='Month/Year of birth' or contains(@content-desc, 'Month')]"
         );
-        try {
-            WebElement field = getVisibleElement(locator);
-            field.click();
-        } catch (Exception e) {
-            tapCoordinates(900, 260);
+        WebElement dobTarget = null;
+        for (WebElement cand : findWithUnimportantViews(locator)) {
+            try {
+                if (cand.isDisplayed() && cand.getRect().getY() > minY) {
+                    dobTarget = cand;
+                    break;
+                }
+            } catch (Exception ignore) {}
         }
-        try { Thread.sleep(1500); } catch (Exception ignore) {}
-
-        // Confirm the DOB selection
-        try {
-            WebElement confirm = getVisibleElement(org.openqa.selenium.By.xpath("(//*[@text='Confirm' or @content-desc='Confirm' or @text='Done' or @content-desc='Done'])[last()]"));
-            confirm.click();
-        } catch (Exception e) {
-            tapCoordinates(750, 1430);
+        if (dobTarget == null) {
+            dobTarget = isElementVisible(dobField) ? dobField : getVisibleElement(locator);
         }
-        try { Thread.sleep(1000); } catch (Exception ignore) {}
+        scrollDobWheelAndConfirm(dobTarget);
     }
 
     public void selectSchengenDestination() {
@@ -461,20 +590,21 @@ public class TravelAboutYouScreen extends BasePage {
             clickPrivacyCheckbox();
 
             // Tap Next on Step 1
+            hideKeyboard();
             org.openqa.selenium.By nextBtnBy = org.openqa.selenium.By.xpath(
                 "//*[@resource-id='btn_next_button']//*[@clickable='true'] "
                 + "| //android.widget.Button[@clickable='true' and (@content-desc='Next' or @text='Next')] "
                 + "| //*[@resource-id='btn_next_button' or @content-desc='Next' or @text='Next']"
             );
-            try {
-                java.util.List<WebElement> btns = driver.findElements(nextBtnBy);
-                if (!btns.isEmpty()) {
-                    tapElement(btns.get(btns.size() - 1));
-                } else {
-                    tapCoordinates(540, 2260);
-                }
-            } catch (Exception e) {
-                tapCoordinates(540, 2260);
+            java.util.List<WebElement> btns = findWithUnimportantViews(nextBtnBy);
+            if (btns.isEmpty()) {
+                scrollDown();
+                btns = findWithUnimportantViews(nextBtnBy);
+            }
+            if (!btns.isEmpty()) {
+                tapElement(btns.get(btns.size() - 1));
+            } else {
+                click(nextButton);
             }
 
             // Check for transient 'Something Went Wrong' / 'Try Again' error
@@ -513,34 +643,11 @@ public class TravelAboutYouScreen extends BasePage {
 
     public void clickPrivacyCheckbox() {
         System.out.println("Ensuring Travel Privacy checkbox is checked...");
-        try {
-            if (driver instanceof io.appium.java_client.android.AndroidDriver) {
-                ((io.appium.java_client.android.AndroidDriver) driver).hideKeyboard();
-                Thread.sleep(400);
-            }
-        } catch (Exception ignore) {}
-
         org.openqa.selenium.By switchLocator = org.openqa.selenium.By.xpath(
-            "//*[@resource-id='tgl_checkbox' or @resource-id='tgl_about_you_page_motor_checkbox' or @class='android.widget.Switch' or @class='android.widget.CheckBox']"
+            "//*[@resource-id='tgl_checkbox' or @resource-id='tgl_about_you_page_motor_checkbox' or contains(@resource-id, 'checkbox') or @class='android.widget.Switch' or @class='android.widget.CheckBox']"
         );
-        java.util.List<WebElement> list = driver.findElements(switchLocator);
-        if (!list.isEmpty()) {
-            WebElement sw = list.get(0);
-            if ("true".equalsIgnoreCase(sw.getAttribute("checked"))) {
-                System.out.println("Privacy checkbox is already checked.");
-                return;
-            }
-            try {
-                tapElement(sw);
-                Thread.sleep(500);
-            } catch (Exception e) {
-                click(sw);
-            }
-        } else {
-            tapCoordinates(68, 2101);
-            try { Thread.sleep(500); } catch (Exception ignore) {}
-        }
-        System.out.println("Privacy checkbox tapped.");
+        boolean checked = clickPrivacySwitch(switchLocator);
+        System.out.println("Travel privacy checkbox interaction completed (checked=" + checked + ").");
     }
 
     public void clickNext() {
@@ -557,11 +664,15 @@ public class TravelAboutYouScreen extends BasePage {
 
         for (int attempt = 1; attempt <= 4; attempt++) {
             System.out.println("Travel clickNext attempt " + attempt + " of 4...");
-            java.util.List<WebElement> btns = driver.findElements(nextBtnBy);
+            java.util.List<WebElement> btns = findWithUnimportantViews(nextBtnBy);
+            if (btns.isEmpty()) {
+                scrollDown();
+                btns = findWithUnimportantViews(nextBtnBy);
+            }
             if (!btns.isEmpty()) {
                 tapElement(btns.get(btns.size() - 1));
             } else {
-                tapCoordinates(540, 2260);
+                try { click(nextButton); } catch (Exception ignore) {}
             }
 
             boolean transitioned = waitUntil(() -> {
@@ -569,21 +680,16 @@ public class TravelAboutYouScreen extends BasePage {
                     "//*[@content-desc='Yes' or @text='Yes' or @content-desc='No' or @text='No']")).isEmpty();
                 boolean onQuote = !driver.findElements(travelQuoteIndicatorBy()).isEmpty();
                 boolean onCheckout = !driver.findElements(TRAVEL_CHECKOUT_INDICATOR).isEmpty();
-
-                if (onDeclarations || onQuote || onCheckout) {
-                    return true;
-                }
-                return false;
-            }, 8);
+                return onDeclarations || onQuote || onCheckout || isValidationErrorDisplayed();
+            }, 6);
 
             if (transitioned) {
-                System.out.println("Successfully transitioned past Travel Step 2!");
+                System.out.println("Travel Step 2 Next evaluated (validationError=" + isValidationErrorDisplayed() + ").");
                 return;
             }
 
-            System.out.println("Still on Travel Step 2, re-tapping Next...");
-            tapCoordinates(540, 2260);
-            try { Thread.sleep(1000); } catch (Exception ignore) {}
+            System.out.println("Still on Travel Step 2, scrolling if needed before retrying Next...");
+            scrollDown();
         }
     }
 
@@ -674,19 +780,54 @@ public class TravelAboutYouScreen extends BasePage {
         }
     }
 
+    private boolean isTravelPlanExpanded(WebElement planCard, java.util.List<String> selectedLabels) {
+        try {
+            int cardTop = planCard.getRect().getY();
+            int nextCardTop = Integer.MAX_VALUE;
+            String[] knownPlans = {"Explorer Start", "Explorer Savvy", "Explorer Plus", "Silver", "Gold", "Platinum"};
+            for (String other : knownPlans) {
+                boolean matchesSelected = false;
+                for (String sel : selectedLabels) {
+                    if (other.equalsIgnoreCase(sel) || other.toLowerCase().contains(sel.toLowerCase()) || sel.toLowerCase().contains(other.toLowerCase())) {
+                        matchesSelected = true;
+                        break;
+                    }
+                }
+                if (matchesSelected) continue;
+                org.openqa.selenium.By otherBy = org.openqa.selenium.By.xpath(
+                    "//*[contains(@content-desc, '" + other + "') or contains(@text, '" + other + "')]"
+                );
+                for (WebElement otherEl : findWithUnimportantViews(otherBy)) {
+                    try {
+                        if (otherEl.isDisplayed()) {
+                            int oy = otherEl.getRect().getY();
+                            if (oy > cardTop + 20 && oy < nextCardTop) {
+                                nextCardTop = oy;
+                            }
+                        }
+                    } catch (Exception ignore) {}
+                }
+            }
+            org.openqa.selenium.By buyNowBy = org.openqa.selenium.By.xpath(
+                "//*[@resource-id='btn_buy_now' or @resource-id='btn_sales_quote_page_buy_now_button' or @content-desc='Buy now' or @text='Buy now']"
+            );
+            for (WebElement bn : findWithUnimportantViews(buyNowBy)) {
+                try {
+                    if (bn.isDisplayed()) {
+                        int byY = bn.getRect().getY();
+                        if (byY >= cardTop && byY < nextCardTop) {
+                            return true;
+                        }
+                    }
+                } catch (Exception ignore) {}
+            }
+        } catch (Exception ignore) {}
+        return false;
+    }
+
     private void selectTravelPlan(String primaryLabel, String... altLabels) {
         System.out.println("Selecting " + primaryLabel + " Travel Plan...");
-        org.openqa.selenium.By buyNowBy = org.openqa.selenium.By.xpath(
-            "//*[@resource-id='btn_buy_now' or @resource-id='btn_sales_quote_page_buy_now_button' or @content-desc='Buy now' or @text='Buy now']"
-        );
         try {
-            // Check if Buy now button is already visible and we don't need to re-expand
-            java.util.List<WebElement> existingBuyNow = driver.findElements(buyNowBy);
-            if (!existingBuyNow.isEmpty() && existingBuyNow.get(0).isDisplayed()) {
-                System.out.println("Travel plan card is already expanded and 'Buy now' CTA is visible; proceeding without re-toggling.");
-                return;
-            }
-
             java.util.List<String> labels = new java.util.ArrayList<>();
             labels.add(primaryLabel);
             for (String alt : altLabels) {
@@ -699,17 +840,24 @@ public class TravelAboutYouScreen extends BasePage {
                     "//*[@clickable='true' and (contains(@content-desc, '" + label + "') or contains(@text, '" + label + "'))] " +
                     "| //*[contains(@content-desc, '" + label + "') or contains(@text, '" + label + "')]"
                 );
-                java.util.List<WebElement> matches = driver.findElements(planBy);
+                java.util.List<WebElement> matches = findWithUnimportantViews(planBy);
+                if (matches.isEmpty()) {
+                    scrollDown();
+                    matches = findWithUnimportantViews(planBy);
+                }
                 if (!matches.isEmpty()) {
-                    System.out.println("Found plan card matching '" + label + "', tapping to expand...");
-                    tapElement(matches.get(0));
-                    waitUntil(() -> !driver.findElements(buyNowBy).isEmpty(), 3);
+                    WebElement targetCard = matches.get(0);
+                    if (isTravelPlanExpanded(targetCard, labels)) {
+                        System.out.println("Requested plan '" + label + "' is already expanded with its Buy now CTA visible; skipping toggle.");
+                        return;
+                    }
+                    System.out.println("Found plan card matching '" + label + "', tapping to select/expand...");
+                    tapElement(targetCard);
+                    waitUntil(() -> isTravelPlanExpanded(targetCard, labels), 3);
                     return;
                 }
             }
-            if (!driver.findElements(buyNowBy).isEmpty()) {
-                System.out.println("Travel Buy now CTA already visible on expanded default plan; continuing.");
-            }
+            System.out.println("No plan card matched '" + primaryLabel + "' on Travel Quote screen.");
         } catch (Exception ignore) {}
     }
 
@@ -847,6 +995,19 @@ public class TravelAboutYouScreen extends BasePage {
         return this;
     }
 
+    public TravelAboutYouScreen clickPayNowOnly() {
+        if (isPaymentOrConfirmationAlreadyActive()) {
+            return this;
+        }
+        System.out.println("Clicking Pay now on Travel Checkout (without re-selecting payment card)...");
+        try {
+            new CheckoutScreen().clickPayNow();
+        } catch (Exception e) {
+            System.out.println("CheckoutScreen clickPayNow warning: " + e.getMessage());
+        }
+        return this;
+    }
+
     public boolean isCheckoutLoaded() {
         try {
             return !driver.findElements(org.openqa.selenium.By.xpath("//*[@resource-id='textfield_building_number']")).isEmpty();
@@ -865,13 +1026,120 @@ public class TravelAboutYouScreen extends BasePage {
         }
     }
 
-    public boolean isPastDateDisabled() {
-        System.out.println("Verifying past date in calendar is disabled...");
+    private String getElementLabel(WebElement el) {
+        if (el == null) return "";
         try {
-            java.util.List<WebElement> disabledDates = driver.findElements(org.openqa.selenium.By.xpath("//*[contains(@enabled, 'false') or @aria-disabled='true']"));
-            return !disabledDates.isEmpty() || !driver.findElements(org.openqa.selenium.By.xpath("//*[@content-desc='Next' or @text='Next']")).isEmpty();
+            String txt = el.getText();
+            if (txt != null && !txt.trim().isEmpty()) return txt.trim();
+            String desc = el.getAttribute("content-desc");
+            return desc != null ? desc.trim() : "";
         } catch (Exception e) {
-            return true;
+            return "";
+        }
+    }
+
+    public boolean isPastDateDisabled() {
+        System.out.println("Opening Departure calendar to verify past dates are disabled...");
+        org.openqa.selenium.By sheetReadyBy = org.openqa.selenium.By.xpath(
+            "//*[@text='Confirm' or @content-desc='Confirm' or @text='Reset' or @content-desc='Reset']"
+        );
+        try {
+            WebElement picker = findDatePicker(false);
+            if (picker == null) {
+                System.out.println("Departure datepicker not found on screen.");
+                return false;
+            }
+            String beforePickerText = getElementLabel(picker);
+            tapElement(picker);
+            if (!waitUntil(() -> !findWithUnimportantViews(sheetReadyBy).isEmpty(), 4)) {
+                System.out.println("Departure calendar modal did not open.");
+                return false;
+            }
+
+            java.time.LocalDate today = java.time.LocalDate.now();
+            java.time.LocalDate yesterday = today.minusDays(1);
+            org.openqa.selenium.Dimension size = getSafeWindowSize();
+            int minCalY = (int) (size.height * 0.18);
+            int maxCalY = (int) (size.height * 0.88);
+            int maxCellW = (int) (size.width * 0.32);
+
+            if (yesterday.getMonthValue() == today.getMonthValue()) {
+                String pastDay = String.valueOf(yesterday.getDayOfMonth());
+                org.openqa.selenium.By anyDayBy = org.openqa.selenium.By.xpath(
+                    "//*[@content-desc='" + pastDay + "' or @text='" + pastDay + "' " +
+                    "or starts-with(@content-desc, '" + pastDay + ", ') " +
+                    "or starts-with(@content-desc, '" + pastDay + " ') " +
+                    "or contains(@content-desc, ' " + pastDay + ", ')]"
+                );
+                java.util.List<WebElement> matches = findWithUnimportantViews(anyDayBy);
+                WebElement topPastCell = null;
+                int minY = Integer.MAX_VALUE;
+                for (WebElement el : matches) {
+                    try {
+                        org.openqa.selenium.Rectangle r = el.getRect();
+                        if (el.isDisplayed() && r.getY() > minCalY && r.getY() < maxCalY && r.getWidth() < maxCellW && r.getY() < minY) {
+                            minY = r.getY();
+                            topPastCell = el;
+                        }
+                    } catch (Exception ignore) {}
+                }
+                if (topPastCell != null) {
+                    String enabled = topPastCell.getAttribute("enabled");
+                    String clickable = topPastCell.getAttribute("clickable");
+                    if ("false".equalsIgnoreCase(enabled) || "false".equalsIgnoreCase(clickable)) {
+                        System.out.println("Past day '" + pastDay + "' is disabled (enabled=" + enabled + ", clickable=" + clickable + ").");
+                        return true;
+                    }
+                    // Tap past cell and verify selection cannot advance to yesterday
+                    tapElement(topPastCell);
+                    try { Thread.sleep(500); } catch (Exception ignore) {}
+                    java.util.List<WebElement> confirmBtns = findWithUnimportantViews(
+                        org.openqa.selenium.By.xpath("(//*[@text='Confirm' or @content-desc='Confirm'])[last()]"));
+                    if (!confirmBtns.isEmpty() && "false".equalsIgnoreCase(confirmBtns.get(0).getAttribute("enabled"))) {
+                        System.out.println("Confirm remained disabled after tapping past day '" + pastDay + "'.");
+                        return true;
+                    }
+                    if (!confirmBtns.isEmpty()) {
+                        tapElement(confirmBtns.get(0));
+                        try { Thread.sleep(500); } catch (Exception ignore) {}
+                        if (!findWithUnimportantViews(sheetReadyBy).isEmpty()) {
+                            return true;
+                        }
+                        WebElement refreshedPicker = findDatePicker(false);
+                        String afterText = getElementLabel(refreshedPicker);
+                        boolean acceptedPastDate = afterText != null && !afterText.equals(beforePickerText)
+                                && afterText.contains(pastDay) && !afterText.toLowerCase().contains("departure");
+                        return !acceptedPastDate;
+                    }
+                }
+            } else {
+                // On the 1st of a month, verify previous-month navigation is disabled or absent
+                java.util.List<WebElement> prevArrows = findWithUnimportantViews(org.openqa.selenium.By.xpath(
+                    "//*[contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'previous month') or contains(@resource-id, 'prev')]"
+                ));
+                if (prevArrows.isEmpty() || "false".equalsIgnoreCase(prevArrows.get(0).getAttribute("enabled"))) {
+                    System.out.println("Previous month navigation is disabled/absent on day 1 of the month.");
+                    return true;
+                }
+            }
+            return false;
+        } catch (Exception e) {
+            System.out.println("Past date validation failed: " + e.getMessage());
+            return false;
+        } finally {
+            try {
+                if (!findWithUnimportantViews(sheetReadyBy).isEmpty()) {
+                    java.util.List<WebElement> dismissBtns = findWithUnimportantViews(org.openqa.selenium.By.xpath(
+                        "//*[@resource-id='btn_close' or @content-desc='Close' or @text='Close' or @content-desc='Cancel' or @text='Cancel']"
+                    ));
+                    if (!dismissBtns.isEmpty()) {
+                        tapElement(dismissBtns.get(0));
+                    } else {
+                        driver.navigate().back();
+                    }
+                    waitUntil(() -> findWithUnimportantViews(sheetReadyBy).isEmpty(), 3);
+                }
+            } catch (Exception ignore) {}
         }
     }
 

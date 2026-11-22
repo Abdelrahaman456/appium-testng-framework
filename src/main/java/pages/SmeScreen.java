@@ -13,21 +13,24 @@ import java.util.List;
  */
 public class SmeScreen extends BasePage {
 
-    private static final String TREE_PACKAGE = "sa.com.tree.digital.insurance.uat";
+    private static final String TREE_PACKAGE = utils.TestConfig.appPackage();
 
     // Home Segment Tabs
-    private final By individualTabBy = By.xpath("//*[contains(@content-desc, 'Individual') or contains(@text, 'Individual')]");
+    private final By individualTabBy = By.xpath("//*[@content-desc='Individual' or @text='Individual']");
     private final By smesTabBy = By.xpath("//*[@content-desc='SMEs' or @text='SMEs' or contains(@content-desc, 'SMEs')]");
     private final By allProductsTabBy = By.xpath("//*[contains(@content-desc, 'All products') or contains(@text, 'All products')]");
 
     // SME Products
     private final By smeHealthCardBy = By.xpath(
+        "//*[@resource-id='btn_home_product_sme'] | " +
         "//*[contains(@content-desc, 'SME') and contains(@content-desc, 'Health')] | " +
-        "//*[contains(@content-desc, 'SME\nHealth') or contains(@text, 'SME')]"
+        "//*[contains(@text, 'SME') and contains(@text, 'Health')] | " +
+        "//*[contains(@content-desc, 'SME\nHealth')]"
     );
 
     // Quick Actions on SMEs view
     private final By quickActionFaqsBy = By.xpath("//*[@content-desc='FAQs' or @text='FAQs' or contains(@content-desc, 'FAQs')]");
+    private final By faqSearchInputBy = By.xpath("//*[@resource-id='textfield_searchkeywords']");
     private final By faqsHeaderBy = By.xpath("//*[@content-desc='FAQs' or @text='FAQs'] | //*[@resource-id='textfield_searchkeywords']");
 
     // Chrome External Portal Locators
@@ -46,6 +49,7 @@ public class SmeScreen extends BasePage {
         waitUntil(() -> isElementVisible(smesTabBy), 10);
         tapElement(getVisibleElement(smesTabBy));
         waitUntil(() -> isElementVisible(smeHealthCardBy), 5);
+        try { Thread.sleep(500); } catch (Exception ignore) {}
         return this;
     }
 
@@ -59,6 +63,9 @@ public class SmeScreen extends BasePage {
 
     public SmeScreen selectIndividualTab() {
         System.out.println("Switching back to 'Individual' tab on Home screen via locator...");
+        if (!isElementVisible(individualTabBy)) {
+            scrollUp();
+        }
         waitUntil(() -> isElementVisible(individualTabBy), 10);
         tapElement(getVisibleElement(individualTabBy));
         try { Thread.sleep(300); } catch (Exception ignore) {}
@@ -70,8 +77,14 @@ public class SmeScreen extends BasePage {
     }
 
     public boolean isAllProductsCatalogDisplayed() {
-        By motorOrHealthBy = By.xpath("//*[contains(@content-desc, 'Motor') or contains(@content-desc, 'Travel') or contains(@content-desc, 'SME')]");
-        return waitUntil(() -> isElementVisible(motorOrHealthBy), 10);
+        By individualProductBy = By.xpath("//*[contains(@content-desc, 'Motor') or contains(@content-desc, 'Travel') or contains(@content-desc, 'Pet')]");
+        boolean bothVisible = waitUntil(() -> isElementVisible(individualProductBy) && isElementVisible(smeHealthCardBy), 6);
+        if (!bothVisible && isElementVisible(individualProductBy)) {
+            scrollDown();
+            bothVisible = waitUntil(() -> isElementVisible(smeHealthCardBy), 4);
+            scrollUp();
+        }
+        return bothVisible;
     }
 
     // =========================================================================
@@ -80,8 +93,18 @@ public class SmeScreen extends BasePage {
     public SmeScreen openSmeHealthInsurance() {
         System.out.println("Tapping 'SME Health Insurance' card via locator...");
         waitUntil(() -> isElementVisible(smeHealthCardBy), 10);
+        try { Thread.sleep(500); } catch (Exception ignore) {}
         tapElement(getVisibleElement(smeHealthCardBy));
-        try { Thread.sleep(3000); } catch (Exception ignore) {}
+        try { Thread.sleep(2500); } catch (Exception ignore) {}
+        try {
+            if (driver instanceof AndroidDriver
+                    && TREE_PACKAGE.equals(((AndroidDriver) driver).getCurrentPackage())
+                    && isElementVisible(smeHealthCardBy)) {
+                System.out.println("Still on Tree app after first SME Health tap; retrying tap on settled card...");
+                tapElement(getVisibleElement(smeHealthCardBy));
+                Thread.sleep(2500);
+            }
+        } catch (Exception ignore) {}
         return this;
     }
 
@@ -93,9 +116,14 @@ public class SmeScreen extends BasePage {
             try {
                 if (driver instanceof AndroidDriver) {
                     String currentPkg = ((AndroidDriver) driver).getCurrentPackage();
-                    if (currentPkg != null && (currentPkg.contains("chrome") || currentPkg.contains("browser") || !currentPkg.equals(TREE_PACKAGE))) {
-                        System.out.println("External browser handoff verified! Active package: " + currentPkg);
-                        return true;
+                    if (currentPkg != null) {
+                        String pkgLower = currentPkg.toLowerCase();
+                        if (pkgLower.contains("chrome") || pkgLower.contains("browser")
+                                || pkgLower.contains("webview") || pkgLower.contains("firefox")
+                                || pkgLower.contains("opera") || pkgLower.contains("edge")) {
+                            System.out.println("External browser handoff verified! Active package: " + currentPkg);
+                            return true;
+                        }
                     }
                 }
             } catch (Exception ignore) {}
@@ -171,6 +199,7 @@ public class SmeScreen extends BasePage {
     }
 
     public boolean isFaqsOpened() {
-        return waitUntil(() -> isElementVisible(faqsHeaderBy), 10);
+        return waitUntil(() -> isElementVisible(faqSearchInputBy)
+                || (isElementVisible(faqsHeaderBy) && !isElementVisible(smesTabBy)), 10);
     }
 }

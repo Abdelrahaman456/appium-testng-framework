@@ -58,7 +58,7 @@ public class BasePage {
         getCompiledLocator("//*[contains(@resource-id, 'permission_allow_button')]"),
         getCompiledLocator("//android.widget.Button[@content-desc='Not now' or @text='Not now']"),
         getCompiledLocator("//android.widget.Button[@content-desc='Dismiss' or @text='Dismiss']"),
-        getCompiledLocator("//*[@text='Got it' or @content-desc='Got it' or contains(@resource-id, 'ok')]"),
+        getCompiledLocator("//*[@text='Got it' or @content-desc='Got it' or @resource-id='btn_ok']"),
         getCompiledLocator("//*[contains(@content-desc, \"Got it, let's continue\") or contains(@text, \"Got it, let's continue\")]"),
         getCompiledLocator("//*[@resource-id='btn_try_again_button' or @content-desc='Try Again' or @text='Try Again']")
     ));
@@ -255,7 +255,13 @@ public class BasePage {
         // Verify text actually landed (Flutter fields can drop keystrokes while keyboard animates or return hint text)
         try {
             Thread.sleep(200);
+            boolean isPassword = Boolean.parseBoolean(element.getAttribute("password"));
             String afterText = element.getText();
+            boolean hasMaskChars = afterText != null && (afterText.contains("\u2022") || afterText.contains("*") || afterText.contains("\u25CF"));
+            boolean sameLength = afterText != null && text != null && afterText.trim().length() == text.length();
+            if (isPassword || hasMaskChars || sameLength) {
+                return;
+            }
             String prefix = (text != null && !text.isEmpty()) ? text.substring(0, Math.min(2, text.length())) : "";
             if (afterText == null || afterText.trim().isEmpty() || (!prefix.isEmpty() && !afterText.contains(prefix))) {
                 tapElement(element);
@@ -281,7 +287,7 @@ public class BasePage {
                     androidDriver.pressKey(new io.appium.java_client.android.nativekey.KeyEvent(io.appium.java_client.android.nativekey.AndroidKey.ESCAPE));
                 } catch (Exception e) {
                     try {
-                        Runtime.getRuntime().exec(new String[]{ADB_PATH, "-s", "emulator-5554", "shell", "input", "keyevent", "111"}).waitFor();
+                        Runtime.getRuntime().exec(buildAdbCommand("shell", "input", "keyevent", "111")).waitFor();
                     } catch (Exception ignore) {}
                 }
                 try { Thread.sleep(600); } catch (Exception ignore) {}
@@ -360,7 +366,7 @@ public class BasePage {
         scroll.addAction(finger.createPointerMove(Duration.ofMillis(600), PointerInput.Origin.viewport(), startX, endY));
         scroll.addAction(finger.createPointerUp(PointerInput.MouseButton.LEFT.asArg()));
         driver.perform(Arrays.asList(scroll));
-        waitUntil(() -> true, 1); // Smart 1-second settle wait
+        try { Thread.sleep(350); } catch (Exception ignore) {}
     }
 
     public void scrollUp() {
@@ -376,7 +382,7 @@ public class BasePage {
         scroll.addAction(finger.createPointerMove(Duration.ofMillis(600), PointerInput.Origin.viewport(), startX, endY));
         scroll.addAction(finger.createPointerUp(PointerInput.MouseButton.LEFT.asArg()));
         driver.perform(Arrays.asList(scroll));
-        waitUntil(() -> true, 1);
+        try { Thread.sleep(350); } catch (Exception ignore) {}
     }
 
     public void scrollWheel(int startX, int startY, int endY) {
@@ -420,7 +426,7 @@ public class BasePage {
             } catch (Exception ignored) {
             } finally {
                 try {
-                    androidDriver.setSetting("ignoreUnimportantViews", true);
+                    androidDriver.setSetting("ignoreUnimportantViews", false);
                 } catch (Exception ignored) {}
             }
         }
@@ -483,7 +489,7 @@ public class BasePage {
                 }
 
                 // 4. Try tapping slightly to the right (track)
-                int trackX = Math.min(r.getX() + r.getWidth() + 10, 150);
+                int trackX = r.getX() + Math.min(r.getWidth() + 10, (int) (r.getWidth() * 1.4));
                 System.out.println("Tapping switch track fallback (" + trackX + ", " + cy + ")...");
                 tapCoordinates(trackX, cy);
                 try { Thread.sleep(500); } catch (Exception ignored) {}
@@ -493,14 +499,16 @@ public class BasePage {
                     System.out.println("Privacy switch toggled to checked via track fallback tap.");
                     return true;
                 }
+                if (attempt < 2) {
+                    scrollDown();
+                    try { Thread.sleep(500); } catch (Exception ignore) {}
+                }
             } else {
-                System.out.println("Privacy switch not found in DOM; tapping standard coordinate (68, 2101)...");
-                tapCoordinates(68, 2101);
-                try { Thread.sleep(600); } catch (Exception ignored) {}
-            }
-            if (attempt == 0) {
-                scrollDown();
-                try { Thread.sleep(500); } catch (Exception ignore) {}
+                System.out.println("Privacy switch not found in DOM; scrolling down to re-locate dynamically...");
+                if (attempt < 2) {
+                    scrollDown();
+                    try { Thread.sleep(500); } catch (Exception ignored) {}
+                }
             }
         }
         return false;
@@ -559,15 +567,58 @@ public class BasePage {
         } catch (Exception ignore) {}
     }
 
+    protected String resolveDeviceUdid() {
+        try {
+            if (driver != null && driver.getCapabilities() != null) {
+                Object udidCap = driver.getCapabilities().getCapability("deviceUDID");
+                if (udidCap == null || udidCap.toString().trim().isEmpty()) {
+                    udidCap = driver.getCapabilities().getCapability("udid");
+                }
+                if (udidCap == null || udidCap.toString().trim().isEmpty()) {
+                    udidCap = driver.getCapabilities().getCapability("appium:udid");
+                }
+                if (udidCap != null && !udidCap.toString().trim().isEmpty()) {
+                    return udidCap.toString().trim();
+                }
+            }
+        } catch (Exception ignore) {}
+        String sysUdid = System.getProperty("udid");
+        if (sysUdid != null && !sysUdid.trim().isEmpty()) {
+            return sysUdid.trim();
+        }
+        return null;
+    }
+
+    protected String[] buildAdbCommand(String... adbArgs) {
+        java.util.List<String> command = new java.util.ArrayList<>();
+        command.add(ADB_PATH);
+        String udid = resolveDeviceUdid();
+        if (udid != null && !udid.isBlank()) {
+            command.add("-s");
+            command.add(udid);
+        }
+        if (adbArgs != null) {
+            for (String arg : adbArgs) {
+                if (arg != null) {
+                    command.add(arg);
+                }
+            }
+        }
+        return command.toArray(new String[0]);
+    }
+
     public void adbTap(int x, int y) {
         try {
-            Runtime.getRuntime().exec(new String[]{ADB_PATH, "-s", "emulator-5554", "shell", "input", "tap", String.valueOf(x), String.valueOf(y)}).waitFor();
+            Runtime.getRuntime().exec(buildAdbCommand("shell", "input", "tap", String.valueOf(x), String.valueOf(y))).waitFor();
         } catch (Exception ignore) {}
     }
 
     public void adbInput(String text) {
+        if (text == null || text.isEmpty()) {
+            return;
+        }
         try {
-            Runtime.getRuntime().exec(new String[]{ADB_PATH, "-s", "emulator-5554", "shell", "input", "text", text}).waitFor();
+            Runtime.getRuntime().exec(buildAdbCommand("shell", "input", "text", text)).waitFor();
         } catch (Exception ignore) {}
     }
 
@@ -774,7 +825,7 @@ public class BasePage {
             + " or contains(@content-desc, 'Comfort') or contains(@content-desc, 'Primary')]");
         org.openqa.selenium.By explicitErrorBy = org.openqa.selenium.By.xpath(
             "//*[contains(@content-desc, 'This field is required') or contains(@text, 'This field is required')]");
-        waitUntil(() -> !driver.findElements(quoteLoadedBy).isEmpty() || !driver.findElements(explicitErrorBy).isEmpty(), 4);
+        waitUntil(() -> !driver.findElements(quoteLoadedBy).isEmpty() || !driver.findElements(explicitErrorBy).isEmpty(), 12);
         boolean stillOnDependentStep = !driver.findElements(org.openqa.selenium.By.xpath(
             "//*[contains(@content-desc, 'Other Details') or contains(@text, 'Other Details')"
             + " or contains(@content-desc, 'Member(s) Details') or contains(@text, 'Member(s) Details')"
@@ -794,10 +845,10 @@ public class BasePage {
         try {
             return !driver.findElements(org.openqa.selenium.By.xpath(
                 "//*[contains(@text, 'Something Went Wrong') or contains(@content-desc, 'Something Went Wrong')"
-                + " or contains(@text, 'verify') or contains(@content-desc, 'verify')"
+                + " or contains(@text, 'This field is required') or contains(@content-desc, 'This field is required')"
                 + " or contains(@text, 'Error') or contains(@content-desc, 'Error')"
                 + " or contains(@text, 'not found') or contains(@content-desc, 'not found')"
-                + " or contains(@content-desc, 'required') or contains(@text, 'required')]")).isEmpty();
+                + " or contains(@text, 'Invalid') or contains(@content-desc, 'Invalid')]")).isEmpty();
         } catch (Exception e) {
             return false;
         }

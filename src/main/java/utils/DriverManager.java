@@ -48,7 +48,7 @@ public class DriverManager {
 
             try {
 
-                URL appiumServerUrl = new URL("http://127.0.0.1:4723");
+                URL appiumServerUrl = new URL(TestConfig.appiumServerUrl());
 
                 AppiumDriver appiumDriver = null;
 
@@ -90,7 +90,9 @@ public class DriverManager {
 
                     // HIGH-PERFORMANCE OPTIMIZATION: Skip redundant checks (keep animation scale=1 so Flutter splash transitions complete)
                     options.setSkipUnlock(true);
-                    options.setCapability("appium:skipDeviceInitialization", true);
+                    if (System.getenv("GITHUB_ACTIONS") == null) {
+                        options.setCapability("appium:skipDeviceInitialization", true);
+                    }
                     options.setCapability("appium:ignoreUnimportantViews", false);
                     options.setNewCommandTimeout(Duration.ofSeconds(120));
 
@@ -213,13 +215,13 @@ public class DriverManager {
                 } catch (Exception ignore) {}
 
                 org.openqa.selenium.By motorTileBy = org.openqa.selenium.By.xpath(
-                    "//*[@resource-id='btn_home_product_motor' or @content-desc='Motor']"
+                    "//*[@resource-id='btn_home_product_motor' or @content-desc='Motor' or @text='Motor' or @content-desc='المركبات' or @text='المركبات']"
                 );
                 org.openqa.selenium.By individualTabBy = org.openqa.selenium.By.xpath(
-                    "//*[contains(@content-desc, 'Individual') or contains(@text, 'Individual')]"
+                    "//*[@content-desc='Individual' or @text='Individual' or @content-desc='فردي' or @text='فردي']"
                 );
                 org.openqa.selenium.By homeTabBy = org.openqa.selenium.By.xpath(
-                    "//*[@content-desc='Home' or @text='Home']"
+                    "//*[@content-desc='Home' or @text='Home' or @content-desc='الرئيسية' or @text='الرئيسية']"
                 );
                 org.openqa.selenium.By inAppBackBy = org.openqa.selenium.By.xpath(
                     "//*[@resource-id='btn_back' or @content-desc='Back'] | " +

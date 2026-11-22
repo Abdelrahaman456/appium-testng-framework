@@ -47,7 +47,7 @@ public class DomesticWorkerScreen extends BasePage {
             "//*[contains(@content-desc, 'Domestic Worker Insurance') or contains(@text, 'Domestic Worker Insurance')]"
         );
         org.openqa.selenium.By insureBtnBy = org.openqa.selenium.By.xpath(
-            "//*[@content-desc='Insure now' or @text='Insure now' or @resource-id='btn_insure_now']"
+            "//*[@resource-id='btn_next_button_product_landing_page_' or @resource-id='btn_insure_now' or @content-desc='Insure now' or @text='Insure now']"
         );
         org.openqa.selenium.By formTargetBy = org.openqa.selenium.By.xpath(
             "//*[@resource-id='textfield_national_id' or contains(@resource-id, 'national_id')]"
@@ -56,11 +56,22 @@ public class DomesticWorkerScreen extends BasePage {
             if (!driver.findElements(landingBy).isEmpty() || !driver.findElements(insureBtnBy).isEmpty()) {
                 System.out.println("Detected Domestic Worker Landing screen. Tapping Insure now...");
                 for (int attempt = 1; attempt <= 3; attempt++) {
-                    java.util.List<WebElement> btns = driver.findElements(insureBtnBy);
+                    java.util.List<WebElement> btns = findWithUnimportantViews(insureBtnBy);
+                    if (btns.isEmpty()) {
+                        scrollDown();
+                        btns = findWithUnimportantViews(insureBtnBy);
+                    }
                     if (!btns.isEmpty()) {
-                        tapElement(btns.get(btns.size() - 1));
-                    } else {
-                        tapCoordinates(540, 2260);
+                        WebElement target = btns.get(btns.size() - 1);
+                        for (WebElement b : btns) {
+                            if ("true".equals(b.getAttribute("clickable"))) {
+                                target = b;
+                                break;
+                            }
+                        }
+                        tapElement(target);
+                    } else if (isElementVisible(insureNowButton)) {
+                        tapElement(insureNowButton);
                     }
                     try { Thread.sleep(1500); } catch (Exception ignore) {}
                     if (!driver.findElements(formTargetBy).isEmpty()) {
@@ -139,52 +150,10 @@ public class DomesticWorkerScreen extends BasePage {
 
     public DomesticWorkerScreen acceptPrivacyNotice() {
         System.out.println("Ensuring Domestic Worker Privacy checkbox is checked...");
-        hideKeyboard();
-        try { Thread.sleep(300); } catch (Exception ignore) {}
-
         By switchLocator = By.xpath(
-            "//*[@resource-id='tgl_checkbox' or @resource-id='tgl_about_you_page_motor_checkbox' or @class='android.widget.Switch' or @class='android.widget.CheckBox']"
+            "//*[@resource-id='tgl_checkbox' or @resource-id='tgl_about_you_page_motor_checkbox' or contains(@resource-id, 'checkbox') or @class='android.widget.Switch' or @class='android.widget.CheckBox']"
         );
-        java.util.List<WebElement> list = driver.findElements(switchLocator);
-        if (list.isEmpty()) {
-            list = findWithUnimportantViews(switchLocator);
-        }
-        if (!list.isEmpty()) {
-            WebElement sw = list.get(0);
-            String checked = sw.getAttribute("checked");
-            System.out.println("Switch current checked state: " + checked);
-            if ("true".equalsIgnoreCase(checked)) {
-                System.out.println("Privacy checkbox is already checked.");
-                return this;
-            }
-            org.openqa.selenium.Rectangle r = sw.getRect();
-            int cx = 120;
-            int cy = 2111;
-            System.out.println("Tapping switch at active track center (" + cx + ", " + cy + ")...");
-            tapCoordinates(cx, cy);
-            adbTap(cx, cy);
-            try { Thread.sleep(800); } catch (Exception ignore) {}
-
-            list = driver.findElements(switchLocator);
-            if (list.isEmpty()) list = findWithUnimportantViews(switchLocator);
-            if (!list.isEmpty()) {
-                String checkedAfter = list.get(0).getAttribute("checked");
-                System.out.println("Switch checked state after tap: " + checkedAfter);
-                if ("true".equalsIgnoreCase(checkedAfter)) {
-                    System.out.println("Privacy checkbox successfully checked!");
-                    return this;
-                }
-            }
-            // If still not checked, try native click once
-            try {
-                sw.click();
-                Thread.sleep(800);
-            } catch (Exception ignore) {}
-        } else {
-            tapCoordinates(120, 2111);
-            adbTap(120, 2111);
-            try { Thread.sleep(500); } catch (Exception ignore) {}
-        }
+        clickPrivacySwitch(switchLocator);
         return this;
     }
 
@@ -203,6 +172,10 @@ public class DomesticWorkerScreen extends BasePage {
             System.out.println("Domestic Worker clickNext attempt " + attempt + " of 3...");
             java.util.List<WebElement> btns = driver.findElements(nextBtnBy);
             if (btns.isEmpty()) btns = findWithUnimportantViews(nextBtnBy);
+            if (btns.isEmpty()) {
+                scrollDown();
+                btns = findWithUnimportantViews(nextBtnBy);
+            }
             if (!btns.isEmpty()) {
                 WebElement target = btns.get(btns.size() - 1);
                 for (WebElement b : btns) {
@@ -212,9 +185,8 @@ public class DomesticWorkerScreen extends BasePage {
                     }
                 }
                 tapElement(target);
-            } else {
-                tapCoordinates(540, 2261);
-                adbTap(540, 2261);
+            } else if (isElementVisible(nextButton)) {
+                tapElement(nextButton);
             }
 
             boolean transitioned = waitUntil(() -> {
@@ -475,8 +447,9 @@ public class DomesticWorkerScreen extends BasePage {
         if (isPaymentOrConfirmationAlreadyActive()) {
             return this;
         }
-        System.out.println("Clicking Pay now on Checkout screen via standardized CheckoutScreen...");
+        System.out.println("Selecting Credit/Debit Card and clicking Pay now on Checkout screen via standardized CheckoutScreen...");
         CheckoutScreen checkout = new CheckoutScreen();
+        checkout.selectCreditDebitCard();
         checkout.clickPayNow();
         return this;
     }

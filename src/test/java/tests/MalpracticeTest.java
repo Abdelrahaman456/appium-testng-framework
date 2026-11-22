@@ -4,6 +4,7 @@ import base.BaseTest;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 import pages.AddNewCardModal;
+import pages.CheckoutScreen;
 import pages.HomeScreen;
 import pages.MalpracticeScreen;
 import pages.OtpModal;
@@ -74,16 +75,15 @@ public class MalpracticeTest extends BaseTest {
 
         System.out.println("[Step 5] Processing Payment Card Modal if presented...");
         AddNewCardModal cardModal = new AddNewCardModal();
-        if (cardModal.isModalDisplayed()) {
-            TestDataBuilder.CreditCard card = TestDataBuilder.CreditCard.defaultCard();
-            cardModal.enterCardNumber(card.number);
-            cardModal.enterExpiryDate(card.expiry);
-            cardModal.enterCvv(card.cvv);
-            cardModal.enterCardHolderName(card.holderName);
-            cardModal.clickSave();
-            try { Thread.sleep(2500); } catch (Exception ignore) {}
-            malpScreen.clickCheckoutPayNow();
-        }
+        Assert.assertTrue(cardModal.isModalDisplayed(), "Add New Card modal should be displayed on Malpractice Checkout!");
+        TestDataBuilder.CreditCard card = TestDataBuilder.CreditCard.defaultCard();
+        cardModal.enterCardNumber(card.number);
+        cardModal.enterExpiryDate(card.expiry);
+        cardModal.enterCvv(card.cvv);
+        cardModal.enterCardHolderName(card.holderName);
+        cardModal.clickSave();
+        try { Thread.sleep(2500); } catch (Exception ignore) {}
+        new CheckoutScreen().clickPayNow();
 
         System.out.println("[Step 6] Verifying Policy Issuance Confirmation...");
         PolicyConfirmationScreen confirmationScreen = new PolicyConfirmationScreen();
@@ -142,16 +142,15 @@ public class MalpracticeTest extends BaseTest {
 
         System.out.println("[Step 5] Processing Payment Card Modal if presented...");
         AddNewCardModal cardModal = new AddNewCardModal();
-        if (cardModal.isModalDisplayed()) {
-            TestDataBuilder.CreditCard card = TestDataBuilder.CreditCard.defaultCard();
-            cardModal.enterCardNumber(card.number);
-            cardModal.enterExpiryDate(card.expiry);
-            cardModal.enterCvv(card.cvv);
-            cardModal.enterCardHolderName(card.holderName);
-            cardModal.clickSave();
-            try { Thread.sleep(2500); } catch (Exception ignore) {}
-            malpScreen.clickCheckoutPayNow();
-        }
+        Assert.assertTrue(cardModal.isModalDisplayed(), "Add New Card modal should be displayed on Malpractice Checkout!");
+        TestDataBuilder.CreditCard card = TestDataBuilder.CreditCard.defaultCard();
+        cardModal.enterCardNumber(card.number);
+        cardModal.enterExpiryDate(card.expiry);
+        cardModal.enterCvv(card.cvv);
+        cardModal.enterCardHolderName(card.holderName);
+        cardModal.clickSave();
+        try { Thread.sleep(2500); } catch (Exception ignore) {}
+        new CheckoutScreen().clickPayNow();
 
         System.out.println("[Step 6] Verifying Policy Issuance Confirmation...");
         PolicyConfirmationScreen confirmationScreen = new PolicyConfirmationScreen();
@@ -193,8 +192,7 @@ public class MalpracticeTest extends BaseTest {
 
         System.out.println("[Step 2] Validating Underwriting Referral or Quote Adjustment...");
         boolean isUnderwritingState = malpScreen.isUnderwritingReferralDisplayed()
-                || malpScreen.isQuoteLoaded()
-                || malpScreen.isPractitionerDetailsScreenDisplayed();
+                || malpScreen.isQuoteLoaded();
 
         Assert.assertTrue(isUnderwritingState,
                 "Underwriting state was not properly handled when prior acts and claims were declared!");

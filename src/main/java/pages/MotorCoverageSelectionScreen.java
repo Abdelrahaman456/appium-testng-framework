@@ -38,31 +38,43 @@ public class MotorCoverageSelectionScreen extends BasePage {
                 "or @resource-id='btn_next_button_product_landing_page_' " +
                 "or @resource-id='btn_insure_now' or @content-desc='Insure now' or @text='Insure now']"
             );
-            return !driver.findElements(motorLandingBy).isEmpty() && !driver.findElements(insureNowBy).isEmpty();
+            return !findWithUnimportantViews(motorLandingBy).isEmpty() && !findWithUnimportantViews(insureNowBy).isEmpty();
         } catch (Exception e) {
             return false;
         }
     }
 
     public void clickInsureNow() {
-        System.out.println("Waiting 1 second for coverage landing screen to load...");
-        try { Thread.sleep(1000); } catch (Exception e) {}
-
         System.out.println("Clicking Insure Now button via dynamic locator...");
+        By locator = AppiumBy.xpath(
+            "//*[@resource-id='btn_insure_now']//*[@clickable='true'] " +
+            "| //android.widget.Button[@clickable='true' and (@content-desc='Insure now' or @text='Insure now')] " +
+            "| //*[@resource-id='btn_next_button_product_landing_page_motor' or @resource-id='btn_next_button_product_landing_page_' or @resource-id='btn_insure_now']"
+        );
+        By aboutYouBy = By.xpath(
+            "//*[contains(@resource-id, 'about_you') or contains(@resource-id, 'sequence_number') or @content-desc='Ownership Transfer']"
+        );
+        waitUntil(() -> !findWithUnimportantViews(locator).isEmpty(), 5);
+        List<WebElement> candidates = findWithUnimportantViews(locator);
+        if (candidates.isEmpty()) {
+            scrollDown();
+            candidates = findWithUnimportantViews(locator);
+        }
+        if (!candidates.isEmpty()) {
+            tapElement(candidates.get(0));
+            waitUntil(() -> !driver.findElements(aboutYouBy).isEmpty(), 5);
+            return;
+        }
         try {
-            By locator = AppiumBy.xpath(
-                "//*[@resource-id='btn_insure_now']//*[@clickable='true'] " +
-                "| //android.widget.Button[@clickable='true' and (@content-desc='Insure now' or @text='Insure now')] " +
-                "| //*[@resource-id='btn_next_button_product_landing_page_motor' or @resource-id='btn_next_button_product_landing_page_' or @resource-id='btn_insure_now']"
-            );
             WebElement el = wait.until(ExpectedConditions.presenceOfElementLocated(locator));
             tapElement(el);
+            waitUntil(() -> !driver.findElements(aboutYouBy).isEmpty(), 5);
         } catch (Exception e) {
-            List<WebElement> buttons = driver.findElements(By.xpath("//*[@content-desc='Insure now' or @text='Insure now' or @resource-id='btn_insure_now']"));
+            List<WebElement> buttons = findWithUnimportantViews(By.xpath("//*[@content-desc='Insure now' or @text='Insure now' or @resource-id='btn_insure_now']"));
             if (!buttons.isEmpty()) {
                 tapElement(buttons.get(0));
+                waitUntil(() -> !driver.findElements(aboutYouBy).isEmpty(), 5);
             }
         }
-        try { Thread.sleep(1000); } catch (Exception e) {}
     }
 }

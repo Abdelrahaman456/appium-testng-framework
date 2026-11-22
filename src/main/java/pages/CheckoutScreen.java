@@ -94,8 +94,14 @@ public class CheckoutScreen extends BasePage {
         );
         
         try {
-            waitUntil(() -> !findWithUnimportantViews(ibanBy).isEmpty(), 8);
+            waitUntil(() -> !findWithUnimportantViews(ibanBy).isEmpty(), 4);
             java.util.List<WebElement> list = findWithUnimportantViews(ibanBy);
+            if (list.isEmpty()) {
+                System.out.println("IBAN field not visible yet; scrolling down and retrying dynamic locator...");
+                scrollDown();
+                waitUntil(() -> !findWithUnimportantViews(ibanBy).isEmpty(), 4);
+                list = findWithUnimportantViews(ibanBy);
+            }
             if (!list.isEmpty()) {
                 WebElement el = list.get(list.size() - 1);
                 try {
@@ -121,59 +127,61 @@ public class CheckoutScreen extends BasePage {
                     hideKeyboard();
                     return;
                 } catch (Exception ignore) {}
+            } else {
+                System.out.println("IBAN field not found on Checkout screen after scrollDown retry.");
             }
         } catch (Exception ex) {
             System.out.println("IBAN find error: " + ex.getMessage());
         }
-        
-        System.out.println("Tapping IBAN field at standard coordinates (540, 1925)...");
-        adbTap(540, 1925);
-        try { Thread.sleep(400); } catch (Exception ignore) {}
-        adbInput(numericOnly);
-        hideKeyboard();
     }
 
-    public void selectCreditDebitCard() {
-        System.out.println("Checking for Payment Methods on Checkout Screen...");
-        org.openqa.selenium.By cardBy = org.openqa.selenium.By.xpath(
-            "//*[@resource-id='btn_checkout_page_motor_payment_mode_direct_pay_post_card' " +
-            "or @resource-id='btn_payment_mode_moyasar_direct_pay' " +
-            "or contains(@content-desc, 'Credit') or contains(@text, 'Credit') " +
-            "or contains(@content-desc, 'Debit') or contains(@text, 'Debit') " +
-            "or contains(@content-desc, 'Card') or contains(@text, 'Card')]"
+    public boolean selectCreditDebitCard() {
+        System.out.println("Checking for Moyasar / Credit-Debit Card payment method on Checkout Screen...");
+        org.openqa.selenium.By exactMoyasarBy = org.openqa.selenium.By.xpath(
+            "//*[@resource-id='btn_payment_mode_moyasar_direct_pay' or @resource-id='btn_checkout_page_motor_payment_mode_direct_pay_post_card']//*[@clickable='true']"
+            + " | //*[@resource-id='btn_payment_mode_moyasar_direct_pay' or @resource-id='btn_checkout_page_motor_payment_mode_direct_pay_post_card']"
         );
-        java.util.List<WebElement> cards = findWithUnimportantViews(cardBy);
-        if (!cards.isEmpty()) {
-            System.out.println("Found Credit/Debit card button directly, clicking...");
-            try {
-                tapElement(cards.get(0));
-            } catch (Exception ignore) {}
-            return;
-        }
+        org.openqa.selenium.By clickableCardBy = org.openqa.selenium.By.xpath(
+            "//*[@clickable='true' and (contains(@content-desc, 'Credit') or contains(@text, 'Credit')"
+            + " or contains(@content-desc, 'Debit') or contains(@text, 'Debit')"
+            + " or contains(@content-desc, 'Direct') or contains(@text, 'Direct'))]"
+        );
+        org.openqa.selenium.By broadCardBy = org.openqa.selenium.By.xpath(
+            "//*[contains(@content-desc, 'Credit') or contains(@text, 'Credit')"
+            + " or contains(@content-desc, 'Debit') or contains(@text, 'Debit')"
+            + " or ((contains(@content-desc, 'Card') or contains(@text, 'Card')) and not(contains(@content-desc, 'Mada') or contains(@text, 'Mada')))]"
+        );
 
-        // Only scroll if card button was not visible
-        scrollDown();
-        cards = findWithUnimportantViews(cardBy);
-        if (!cards.isEmpty()) {
-            System.out.println("Found Credit/Debit card button after scroll, clicking...");
-            try {
-                tapElement(cards.get(0));
-            } catch (Exception ignore) {}
-            return;
-        }
-
-        try {
-            org.openqa.selenium.By anyPaymentBy = org.openqa.selenium.By.xpath(
-                "//*[contains(@resource-id, 'payment_mode') or contains(@content-desc, 'Card') or contains(@text, 'Card') or contains(@content-desc, 'Tamara') or contains(@content-desc, 'Tabby')]"
-            );
-            List<WebElement> payments = findWithUnimportantViews(anyPaymentBy);
-            if (!payments.isEmpty() && payments.get(0).isDisplayed()) {
-                tapElement(payments.get(0));
-                System.out.println("Selected payment method: " + payments.get(0).getAttribute("content-desc"));
+        for (int attempt = 0; attempt <= 3; attempt++) {
+            if (attempt > 0) {
+                scrollDown();
             }
-        } catch (Exception ex) {
-            System.out.println("Payment method selection completed/skipped.");
+            if (tryTapVisiblePaymentOption(exactMoyasarBy, "Exact Moyasar ID")) {
+                return true;
+            }
+            if (tryTapVisiblePaymentOption(clickableCardBy, "Clickable Credit/Debit/Direct Pay")) {
+                return true;
+            }
+            if (tryTapVisiblePaymentOption(broadCardBy, "Broad Credit/Debit Card container")) {
+                return true;
+            }
         }
+        System.out.println("Credit/Debit Card (Moyasar Direct Pay) option was NOT found after scrolling.");
+        return false;
+    }
+
+    private boolean tryTapVisiblePaymentOption(org.openqa.selenium.By locator, String label) {
+        java.util.List<WebElement> matches = findWithUnimportantViews(locator);
+        for (WebElement el : matches) {
+            try {
+                if (el.isDisplayed()) {
+                    System.out.println("Found payment option (" + label + "), tapping...");
+                    tapElement(el);
+                    return true;
+                }
+            } catch (Exception ignore) {}
+        }
+        return false;
     }
 
     public boolean waitForPageToLoad() {
@@ -213,19 +221,33 @@ public class CheckoutScreen extends BasePage {
             return;
         }
         System.out.println("Clicking Pay now button on Checkout Screen...");
+        hideKeyboard();
         org.openqa.selenium.By clickablePayBy = org.openqa.selenium.By.xpath(
-            "//*[@resource-id='btn_pay_now' or @content-desc='Pay now' or @text='Pay now']"
+            "//*[@resource-id='btn_checkout_page_motor_pay_now' or @resource-id='btn_pay_now' or @content-desc='Pay now' or @text='Pay now']"
         );
         java.util.List<WebElement> payButtons = findWithUnimportantViews(clickablePayBy);
+        if (payButtons.isEmpty()) {
+            scrollDown();
+            payButtons = findWithUnimportantViews(clickablePayBy);
+        }
         if (!payButtons.isEmpty()) {
-            WebElement btn = payButtons.get(payButtons.size() - 1);
-            System.out.println("Clicking Pay now button via locator...");
-            tapElement(btn);
+            for (int i = payButtons.size() - 1; i >= 0; i--) {
+                WebElement btn = payButtons.get(i);
+                try {
+                    if (btn.isDisplayed()) {
+                        System.out.println("Clicking Pay now button via locator...");
+                        tapElement(btn);
+                        try { Thread.sleep(2000); } catch (Exception ignore) {}
+                        return;
+                    }
+                } catch (Exception ignore) {}
+            }
+            System.out.println("Clicking Pay now button via fallback locator match...");
+            tapElement(payButtons.get(payButtons.size() - 1));
             try { Thread.sleep(2000); } catch (Exception ignore) {}
             return;
         }
-        tapCoordinates(540, 2261);
-        try { Thread.sleep(2000); } catch (Exception ignore) {}
+        System.out.println("Pay now button not found on Checkout Screen after scrollDown.");
     }
 
     public void autoFillCheckout(utils.TestDataBuilder.CustomerProfile profile) {

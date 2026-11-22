@@ -170,7 +170,9 @@ public class SupportAndLocalizationScreen extends BasePage {
             "//*[contains(@content-desc, 'Complaints tracking') or contains(@text, 'Complaints tracking') " +
             "or contains(@hint, 'Complaint Reference Number') or @content-desc='Track Complaint']"
         );
-        return waitUntil(() -> isElementVisible(trackingBy), 10);
+        return waitUntil(() -> isElementVisible(trackingBy)
+                && !isElementVisible(faqsCardBy)
+                && !isElementVisible(fileComplaintCardBy), 10);
     }
 
     public SupportAndLocalizationScreen enterComplaintReferenceAndTrack(String referenceNumber) {
@@ -212,9 +214,10 @@ public class SupportAndLocalizationScreen extends BasePage {
             System.out.println("Transient UAT modal displayed on Contact Us; dismissing via Close button...");
             tapElement(getVisibleElement(modalCloseBtnBy));
             try { Thread.sleep(1000); } catch (Exception ignore) {}
-            return isElementVisible(contactUsHeaderBy) || isSupportHubDisplayed();
+            return !isElementVisible(modalCloseBtnBy) && (isElementVisible(contactUsHeaderBy) || isSupportHubDisplayed());
         }
-        return waitUntil(() -> isElementVisible(contactUsHeaderBy) || isElementVisible(By.xpath("//*[@content-desc='Submit' or @text='Submit']")), 8);
+        return waitUntil(() -> !isElementVisible(faqsCardBy) && !isElementVisible(fileComplaintCardBy)
+                && (isElementVisible(contactUsHeaderBy) || isElementVisible(By.xpath("//*[@content-desc='Submit' or @text='Submit']"))), 8);
     }
 
     // =========================================================================
@@ -275,7 +278,7 @@ public class SupportAndLocalizationScreen extends BasePage {
             if (hasArabicText) {
                 System.out.println("Arabic text verified! RTL Home tab right-aligned: " + homeOnRightSide);
             }
-            return hasArabicText && (homeOnRightSide || !isElementVisible(homeTabEnBy));
+            return hasArabicText && homeOnRightSide;
         }, 12);
     }
 

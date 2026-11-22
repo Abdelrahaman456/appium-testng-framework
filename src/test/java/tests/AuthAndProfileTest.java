@@ -66,17 +66,22 @@ public class AuthAndProfileTest extends BaseTest {
         System.out.println("=============================================================");
 
         AuthAndProfileScreen screen = new AuthAndProfileScreen();
-        screen.openLoginFromHome();
-        Assert.assertTrue(screen.isLoginScreenDisplayed(), "Login screen should be displayed.");
+        try {
+            screen.openLoginFromHome();
+            Assert.assertTrue(screen.isLoginScreenDisplayed(), "Login screen should be displayed.");
 
-        screen.enterNationalId(VALID_UAT_ID);
-        screen.selectLoginDob();
-        screen.clickLoginSubmit();
+            screen.enterNationalId(VALID_UAT_ID);
+            screen.selectLoginDob();
+            screen.clickLoginSubmit();
 
-        Assert.assertTrue(screen.isOtpOrAuthResponseDisplayed(),
-                "Submitting valid UAT ID + DOB should trigger OTP challenge or UAT auth response cleanly.");
-        screen.logoutIfAuthenticated();
-        System.out.println(">> [SUCCESS] Auth Flow 3 passed: Valid UAT login submission, OTP & logout verified!");
+            Assert.assertTrue(screen.isOtpOrAuthResponseDisplayed(),
+                    "Submitting valid UAT ID + DOB should trigger OTP challenge or UAT auth response cleanly.");
+            System.out.println(">> [SUCCESS] Auth Flow 3 passed: Valid UAT login submission, OTP & logout verified!");
+        } finally {
+            try {
+                screen.logoutIfAuthenticated();
+            } catch (Exception ignore) {}
+        }
     }
 
     @Test(priority = 4, groups = {"auth", "signup"},

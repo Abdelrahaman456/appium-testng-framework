@@ -4,12 +4,10 @@ import base.BaseTest;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 import pages.AddNewCardModal;
-import pages.BasePage;
 import pages.HomeInsuranceScreen;
 import pages.HomeScreen;
 import pages.OtpModal;
 import pages.PolicyConfirmationScreen;
-import utils.DriverManager;
 import utils.PerformanceBenchmark;
 import utils.TestDataBuilder;
 
@@ -52,65 +50,33 @@ public class HomeInsuranceTest extends BaseTest {
 
         // National Address & Checkout
         PerformanceBenchmark.startStage("Home_Checkout_Payment");
-        homeInsScreen.fillNationalAddress("1234", "Riyadh", "Riyadh", "King Fahd Rd", "Al Olaya", "5678", "12211");
-        homeInsScreen.fillIbanAndAcceptTerms("SA0380000000608010167519");
-        homeInsScreen.clickCheckoutPayNow();
-
-        // Payment Card Entry
-        try { Thread.sleep(2000); } catch (Exception ignore) {}
-        try {
-            AddNewCardModal cardModal = new AddNewCardModal();
-            if (cardModal.isModalDisplayed()) {
-                System.out.println("AddNewCardModal displayed, entering payment card details...");
-                TestDataBuilder.CreditCard card = TestDataBuilder.CreditCard.defaultCard();
-                cardModal.enterCardNumber(card.number);
-                cardModal.enterExpiryDate(card.expiry);
-                cardModal.enterCvv(card.cvv);
-                cardModal.enterCardHolderName(card.holderName);
-                cardModal.clickSave();
-                try { Thread.sleep(2500); } catch (Exception ignore) {}
-                homeInsScreen.clickCheckoutPayNow();
-            }
-        } catch (Exception ex) {
-            System.out.println("Card modal handling note: " + ex.getMessage());
-        }
-
-        PolicyConfirmationScreen confirmationScreen = new PolicyConfirmationScreen();
-        boolean isSuccess = confirmationScreen.isPolicyConfirmed();
+        completeCheckoutAndPayment(homeInsScreen, "Home Insurance Flow 1");
         PerformanceBenchmark.stopStage("Home_Checkout_Payment", PerformanceBenchmark.SLA_CHECKOUT_PREP + PerformanceBenchmark.SLA_3DS_PAYMENT);
-        Assert.assertTrue(isSuccess, "Policy Confirmation screen was not reached for Home Insurance!");
-        System.out.println("Home Insurance Flow 1 confirmation result: " + isSuccess);
     }
 
     private void completeCheckoutAndPayment(HomeInsuranceScreen homeInsScreen, String flowLabel) {
         homeInsScreen.fillNationalAddress("1234", "Riyadh", "Riyadh", "King Fahd Rd", "Al Olaya", "5678", "12211");
-        homeInsScreen.fillIbanAndAcceptTerms("SA0380000000608010167519");
+        pages.CheckoutScreen checkoutScreen = new pages.CheckoutScreen();
+        Assert.assertTrue(checkoutScreen.waitForPageToLoad(),
+                "Checkout screen did not load for " + flowLabel + "!");
+        homeInsScreen.fillIbanAndAcceptTerms(TestDataBuilder.DEFAULT_IBAN);
         homeInsScreen.clickCheckoutPayNow();
 
-        try { Thread.sleep(2000); } catch (Exception ignore) {}
-        try {
-            AddNewCardModal cardModal = new AddNewCardModal();
-            if (cardModal.isModalDisplayed()) {
-                System.out.println("AddNewCardModal displayed, entering payment card details...");
-                TestDataBuilder.CreditCard card = TestDataBuilder.CreditCard.defaultCard();
-                cardModal.enterCardNumber(card.number);
-                cardModal.enterExpiryDate(card.expiry);
-                cardModal.enterCvv(card.cvv);
-                cardModal.enterCardHolderName(card.holderName);
-                cardModal.clickSave();
-                try { Thread.sleep(2500); } catch (Exception ignore) {}
-                homeInsScreen.clickCheckoutPayNow();
-            }
-        } catch (Exception ex) {
-            System.out.println("Card modal handling note: " + ex.getMessage());
-        }
+        AddNewCardModal cardModal = new AddNewCardModal();
+        Assert.assertTrue(cardModal.isModalDisplayed(),
+                "Add New Card bottom sheet should appear for " + flowLabel + "!");
+        System.out.println("AddNewCardModal displayed, entering payment card details...");
+        TestDataBuilder.CreditCard card = TestDataBuilder.CreditCard.defaultCard();
+        cardModal.enterCardNumber(card.number);
+        cardModal.enterExpiryDate(card.expiry);
+        cardModal.enterCvv(card.cvv);
+        cardModal.enterCardHolderName(card.holderName);
+        cardModal.clickSave();
+        try { Thread.sleep(2500); } catch (Exception ignore) {}
+        new pages.CheckoutScreen().clickPayNow();
 
         PolicyConfirmationScreen confirmationScreen = new PolicyConfirmationScreen();
         boolean isSuccess = confirmationScreen.isPolicyConfirmed();
-        if (!isSuccess && (BasePage.uatElmDependentBlocked || !DriverManager.getDriver().findElements(org.openqa.selenium.By.xpath("//*[contains(@text, 'Something Went Wrong') or contains(@content-desc, 'Something Went Wrong')]")).isEmpty())) {
-            System.out.println("[UAT Sandbox Notice] Reached Checkout -> Payment Submission; UAT backend returned sandbox 'Something Went Wrong' response. Marking policy confirmation complete.");
-            isSuccess = true;
-        }
         Assert.assertTrue(isSuccess, "Policy Confirmation screen was not reached for " + flowLabel + "!");
         System.out.println("=== " + flowLabel + " Completed Successfully! ===");
     }
@@ -193,11 +159,15 @@ public class HomeInsuranceTest extends BaseTest {
         // Fill ID and Phone without selecting DOB
         String applicantId = TestDataBuilder.DEFAULT_SELLER_ID;
         String applicantPhone = TestDataBuilder.DEFAULT_PHONE;
+        homeInsScreen.enterNationalId(applicantId);
+        homeInsScreen.enterPhoneNumber(applicantPhone);
 
         homeInsScreen.acceptPrivacyNotice();
         homeInsScreen.clickNext();
 
         // Verify user stays on "About you" page due to required field validation
+        OtpModal otpModal = new OtpModal();
+        Assert.assertFalse(otpModal.isModalDisplayed(), "OTP modal should NOT open when required DOB is missing!");
         boolean isBlocked = homeInsScreen.isValidationErrorDisplayed() || homeInsScreen.isAboutYouScreenDisplayed();
         Assert.assertTrue(isBlocked, "Form validation should prevent advancing when required DOB is missing!");
         System.out.println("Verifying required field validation prevents advancing: " + isBlocked);
@@ -226,6 +196,7 @@ public class HomeInsuranceTest extends BaseTest {
 
         homeInsScreen.waitForPlanSelectionScreen();
         homeInsScreen.selectCoverType("Building & Contents");
+        homeInsScreen.enterHighValueItems("Gold Watch", "25000");
         homeInsScreen.clickBuyNow();
 
         homeInsScreen.fillAboutYourHome(applicantEmail, true);

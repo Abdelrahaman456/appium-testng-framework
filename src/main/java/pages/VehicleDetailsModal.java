@@ -77,10 +77,13 @@ public class VehicleDetailsModal extends BasePage {
             try { Thread.sleep(2000); } catch (Exception e) {}
 
             // Try clicking BMW result
+            int screenHeight = getSafeWindowSize().height;
+            int minResultY = (int) (screenHeight * 0.42);
+            int maxDropdownY = (int) (screenHeight * 0.88);
             try {
                 List<WebElement> results = driver.findElements(BMW_RESULT);
                 for (WebElement res : results) {
-                    if (res.isDisplayed() && res.getRect().getY() > 1000) {
+                    if (res.isDisplayed() && res.getRect().getY() > minResultY) {
                         res.click();
                         System.out.println("[CarMake] ✅ BMW clicked via direct locator.");
                         try { Thread.sleep(1000); } catch (Exception ex) {}
@@ -89,10 +92,30 @@ public class VehicleDetailsModal extends BasePage {
                 }
             } catch (Exception ignored) {}
 
-            // Fallback: tap below make field
+            // Fallback: find clickable suggestion below make field, or tap proportional offset
             org.openqa.selenium.Rectangle r = makeField.getRect();
-            tapCoordinates(r.getX() + r.getWidth() / 2, r.getY() + r.getHeight() + 80);
-            System.out.println("[CarMake] ✅ Tapped below make field as fallback.");
+            int makeBottom = r.getY() + r.getHeight();
+            try {
+                List<WebElement> clickables = driver.findElements(org.openqa.selenium.By.xpath("//*[@clickable='true']"));
+                for (WebElement cand : clickables) {
+                    org.openqa.selenium.Rectangle cr = cand.getRect();
+                    String cls = cand.getAttribute("className");
+                    String desc = cand.getAttribute("content-desc");
+                    if (cand.isDisplayed()
+                            && cr.getY() >= makeBottom - (int) (r.getHeight() * 0.15)
+                            && cr.getY() < maxDropdownY
+                            && (cls == null || !cls.contains("EditText"))
+                            && (desc == null || !desc.contains("Proceed"))) {
+                        cand.click();
+                        System.out.println("[CarMake] ✅ Clicked suggestion below make field.");
+                        try { Thread.sleep(1000); } catch (Exception ex) {}
+                        return true;
+                    }
+                }
+            } catch (Exception ignored) {}
+
+            tapCoordinates(r.getX() + r.getWidth() / 2, r.getY() + (int) (r.getHeight() * 1.6));
+            System.out.println("[CarMake] ✅ Tapped proportionally below make field as fallback.");
             try { Thread.sleep(1000); } catch (Exception ex) {}
             return true;
         } catch (Exception e) {
@@ -130,6 +153,9 @@ public class VehicleDetailsModal extends BasePage {
             try { Thread.sleep(1500); } catch (Exception ex) {}
 
             // Debug: print clickable elements located in the lower half of the screen
+            int screenHeight = getSafeWindowSize().height;
+            int minLowerHalfY = (int) (screenHeight * 0.58);
+            int maxDropdownY = (int) (screenHeight * 0.88);
             List<WebElement> allElements = driver.findElements(org.openqa.selenium.By.xpath("//*[@clickable='true']"));
             System.out.println("[CarModel Debug] Found " + allElements.size() + " clickable elements.");
             for (WebElement el : allElements) {
@@ -138,22 +164,26 @@ public class VehicleDetailsModal extends BasePage {
                     String desc = el.getAttribute("content-desc");
                     String txt = el.getText();
                     String cls = el.getAttribute("className");
-                    if (r.getY() > 1400) {
+                    if (r.getY() > minLowerHalfY) {
                         System.out.println("[CarModel Modal Item] " + cls + " | desc: '" + desc + "' | text: '" + txt + "' | [" + r.getX() + "," + r.getY() + "][" + (r.getX() + r.getWidth()) + "," + (r.getY() + r.getHeight()) + "]");
                     }
                 } catch (Exception ignore) {}
             }
 
-            // Find an item below the Model field (Y > modelField Y + height) and above Proceed button (Y < 2100)
+            // Find an item below the Model field and above Proceed button using proportional screen bounds
             org.openqa.selenium.Rectangle modelRect = modelField.getRect();
             int modelBottom = modelRect.getY() + modelRect.getHeight();
+            int modelTopOverlap = (int) (modelRect.getHeight() * 0.15);
 
             for (WebElement el : allElements) {
                 try {
                     org.openqa.selenium.Rectangle r = el.getRect();
                     String cls = el.getAttribute("className");
                     String desc = el.getAttribute("content-desc");
-                    if (r.getY() >= modelBottom - 20 && r.getY() < 2100 && !cls.contains("EditText") && (desc == null || !desc.contains("Proceed"))) {
+                    if (r.getY() >= modelBottom - modelTopOverlap
+                            && r.getY() < maxDropdownY
+                            && (cls == null || !cls.contains("EditText"))
+                            && (desc == null || !desc.contains("Proceed"))) {
                         System.out.println("[CarModel] Clicking dropdown candidate: " + cls + " desc: " + desc + " at Y=" + r.getY());
                         el.click();
                         try { Thread.sleep(1000); } catch (Exception ex) {}
@@ -165,10 +195,10 @@ public class VehicleDetailsModal extends BasePage {
                 } catch (Exception ignore) {}
             }
 
-            // Fallback: physical tap directly below the model field
+            // Fallback: physical tap proportionally below the model field
             int tapX = modelRect.getX() + (modelRect.getWidth() / 2);
-            int tapY = modelBottom + 40;
-            System.out.println("[CarModel] Tapping below model field at (" + tapX + ", " + tapY + ")...");
+            int tapY = modelRect.getY() + (int) (modelRect.getHeight() * 1.3);
+            System.out.println("[CarModel] Tapping proportionally below model field at (" + tapX + ", " + tapY + ")...");
             tapCoordinates(tapX, tapY);
             try { Thread.sleep(1000); } catch (Exception ex) {}
 
@@ -191,7 +221,7 @@ public class VehicleDetailsModal extends BasePage {
                 try { Thread.sleep(1000); } catch (Exception ex) {}
                 List<WebElement> filteredItems = driver.findElements(org.openqa.selenium.By.xpath("//*[contains(@content-desc, 'Series') or contains(@content-desc, 'SERIES') or contains(@content-desc, '3')]"));
                 for (WebElement fi : filteredItems) {
-                    if (fi.isDisplayed() && fi.getRect().getY() > 1400) {
+                    if (fi.isDisplayed() && fi.getRect().getY() > minLowerHalfY) {
                         fi.click();
                         try { Thread.sleep(1000); } catch (Exception ex) {}
                         if (isProceedEnabled()) return true;
@@ -267,9 +297,15 @@ public class VehicleDetailsModal extends BasePage {
                 }
             } catch (Exception e) {}
 
-            System.out.println("Proceed fallback tap at bottom of modal...");
-            // tap fallback replaced by dynamic locator
-            try { Thread.sleep(2500); } catch (Exception e) {}
+            List<WebElement> hiddenButtons = findWithUnimportantViews(org.openqa.selenium.By.xpath(
+                "//android.widget.Button[@content-desc='Proceed' or @text='Proceed'] | //*[@resource-id='btn_proceed']"));
+            if (!hiddenButtons.isEmpty()) {
+                System.out.println("Proceed fallback via findWithUnimportantViews...");
+                tapElement(hiddenButtons.get(0));
+            } else {
+                scrollDown();
+            }
+            try { Thread.sleep(2000); } catch (Exception e) {}
             if (!isMainModalStillOpen()) return;
         }
     }

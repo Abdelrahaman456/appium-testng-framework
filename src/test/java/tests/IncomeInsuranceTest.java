@@ -4,6 +4,7 @@ import base.BaseTest;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 import pages.AddNewCardModal;
+import pages.CheckoutScreen;
 import pages.HomeScreen;
 import pages.IncomeInsuranceScreen;
 import pages.OtpModal;
@@ -63,22 +64,22 @@ public class IncomeInsuranceTest extends BaseTest {
         incomeScreen.clickCheckoutPayNow();
 
         AddNewCardModal cardModal = new AddNewCardModal();
-        if (cardModal.isModalDisplayed()) {
-            TestDataBuilder.CreditCard card = TestDataBuilder.CreditCard.defaultCard();
-            cardModal.enterCardNumber(card.number);
-            cardModal.enterExpiryDate(card.expiry);
-            cardModal.enterCvv(card.cvv);
-            cardModal.enterCardHolderName(card.holderName);
-            cardModal.clickSave();
-            try { Thread.sleep(2500); } catch (Exception ignore) {}
-            incomeScreen.clickCheckoutPayNow();
-        }
+        Assert.assertTrue(cardModal.isModalDisplayed(), "Add New Card modal should be displayed on Income Insurance Checkout!");
+        TestDataBuilder.CreditCard card = TestDataBuilder.CreditCard.defaultCard();
+        cardModal.enterCardNumber(card.number);
+        cardModal.enterExpiryDate(card.expiry);
+        cardModal.enterCvv(card.cvv);
+        cardModal.enterCardHolderName(card.holderName);
+        cardModal.clickSave();
+        try { Thread.sleep(2500); } catch (Exception ignore) {}
+        new CheckoutScreen().clickPayNow();
 
         PolicyConfirmationScreen confirmationScreen = new PolicyConfirmationScreen();
         boolean isSuccess = confirmationScreen.isPolicyConfirmed();
         PerformanceBenchmark.stopStage("Income_Checkout_Payment", PerformanceBenchmark.SLA_CHECKOUT_PREP + PerformanceBenchmark.SLA_3DS_PAYMENT);
         Assert.assertTrue(isSuccess, "Policy Confirmation screen was not reached for Income Protection Insurance!");
         System.out.println("=== Income Insurance Flow 1 Completed Successfully! ===");
+        confirmationScreen.clickCloseToHome();
     }
 
     private void completeCheckoutAndPayment(IncomeInsuranceScreen incomeScreen, String flowLabel) {
@@ -87,21 +88,21 @@ public class IncomeInsuranceTest extends BaseTest {
         incomeScreen.clickCheckoutPayNow();
 
         AddNewCardModal cardModal = new AddNewCardModal();
-        if (cardModal.isModalDisplayed()) {
-            TestDataBuilder.CreditCard card = TestDataBuilder.CreditCard.defaultCard();
-            cardModal.enterCardNumber(card.number);
-            cardModal.enterExpiryDate(card.expiry);
-            cardModal.enterCvv(card.cvv);
-            cardModal.enterCardHolderName(card.holderName);
-            cardModal.clickSave();
-            try { Thread.sleep(2500); } catch (Exception ignore) {}
-            incomeScreen.clickCheckoutPayNow();
-        }
+        Assert.assertTrue(cardModal.isModalDisplayed(), "Add New Card modal should be displayed for " + flowLabel + "!");
+        TestDataBuilder.CreditCard card = TestDataBuilder.CreditCard.defaultCard();
+        cardModal.enterCardNumber(card.number);
+        cardModal.enterExpiryDate(card.expiry);
+        cardModal.enterCvv(card.cvv);
+        cardModal.enterCardHolderName(card.holderName);
+        cardModal.clickSave();
+        try { Thread.sleep(2500); } catch (Exception ignore) {}
+        new CheckoutScreen().clickPayNow();
 
         PolicyConfirmationScreen confirmationScreen = new PolicyConfirmationScreen();
         boolean isSuccess = confirmationScreen.isPolicyConfirmed();
         Assert.assertTrue(isSuccess, "Policy Confirmation screen was not reached for " + flowLabel + "!");
         System.out.println("=== " + flowLabel + " Completed Successfully! ===");
+        confirmationScreen.clickCloseToHome();
     }
 
     @Test(priority = 2, groups = {"income", "variant"}, description = "Income Insurance Flow 2: Tier & Employment Comparison (Self-Employed Comprehensive vs Employed Basic)")

@@ -84,8 +84,16 @@ public class AuthAndProfileScreen extends BasePage {
     public AuthAndProfileScreen clickLoginOnMyPolicies() {
         System.out.println("Tapping 'Login' CTA on My Policies guest screen...");
         waitUntil(() -> isElementVisible(myPoliciesLoginCtaBy), 8);
-        tapElement(getVisibleElement(myPoliciesLoginCtaBy));
-        waitUntil(() -> isElementVisible(nationalIdInputBy), 8);
+        try { Thread.sleep(600); } catch (Exception ignore) {}
+        for (int attempt = 1; attempt <= 2; attempt++) {
+            if (isElementVisible(myPoliciesLoginCtaBy)) {
+                tapElement(getVisibleElement(myPoliciesLoginCtaBy));
+            }
+            if (waitUntil(() -> isElementVisible(nationalIdInputBy), 6)) {
+                return this;
+            }
+            System.out.println("My Policies Login CTA tap attempt " + attempt + " did not open Login yet; retrying...");
+        }
         return this;
     }
 
@@ -132,7 +140,7 @@ public class AuthAndProfileScreen extends BasePage {
     }
 
     public boolean isLoginValidationBlocked() {
-        return waitUntil(() -> isElementVisible(validationErrorBy) || isElementVisible(nationalIdInputBy), 6);
+        return waitUntil(() -> isElementVisible(validationErrorBy), 6);
     }
 
     public boolean isOtpOrAuthResponseDisplayed() {
@@ -158,9 +166,10 @@ public class AuthAndProfileScreen extends BasePage {
         }
         System.out.println("Logging out authenticated user to restore clean guest state...");
         openMyProfileTab();
+        int logoutMaxY = (int) (getSafeWindowSize().height * 0.85);
         for (int attempt = 0; attempt < 2; attempt++) {
             if (!isElementVisible(profileLogoutTriggerBy)
-                    || getVisibleElement(profileLogoutTriggerBy).getRect().getY() > 2120) {
+                    || getVisibleElement(profileLogoutTriggerBy).getRect().getY() > logoutMaxY) {
                 scrollDown();
             } else {
                 break;
@@ -213,8 +222,8 @@ public class AuthAndProfileScreen extends BasePage {
         // "Don't have an account? Sign up" — tap the right side where "Sign up" text sits
         org.openqa.selenium.Rectangle r = link.getRect();
         tapCoordinates(r.getX() + (int) (r.getWidth() * 0.85), r.getY() + (r.getHeight() / 2));
-        By signUpHeaderBy = By.xpath("//*[contains(@content-desc, 'Sign up') or contains(@content-desc, 'Create') or contains(@content-desc, 'Register') or @resource-id='textfield_phone_number' or contains(@hint, 'Mobile')]");
-        return waitUntil(() -> isElementVisible(signUpHeaderBy), 8);
+        By signUpUniqueBy = By.xpath("//*[@resource-id='textfield_phone_number' or contains(@hint, 'Mobile number') or contains(@content-desc, 'Already have an account') or contains(@text, 'Already have an account') or contains(@content-desc, 'referral code') or contains(@text, 'referral code')]");
+        return waitUntil(() -> isElementVisible(signUpUniqueBy), 8);
     }
 
     // =========================================================================

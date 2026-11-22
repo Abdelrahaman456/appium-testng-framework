@@ -186,17 +186,16 @@ public class MotorTest extends BaseTest {
         checkoutScreen.autoFillCheckout(TestDataBuilder.CustomerProfile.createDefault(nationalId));
 
         AddNewCardModal cardModal = new AddNewCardModal();
-        if (cardModal.isModalDisplayed()) {
-            System.out.println("Entering Card Payment Details...");
-            TestDataBuilder.CreditCard card = TestDataBuilder.CreditCard.defaultCard();
-            cardModal.enterCardNumber(card.number);
-            cardModal.enterExpiryDate(card.expiry);
-            cardModal.enterCvv(card.cvv);
-            cardModal.enterCardHolderName(card.holderName);
-            cardModal.clickSave();
-            try { Thread.sleep(2500); } catch (Exception ignore) {}
-            checkoutScreen.clickPayNow();
-        }
+        Assert.assertTrue(cardModal.isModalDisplayed(), "Add New Card bottom sheet should appear!");
+        System.out.println("Entering Card Payment Details...");
+        TestDataBuilder.CreditCard card = TestDataBuilder.CreditCard.defaultCard();
+        cardModal.enterCardNumber(card.number);
+        cardModal.enterExpiryDate(card.expiry);
+        cardModal.enterCvv(card.cvv);
+        cardModal.enterCardHolderName(card.holderName);
+        cardModal.clickSave();
+        try { Thread.sleep(2500); } catch (Exception ignore) {}
+        checkoutScreen.clickPayNow();
 
         PolicyConfirmationScreen confirmationScreen = new PolicyConfirmationScreen();
         boolean isSuccess = confirmationScreen.isPolicyConfirmed();
@@ -225,9 +224,9 @@ public class MotorTest extends BaseTest {
         String sequenceNumber = SequenceNumberGenerator.getNextSequenceNumber();
 
         QuoteScreen quoteScreen = reachQuoteScreenFlow1(nationalId, sequenceNumber);
-        selectCoverType(quoteScreen, "Smart");
+        selectCoverType(quoteScreen, "Saver");
         fillCheckoutAndPayment(quoteScreen, nationalId);
-        System.out.println("Motor Flow 1 TPL / Smart Completed Successfully!");
+        System.out.println("Motor Flow 1 TPL / Saver Completed Successfully!");
     }
 
     // =========================================================================================
@@ -286,8 +285,6 @@ public class MotorTest extends BaseTest {
         quoteScreen.clickBuyNow();
         quoteScreen.clickSkipUpsell();
 
-        CheckoutScreen checkoutScreen = new CheckoutScreen();
-        Assert.assertTrue(checkoutScreen.waitForPageToLoad(), "Checkout screen did not load!");
         fillCheckoutAndPayment(quoteScreen, nationalId);
         System.out.println("Motor Flow 5 Repair Options & Add-ons Completed Successfully!");
     }
@@ -307,8 +304,14 @@ public class MotorTest extends BaseTest {
         System.out.println("Answering PEP declaration as 'Yes' and Related Party as 'Yes'...");
         quoteScreen.answerPepQuestion(true);
         quoteScreen.answerRelatedPartyQuestion(true);
+        quoteScreen.clickBuyNow();
+        quoteScreen.clickSkipUpsell();
 
-        Assert.assertTrue(quoteScreen.isPageLoaded(), "Quote Screen remained interactive after PEP declarations.");
+        CheckoutScreen checkoutScreen = new CheckoutScreen();
+        boolean outcomeObserved = quoteScreen.isUnderwritingOrReferralDisplayed()
+                || checkoutScreen.isCheckoutScreenDisplayed();
+        Assert.assertTrue(outcomeObserved,
+                "After answering PEP/Related Party as Yes and clicking Buy now, expected underwriting/referral notice or Checkout screen.");
         System.out.println("Motor Flow 6 PEP Underwriting Question Verified!");
     }
 
@@ -329,6 +332,7 @@ public class MotorTest extends BaseTest {
         quoteScreen.clickApplyPromoCode();
 
         boolean isError = quoteScreen.isPromoCodeInvalid();
+        Assert.assertTrue(isError, "Invalid promo code should trigger an error or remain rejected.");
         System.out.println("Invalid promo code handled (error badge displayed: " + isError + ")");
     }
 }
