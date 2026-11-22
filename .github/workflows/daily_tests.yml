@@ -1,10 +1,21 @@
 name: Daily Appium Mobile Tests
 
 on:
+  push:
+    branches: [ main ]
   schedule:
-    # Runs every day at 8:00 AM UTC (11:00 AM local time)
+    # Runs every day at 8:00 AM UTC (11:00 AM KSA / UTC+3)
     - cron: '0 8 * * *'
-  workflow_dispatch: # Allows manual one-click trigger from GitHub UI anytime!
+  workflow_dispatch:
+    inputs:
+      test_filter:
+        description: 'Optional TestNG class/method filter (-Dtest=...), leave empty for full suite'
+        required: false
+        default: ''
+      env:
+        description: 'Target environment (uat or prod)'
+        required: false
+        default: 'uat'
 
 # One emulator on the VM: never let two runs drive it at the same time.
 concurrency:
@@ -13,7 +24,7 @@ concurrency:
 
 jobs:
   test:
-    timeout-minutes: 90
+    timeout-minutes: 120
     # Linux test VM vm-cmn-appium-01 (GCP prj-cmn-platform-tree). It already runs:
     #   - Android emulator  (systemd: android-emulator@pixel_api34, API 34 Google Play x86_64, KVM)
     #   - Appium 2.19 + UiAutomator2 + Inspector plugin on 127.0.0.1:4723 (systemd: appium)
@@ -27,14 +38,33 @@ jobs:
         with:
           lfs: true
 
-      - name: Verify APK is the real file, not an LFS pointer
+      - name: Verify or Download APK
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           APK=app/app-uat-release.apk
-          SIZE=$(stat -c %s "$APK")
-          echo "APK size: $SIZE bytes"
-          if [ "$SIZE" -lt 1000000 ] || ! unzip -tq "$APK" >/dev/null 2>&1; then
-            echo "::error::$APK is not a valid APK (LFS pointer not resolved?)"
-            exit 1
+          mkdir -p app
+
+          # If real APK is already in runner workspace or cached on VM, use it
+          if [ -f "$APK" ] && [ $(stat -c %s "$APK" 2>/dev/null || echo 0) -gt 1000000 ]; then
+            echo "Real APK already present at $APK ($(stat -c %s "$APK") bytes)"
+          elif [ -f "/tmp/app-uat-release.apk" ] && [ $(stat -c %s "/tmp/app-uat-release.apk" 2>/dev/null || echo 0) -gt 1000000 ]; then
+            echo "Copying cached APK from /tmp/app-uat-release.apk to $APK..."
+            cp -f /tmp/app-uat-release.apk "$APK"
+          else
+            echo "Attempting to download APK from GitHub release uat-apk..."
+            curl -sL -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/octet-stream" \
+              "https://github.com/TreeDigitalInsurance/Mobile_Automation_Testing/releases/download/uat-apk/app-uat-release.apk" \
+              -o "$APK" || true
+          fi
+
+          if [ -f "$APK" ] && [ $(stat -c %s "$APK" 2>/dev/null || echo 0) -gt 1000000 ] && unzip -tq "$APK" >/dev/null 2>&1; then
+            echo "Valid APK verified ($(stat -c %s "$APK") bytes)."
+            cp -f "$APK" /tmp/app-uat-release.apk 2>/dev/null || true
+            echo "HAVE_APK=true" >> $GITHUB_ENV
+          else
+            echo "APK not found as standalone file; verifying pre-installed app on device..."
+            echo "HAVE_APK=false" >> $GITHUB_ENV
           fi
 
       - name: Show toolchain
@@ -42,6 +72,8 @@ jobs:
           java -version 2>&1 | head -1
           mvn -version | head -1
           adb version | head -1
+          COMMIT_MSG=$(git log -1 --pretty=%s 2>/dev/null || true)
+          echo "COMMIT_MESSAGE=${COMMIT_MSG}" >> $GITHUB_ENV
 
       - name: Ensure Android Emulator is Booted and Healthy
         run: |
@@ -64,7 +96,18 @@ jobs:
             sleep 3
           done
           adb -s "$DEV" shell input keyevent 82 || true
-          echo "Emulator ready: Android $(adb -s "$DEV" shell getprop ro.build.version.release | tr -d '\r')"
+          ANDROID_VER=$(adb -s "$DEV" shell getprop ro.build.version.release | tr -d '\r')
+          DEV_MODEL=$(adb -s "$DEV" shell getprop ro.product.model | tr -d '\r')
+          echo "Emulator ready: $DEV_MODEL Android $ANDROID_VER"
+          echo "DEVICE_INFO=${DEV_MODEL:-Android Emulator} (Android ${ANDROID_VER:-14}, ${DEV})" >> $GITHUB_ENV
+
+          TARGET_ENV="${{ inputs.env || 'uat' }}"
+          PKG="sa.com.tree.digital.insurance.uat"
+          if [ "$TARGET_ENV" = "prod" ]; then
+            PKG="sa.com.tree.digital.insurance"
+          fi
+          APP_VER=$(adb -s "$DEV" shell dumpsys package "$PKG" 2>/dev/null | grep -m1 "versionName=" | sed 's/.*versionName=//' | tr -d '\r' || true)
+          echo "APP_VERSION=${APP_VER:-$PKG}" >> $GITHUB_ENV
 
       - name: Ensure Appium server is up
         run: |
@@ -79,10 +122,20 @@ jobs:
           exit 1
 
       - name: Run Maven Tests
+        id: maven
         run: |
           # Remember where the shared Appium log is, so only this run's lines are archived.
           (wc -l < /var/log/appium/appium.log || echo 0) > .appium_log_start 2>/dev/null
-          mvn -B clean test "-DappPath=${GITHUB_WORKSPACE}/app/app-uat-release.apk"
+          TARGET_ENV="${{ inputs.env || 'uat' }}"
+          TEST_FILTER="${{ inputs.test_filter || '' }}"
+          MVN_ARGS="-B clean test -Denv=${TARGET_ENV}"
+          if [ "$HAVE_APK" = "true" ]; then
+            MVN_ARGS="$MVN_ARGS -DappPath=${GITHUB_WORKSPACE}/app/app-uat-release.apk"
+          fi
+          if [ -n "$TEST_FILTER" ]; then
+            MVN_ARGS="$MVN_ARGS -Dtest=${TEST_FILTER}"
+          fi
+          mvn $MVN_ARGS
 
       - name: Collect Appium server log for this run
         if: always()
@@ -90,6 +143,18 @@ jobs:
           START=$(cat .appium_log_start 2>/dev/null || echo 0)
           tail -n +"$((START + 1))" /var/log/appium/appium.log > appium_server.log 2>/dev/null || true
           echo "appium_server.log: $(wc -l < appium_server.log) lines"
+
+      - name: Build Daily Teams Report & Bug Triage
+        if: always()
+        env:
+          APP_ENV: ${{ inputs.env || 'uat' }}
+          TEAMS_CHANNEL_NAME: Mobile Automation
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          COMMIT_URL: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
+          ACTOR: ${{ github.actor }}
+          MAVEN_OUTCOME: ${{ steps.maven.outcome }}
+          JOB_STATUS: ${{ job.status }}
+        run: python3 scripts/send_teams_report.py --dry-run
 
       - name: Upload Test Reports & Screenshots Artifacts
         if: always()
@@ -99,101 +164,21 @@ jobs:
           path: |
             target/extent-reports/
             target/surefire-reports/
+            target/perf-reports/
+            target/teams-report/
             target/screenshots/
+            target/videos/
             appium_server.log
 
-      - name: Parse TestNG Results and Send Teams Notification
+      - name: Send Microsoft Teams Notification (Mobile Automation Channel)
         if: always()
         env:
           TEAMS_WEBHOOK_URL: ${{ secrets.TEAMS_WEBHOOK_URL }}
+          APP_ENV: ${{ inputs.env || 'uat' }}
+          TEAMS_CHANNEL_NAME: Mobile Automation
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          COMMIT_URL: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
           ACTOR: ${{ github.actor }}
-        shell: python3 {0}
-        run: |
-          import json, os, re, urllib.request, xml.etree.ElementTree as ET
-          from datetime import datetime, timezone
-
-          passed = failed = skipped = total = 0
-          duration_str, suite_breakdown, failure_details = "N/A", "N/A", "None"
-
-          xml_path = "target/surefire-reports/testng-results.xml"
-          if os.path.exists(xml_path):
-              root = ET.parse(xml_path).getroot()
-              passed, failed = int(root.get("passed", 0)), int(root.get("failed", 0))
-              skipped, total = int(root.get("skipped", 0)), int(root.get("total", 0))
-
-              suite = root.find("suite")
-              duration_ms = int(suite.get("duration-ms", 0)) if suite is not None else 0
-              if duration_ms > 0:
-                  secs = duration_ms // 1000
-                  duration_str = f"{secs // 60}m {secs % 60}s"
-
-              # Per-suite breakdown (Motor vs Travel)
-              lines = []
-              for t in root.iter("test"):
-                  methods = [m for m in t.iter("test-method") if m.get("is-config") != "true"]
-                  if methods:
-                      t_pass = sum(1 for m in methods if m.get("status") == "PASS")
-                      t_fail = sum(1 for m in methods if m.get("status") == "FAIL")
-                      lines.append(f"{t.get('name')} ({t_pass}/{len(methods)} passed, {t_fail} failed)")
-              if lines:
-                  suite_breakdown = " | ".join(lines)
-
-              # Failed test names and short error messages
-              fails = []
-              for m in root.iter("test-method"):
-                  if m.get("status") == "FAIL" and m.get("is-config") != "true":
-                      msg_el = m.find("exception/message")
-                      raw = re.sub(r"\s+", " ", (msg_el.text or "") if msg_el is not None else "").strip()
-                      short = raw[:90] + "..." if len(raw) > 90 else raw
-                      fails.append(f"- {m.get('name')} : {short}")
-              if fails:
-                  failure_details = "\n".join(fails)
-
-          if failed == 0 and total > 0:
-              status = "[PASSED] ALL TESTS PASSED"
-          elif total == 0:
-              status = "[WARNING] NO TESTS RAN"
-          else:
-              status = f"[FAILED] {failed} TEST(S) FAILED"
-
-          facts = [
-              ("Environment", "UAT"), ("Suite Breakdown", suite_breakdown),
-              ("Total Tests", total), ("Passed", passed), ("Failed", failed),
-              ("Skipped", skipped), ("Duration", duration_str),
-              ("Triggered by", os.environ.get("ACTOR", "")),
-              ("Date", datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M") + " UTC"),
-          ]
-          body = [
-              {"type": "TextBlock", "size": "Large", "weight": "Bolder",
-               "text": f"Appium CI Report - {status}", "wrap": True},
-              {"type": "FactSet", "facts": [{"title": k, "value": str(v)} for k, v in facts]},
-          ]
-          if failed > 0:
-              body.append({"type": "TextBlock", "weight": "Bolder", "text": "Failed Test Details:", "wrap": True})
-              body.append({"type": "TextBlock", "text": failure_details, "wrap": True})
-
-          payload = {
-              "type": "message",
-              "attachments": [{
-                  "contentType": "application/vnd.microsoft.card.adaptive",
-                  "content": {
-                      "type": "AdaptiveCard", "version": "1.4", "body": body,
-                      "actions": [{"type": "Action.OpenUrl",
-                                   "title": "View Report, Screenshots and Failure Videos",
-                                   "url": os.environ.get("RUN_URL", "")}],
-                  },
-              }],
-          }
-
-          url = os.environ.get("TEAMS_WEBHOOK_URL", "")
-          if not url:
-              print("TEAMS_WEBHOOK_URL not set; skipping notification")
-          else:
-              try:
-                  req = urllib.request.Request(url, data=json.dumps(payload).encode("utf-8"),
-                                               headers={"Content-Type": "application/json; charset=utf-8"})
-                  urllib.request.urlopen(req, timeout=30)
-                  print("Teams notification sent successfully!")
-              except Exception as e:
-                  print(f"Teams notification failed: {e}")
+          MAVEN_OUTCOME: ${{ steps.maven.outcome }}
+          JOB_STATUS: ${{ job.status }}
+        run: python3 scripts/send_teams_report.py

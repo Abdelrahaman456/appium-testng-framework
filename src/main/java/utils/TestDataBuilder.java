@@ -21,9 +21,10 @@ public class TestDataBuilder {
 
     /**
      * Generates a dynamic unique email address per test run to prevent backend caching issues.
+     * Uses strict alphanumeric username without underscores to adhere to backend validation regexes.
      */
     public static String generateUniqueEmail() {
-        return "qa_test_" + System.currentTimeMillis() + "@tree.com.sa";
+        return "qa" + (System.currentTimeMillis() % 1000000000L) + "@tree.com.sa";
     }
 
     /**

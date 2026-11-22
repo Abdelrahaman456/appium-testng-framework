@@ -19,14 +19,13 @@
         <parameter name="appPackage" value="sa.com.tree.digital.insurance.uat" />
         <parameter name="appActivity" value="sa.com.tree.digital.insurance.MainActivity" />
         <classes>
-            <class name="tests.SampleTest" />
+            <class name="tests.MotorTest" />
             <class name="tests.NegativeValidationTest" />
         </classes>
     </test>
 
     <!-- ========================================== -->
     <!-- TRAVEL PRODUCT SUITE                       -->
-    <!-- To disable Travel, comment out this block  -->
     <!-- ========================================== -->
     <test name="Travel Product Test">
         <parameter name="platformName" value="Android" />
@@ -36,6 +35,174 @@
         <parameter name="appActivity" value="sa.com.tree.digital.insurance.MainActivity" />
         <classes>
             <class name="tests.TravelTest" />
+        </classes>
+    </test>
+
+    <!-- ========================================== -->
+    <!-- HOME INSURANCE SUITE                       -->
+    <!-- ========================================== -->
+    <test name="Home Insurance Product Test">
+        <parameter name="platformName" value="Android" />
+        <parameter name="deviceName" value="Physical Device" />
+        <parameter name="udid" value="" />
+        <parameter name="appPackage" value="sa.com.tree.digital.insurance.uat" />
+        <parameter name="appActivity" value="sa.com.tree.digital.insurance.MainActivity" />
+        <classes>
+            <class name="tests.HomeInsuranceTest" />
+        </classes>
+    </test>
+
+    <!-- ========================================== -->
+    <!-- PET INSURANCE SUITE                        -->
+    <!-- ========================================== -->
+    <test name="Pet Insurance Product Test">
+        <parameter name="platformName" value="Android" />
+        <parameter name="deviceName" value="Physical Device" />
+        <parameter name="udid" value="" />
+        <parameter name="appPackage" value="sa.com.tree.digital.insurance.uat" />
+        <parameter name="appActivity" value="sa.com.tree.digital.insurance.MainActivity" />
+        <classes>
+            <class name="tests.PetTest" />
+        </classes>
+    </test>
+
+    <!-- ========================================== -->
+    <!-- INCOME PROTECTION INSURANCE SUITE          -->
+    <!-- ========================================== -->
+    <test name="Income Insurance Product Test">
+        <parameter name="platformName" value="Android" />
+        <parameter name="deviceName" value="Physical Device" />
+        <parameter name="udid" value="" />
+        <parameter name="appPackage" value="sa.com.tree.digital.insurance.uat" />
+        <parameter name="appActivity" value="sa.com.tree.digital.insurance.MainActivity" />
+        <classes>
+            <class name="tests.IncomeInsuranceTest" />
+        </classes>
+    </test>
+
+    <!-- ========================================== -->
+    <!-- MEDICAL MALPRACTICE INSURANCE SUITE        -->
+    <!-- ========================================== -->
+    <test name="Malpractice Product Test">
+        <parameter name="platformName" value="Android" />
+        <parameter name="deviceName" value="Physical Device" />
+        <parameter name="udid" value="" />
+        <parameter name="appPackage" value="sa.com.tree.digital.insurance.uat" />
+        <parameter name="appActivity" value="sa.com.tree.digital.insurance.MainActivity" />
+        <classes>
+            <class name="tests.MalpracticeTest" />
+        </classes>
+    </test>
+
+    <!-- ========================================== -->
+    <!-- DOMESTIC WORKER INSURANCE SUITE            -->
+    <!-- ========================================== -->
+    <test name="Domestic Worker Product Test">
+        <parameter name="platformName" value="Android" />
+        <parameter name="deviceName" value="Physical Device" />
+        <parameter name="udid" value="" />
+        <parameter name="appPackage" value="sa.com.tree.digital.insurance.uat" />
+        <parameter name="appActivity" value="sa.com.tree.digital.insurance.MainActivity" />
+        <classes>
+            <class name="tests.DomesticWorkerTest" />
+        </classes>
+    </test>
+
+    <!-- ========================================== -->
+    <!-- INDIVIDUAL HEALTH INSURANCE SUITE          -->
+    <!-- ========================================== -->
+    <test name="Individual Health Product Test">
+        <parameter name="platformName" value="Android" />
+        <parameter name="deviceName" value="Physical Device" />
+        <parameter name="udid" value="" />
+        <parameter name="appPackage" value="sa.com.tree.digital.insurance.uat" />
+        <parameter name="appActivity" value="sa.com.tree.digital.insurance.MainActivity" />
+        <classes>
+            <class name="tests.IndividualHealthTest" />
+        </classes>
+    </test>
+
+    <!-- ========================================== -->
+    <!-- FAMILY HEALTH INSURANCE SUITE              -->
+    <!-- ========================================== -->
+    <test name="Family Health Product Test">
+        <parameter name="platformName" value="Android" />
+        <parameter name="deviceName" value="Physical Device" />
+        <parameter name="udid" value="" />
+        <parameter name="appPackage" value="sa.com.tree.digital.insurance.uat" />
+        <parameter name="appActivity" value="sa.com.tree.digital.insurance.MainActivity" />
+        <classes>
+            <class name="tests.FamilyHealthTest" />
+        </classes>
+    </test>
+
+    <!-- ========================================== -->
+    <!-- CLAIMS LIFECYCLE (FNOL) SUITE              -->
+    <!-- ========================================== -->
+    <test name="Claims Lifecycle Test">
+        <parameter name="platformName" value="Android" />
+        <parameter name="deviceName" value="Physical Device" />
+        <parameter name="udid" value="" />
+        <parameter name="appPackage" value="sa.com.tree.digital.insurance.uat" />
+        <parameter name="appActivity" value="sa.com.tree.digital.insurance.MainActivity" />
+        <classes>
+            <class name="tests.ClaimsTest" />
+        </classes>
+    </test>
+
+    <!-- ========================================== -->
+    <!-- PAYMENT VALIDATION & ALTERNATIVE METHODS   -->
+    <!-- ========================================== -->
+    <test name="Payment Validation Test">
+        <parameter name="platformName" value="Android" />
+        <parameter name="deviceName" value="Physical Device" />
+        <parameter name="udid" value="" />
+        <parameter name="appPackage" value="sa.com.tree.digital.insurance.uat" />
+        <parameter name="appActivity" value="sa.com.tree.digital.insurance.MainActivity" />
+        <classes>
+            <class name="tests.PaymentValidationTest" />
+        </classes>
+    </test>
+
+    <!-- ========================================== -->
+    <!-- SUPPORT, COMPLAINTS, FAQS & ARABIC RTL     -->
+    <!-- ========================================== -->
+    <test name="Support and Localization Test">
+        <parameter name="platformName" value="Android" />
+        <parameter name="deviceName" value="Physical Device" />
+        <parameter name="udid" value="" />
+        <parameter name="appPackage" value="sa.com.tree.digital.insurance.uat" />
+        <parameter name="appActivity" value="sa.com.tree.digital.insurance.MainActivity" />
+        <classes>
+            <class name="tests.SupportAndLocalizationTest" />
+        </classes>
+    </test>
+
+    <!-- ========================================== -->
+    <!-- SMES TAB PRODUCTS SUITE                    -->
+    <!-- ========================================== -->
+    <test name="SME Products Test">
+        <parameter name="platformName" value="Android" />
+        <parameter name="deviceName" value="Physical Device" />
+        <parameter name="udid" value="" />
+        <parameter name="appPackage" value="sa.com.tree.digital.insurance.uat" />
+        <parameter name="appActivity" value="sa.com.tree.digital.insurance.MainActivity" />
+        <classes>
+            <class name="tests.SmeTest" />
+        </classes>
+    </test>
+
+    <!-- ========================================== -->
+    <!-- AUTHENTICATION, PROFILE & POLICY ACCESS    -->
+    <!-- ========================================== -->
+    <test name="Auth and Profile Test">
+        <parameter name="platformName" value="Android" />
+        <parameter name="deviceName" value="Physical Device" />
+        <parameter name="udid" value="" />
+        <parameter name="appPackage" value="sa.com.tree.digital.insurance.uat" />
+        <parameter name="appActivity" value="sa.com.tree.digital.insurance.MainActivity" />
+        <classes>
+            <class name="tests.AuthAndProfileTest" />
         </classes>
     </test>
 
