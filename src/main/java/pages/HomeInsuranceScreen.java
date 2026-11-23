@@ -228,6 +228,123 @@ public class HomeInsuranceScreen extends BasePage {
         } catch (Exception ignore) {}
     }
 
+    private void ensureRiyadhGpsLocation() {
+        System.out.println("Setting emulator GPS location to Riyadh (24.774265, 46.738586)...");
+        try {
+            driver.executeScript("mobile: setGeolocation",
+                    java.util.Map.of("latitude", 24.774265, "longitude", 46.738586, "altitude", 600));
+        } catch (Exception ignore) {}
+        try {
+            Runtime.getRuntime().exec(buildAdbCommand("emu", "geo", "fix", "46.738586", "24.774265")).waitFor();
+        } catch (Exception ignore) {}
+    }
+
+    private void fillAddressTextField(By fieldBy, String value, boolean onlyIfEmpty, String label) {
+        WebElement field = findDisplayedElement(fieldBy);
+        if (field == null) {
+            return;
+        }
+        String cur = "";
+        try {
+            if (field.getText() != null) {
+                cur = field.getText().trim();
+            }
+        } catch (Exception ignore) {}
+
+        String checkToken = value.contains(" ") ? value.substring(0, value.indexOf(' ')) : value;
+        if (onlyIfEmpty && !cur.isEmpty() && !cur.equalsIgnoreCase("Ukiah") && !cur.toLowerCase().contains("vista")) {
+            System.out.println("Address field [" + label + "] already populated with '" + cur + "'.");
+            return;
+        }
+        if (!onlyIfEmpty && !cur.isEmpty() && cur.toLowerCase().contains(checkToken.toLowerCase())) {
+            System.out.println("Address field [" + label + "] already matches '" + cur + "'.");
+            return;
+        }
+
+        System.out.println("Populating Address field [" + label + "] with '" + value + "' (was '" + cur + "')...");
+        tapElement(field);
+        try { Thread.sleep(500); } catch (Exception ignore) {}
+
+        WebElement activeField = findDisplayedElement(fieldBy);
+        if (activeField != null) {
+            if (!cur.isEmpty()) {
+                try {
+                    activeField.clear();
+                    Thread.sleep(200);
+                } catch (Exception ignore) {}
+            }
+            try {
+                activeField.sendKeys(value);
+            } catch (Exception e) {
+                adbInput(value.replace(" ", "%s"));
+            }
+        } else {
+            adbInput(value.replace(" ", "%s"));
+        }
+        try { Thread.sleep(350); } catch (Exception ignore) {}
+
+        WebElement verified = findDisplayedElement(fieldBy);
+        String after = "";
+        try {
+            if (verified != null && verified.getText() != null) {
+                after = verified.getText().trim();
+            }
+        } catch (Exception ignore) {}
+        if ((after.isEmpty() || !after.toLowerCase().contains(checkToken.toLowerCase())) && verified != null) {
+            System.out.println("Retrying Address field [" + label + "] via tapElement + adbInput...");
+            tapElement(verified);
+            try { Thread.sleep(500); } catch (Exception ignore) {}
+            adbInput(value.replace(" ", "%s"));
+            try { Thread.sleep(350); } catch (Exception ignore) {}
+        }
+    }
+
+    private void ensureAddressCityRiyadh() {
+        By cityBy = By.xpath(
+            "//android.widget.EditText[@hint='City' or @text='Ukiah' or @text='Riyadh'] "
+            + "| //*[@resource-id='textfield_postal_code']/following-sibling::android.widget.EditText[1]"
+        );
+        WebElement cityField = findDisplayedElement(cityBy);
+        if (cityField == null) {
+            return;
+        }
+        String cityText = "";
+        try {
+            if (cityField.getText() != null) {
+                cityText = cityField.getText().trim();
+            }
+        } catch (Exception ignore) {}
+        if ("Riyadh".equalsIgnoreCase(cityText)) {
+            System.out.println("Address City is already 'Riyadh'.");
+            return;
+        }
+
+        System.out.println("Address City is '" + cityText + "'; selecting 'Riyadh'...");
+        hideKeyboard();
+        tapElement(cityField);
+        try { Thread.sleep(1000); } catch (Exception ignore) {}
+
+        By riyadhOptionBy = By.xpath(
+            "//*[not(@hint='City') and (@content-desc='Riyadh' or @text='Riyadh' "
+            + "or contains(@content-desc, 'Riyadh') or contains(@text, 'Riyadh'))]"
+        );
+        WebElement riyadhOpt = findDisplayedElement(riyadhOptionBy);
+        if (riyadhOpt != null) {
+            tapElement(riyadhOpt);
+            try { Thread.sleep(600); } catch (Exception ignore) {}
+            return;
+        }
+
+        // If City is a searchable dropdown or editable input, type Riyadh and select option if shown
+        adbInput("Riyadh");
+        try { Thread.sleep(700); } catch (Exception ignore) {}
+        riyadhOpt = findDisplayedElement(riyadhOptionBy);
+        if (riyadhOpt != null) {
+            tapElement(riyadhOpt);
+            try { Thread.sleep(500); } catch (Exception ignore) {}
+        }
+    }
+
     // =========================================================================
     // 3. ABOUT YOUR HOME & UNDERWRITING DECLARATIONS
     // =========================================================================
@@ -252,23 +369,35 @@ public class HomeInsuranceScreen extends BasePage {
             By addAddrBy = By.xpath("//*[@content-desc='Add Home Address' or @text='Add Home Address' or @resource-id='btn_add_home_address']");
             List<WebElement> addBtns = driver.findElements(addAddrBy);
             if (!addBtns.isEmpty()) {
+                ensureRiyadhGpsLocation();
                 System.out.println("Add Home Address button detected; tapping to configure address...");
                 tapElement(addBtns.get(addBtns.size() - 1));
+
+                By swwOrErrorModalBy = By.xpath(
+                    "//*[contains(@content-desc, 'Something Went Wrong') or contains(@text, 'Something Went Wrong') "
+                    + "or @resource-id='btn_try_again_button' or @resource-id='btn_close_button']"
+                );
+                By closeErrorBtnBy = By.xpath(
+                    "//*[@resource-id='btn_close_button']//*[@clickable='true'] "
+                    + "| //android.widget.Button[@clickable='true' and (@content-desc='Close' or @text='Close')] "
+                    + "| //*[@resource-id='btn_close_button' or @content-desc='Close' or @text='Close']"
+                );
 
                 // Dismiss map error dialog if present
                 for (int m = 0; m < 8; m++) {
                     try {
-                        By closeBy = By.xpath("//*[@resource-id='btn_close_button' or @content-desc='Close' or contains(@content-desc, 'Something Went Wrong')]");
-                        List<WebElement> closeBtns = driver.findElements(closeBy);
-                        if (!closeBtns.isEmpty()) {
-                            System.out.println("Detected 'Something Went Wrong' map dialog! Tapping Close...");
-                            tapElement(closeBtns.get(closeBtns.size() - 1));
-                            Thread.sleep(1500);
-                            break;
+                        if (!findWithUnimportantViews(swwOrErrorModalBy).isEmpty()) {
+                            WebElement closeBtn = findDisplayedElement(closeErrorBtnBy);
+                            if (closeBtn != null) {
+                                System.out.println("Detected 'Something Went Wrong' map dialog! Tapping Close...");
+                                tapElement(closeBtn);
+                                Thread.sleep(1500);
+                                break;
+                            }
                         }
                     } catch (Exception ignore) {}
-                    if (!driver.findElements(By.xpath("//*[@resource-id='textfield_building_number']")).isEmpty() &&
-                        driver.findElements(By.xpath("//*[contains(@content-desc, 'Something Went Wrong')]")).isEmpty()) {
+                    if (!driver.findElements(By.xpath("//*[@resource-id='textfield_building_number']")).isEmpty()
+                            && findWithUnimportantViews(swwOrErrorModalBy).isEmpty()) {
                         break;
                     }
                     Thread.sleep(1000);
@@ -278,61 +407,89 @@ public class HomeInsuranceScreen extends BasePage {
                 WebDriverWait addrWait = new WebDriverWait(driver, Duration.ofSeconds(15));
                 addrWait.until(ExpectedConditions.presenceOfElementLocated(
                     By.xpath("//*[@resource-id='textfield_building_number']")));
-                Thread.sleep(1500); // Allow modal animation to fully settle
+                Thread.sleep(2500); // Allow modal animation & Google Map reverse-geocoding to settle
 
-                // Fill manual address form using dynamic locators and sendKeys
+                if (!driver.findElements(By.xpath("//*[contains(@content-desc, 'Ukiah') or @text='Ukiah']")).isEmpty()) {
+                    ensureRiyadhGpsLocation();
+                    By myLocBy = By.xpath("(//android.view.View[@content-desc='Google Map']/following::android.widget.ImageView[@clickable='true'])[1]");
+                    WebElement myLocBtn = findDisplayedElement(myLocBy);
+                    if (myLocBtn != null) {
+                        System.out.println("Map defaulted to Ukiah; tapping Google Map My-Location button to recenter on Riyadh...");
+                        tapElement(myLocBtn);
+                        try { Thread.sleep(2000); } catch (Exception ignore) {}
+                    }
+                }
+
+                // Fill all 6 manual address fields using post-keyboard coordinates & verification
                 try {
-                    System.out.println("Entering manual address: Building 1234, Secondary 5678, Street King...");
                     By bldgBy = By.xpath("//*[@resource-id='textfield_building_number' or contains(@hint, 'Building')]");
                     By secBy = By.xpath("//*[@resource-id='textfield_secondary_number' or contains(@hint, 'Secondary')]");
                     By streetBy = By.xpath("//*[@resource-id='textfield_street' or contains(@resource-id, 'street') or contains(@hint, 'Street')]");
-                    By saveBy = By.xpath(
+                    By districtBy = By.xpath("//*[@resource-id='textfield_district' or contains(@hint, 'District')]");
+                    By postalBy = By.xpath("//*[@resource-id='textfield_postal_code' or contains(@hint, 'Postal')]");
+                    By clickableSaveBy = By.xpath(
                         "//*[@resource-id='btn_save_button']//*[@clickable='true'] "
-                        + "| //android.widget.Button[@clickable='true' and (@content-desc='Save' or @text='Save')] "
-                        + "| //*[@resource-id='btn_save_button' or @content-desc='Save' or @text='Save']"
+                        + "| //android.widget.Button[@clickable='true' and (@content-desc='Save' or @text='Save')]"
+                    );
+                    By fallbackSaveBy = By.xpath(
+                        "//*[@resource-id='btn_save_button' or @content-desc='Save' or @text='Save']"
+                    );
+                    By noSavedAddressBy = By.xpath(
+                        "//*[contains(@content-desc, 'saved addresses') or contains(@text, 'saved addresses')]"
                     );
 
                     for (int attempt = 0; attempt < 3; attempt++) {
-                        List<WebElement> bldgList = findWithUnimportantViews(bldgBy);
-                        if (!bldgList.isEmpty()) {
-                            sendKeys(bldgList.get(0), "1234");
+                        if (findWithUnimportantViews(bldgBy).isEmpty()) {
+                            WebElement reOpenBtn = findDisplayedElement(addAddrBy);
+                            if (reOpenBtn != null) {
+                                System.out.println("Re-opening Add Home Address modal (attempt " + (attempt + 1) + "/3)...");
+                                tapElement(reOpenBtn);
+                                waitUntil(() -> !findWithUnimportantViews(bldgBy).isEmpty(), 10);
+                                try { Thread.sleep(1500); } catch (Exception ignore) {}
+                            }
                         }
 
-                        List<WebElement> secList = findWithUnimportantViews(secBy);
-                        if (!secList.isEmpty()) {
-                            sendKeys(secList.get(0), "5678");
-                        }
-
-                        hideKeyboard();
-                        List<WebElement> streetList = findWithUnimportantViews(streetBy);
-                        if (streetList.isEmpty()) {
-                            scrollDown();
-                            streetList = findWithUnimportantViews(streetBy);
-                        }
-                        if (!streetList.isEmpty()) {
-                            sendKeys(streetList.get(0), "King");
-                        }
+                        System.out.println("Filling and verifying 6 Home Address fields (attempt " + (attempt + 1) + "/3)...");
+                        ensureAddressCityRiyadh();
+                        fillAddressTextField(bldgBy, "1234", true, "Building number");
+                        fillAddressTextField(secBy, "5678", true, "Secondary number");
+                        fillAddressTextField(streetBy, "King Fahd", true, "Street");
+                        fillAddressTextField(districtBy, "Alsahafa", true, "District");
+                        fillAddressTextField(postalBy, "12251", true, "Postal code");
+                        ensureAddressCityRiyadh();
 
                         hideKeyboard();
                         try { Thread.sleep(500); } catch (Exception ignore) {}
 
                         System.out.println("Tapping Save on address modal (attempt " + (attempt + 1) + ")...");
-                        for (int s = 0; s < 3; s++) {
-                            List<WebElement> saveBtns = findWithUnimportantViews(saveBy);
-                            if (saveBtns.isEmpty()) {
-                                scrollDown();
-                                saveBtns = findWithUnimportantViews(saveBy);
-                            }
-                            if (!saveBtns.isEmpty()) {
-                                tapElement(saveBtns.get(saveBtns.size() - 1));
-                            }
-                            if (waitUntil(() -> findWithUnimportantViews(bldgBy).isEmpty(), 2)) {
-                                break;
-                            }
+                        WebElement saveBtn = findDisplayedElement(clickableSaveBy);
+                        if (saveBtn == null) {
+                            saveBtn = findDisplayedElement(fallbackSaveBy);
+                        }
+                        boolean tappedSave = false;
+                        if (saveBtn != null) {
+                            tapElement(saveBtn);
+                            tappedSave = true;
                         }
 
-                        if (findWithUnimportantViews(bldgBy).isEmpty()) {
-                            System.out.println("Address modal successfully saved and closed!");
+                        waitUntil(() -> (findWithUnimportantViews(bldgBy).isEmpty() && findWithUnimportantViews(swwOrErrorModalBy).isEmpty())
+                                || !findWithUnimportantViews(swwOrErrorModalBy).isEmpty(), 18);
+
+                        if (!findWithUnimportantViews(swwOrErrorModalBy).isEmpty()) {
+                            System.out.println("WARNING: 'Something Went Wrong' dialog appeared after tapping Save on Address modal; tapping Close to retry...");
+                            WebElement closeBtn = findDisplayedElement(closeErrorBtnBy);
+                            if (closeBtn != null) {
+                                tapElement(closeBtn);
+                                try { Thread.sleep(1200); } catch (Exception ignore) {}
+                            }
+                            continue;
+                        }
+
+                        if (tappedSave
+                                && findWithUnimportantViews(bldgBy).isEmpty()
+                                && findWithUnimportantViews(swwOrErrorModalBy).isEmpty()
+                                && findWithUnimportantViews(noSavedAddressBy).isEmpty()) {
+                            System.out.println("Address modal genuinely saved and closed!");
                             break;
                         }
                     }
@@ -344,6 +501,10 @@ public class HomeInsuranceScreen extends BasePage {
             System.out.println("Address handling note: " + ex.getMessage());
         }
 
+        // Wait for address modal Building field to be completely gone before locating Email on 'About your home'
+        By activeBldgBy = By.xpath("//*[@resource-id='textfield_building_number' or contains(@hint, 'Building')]");
+        waitUntil(() -> findWithUnimportantViews(activeBldgBy).isEmpty(), 6);
+
         // 2. Email address
         System.out.println("Entering Email address on About Your Home: " + email);
         try {
@@ -351,20 +512,47 @@ public class HomeInsuranceScreen extends BasePage {
                 "//android.widget.EditText[@resource-id='textfield_email' or contains(@resource-id, 'email') or contains(@hint, 'Email') or contains(@text, 'Email')] "
                 + "| //*[@resource-id='textfield_email' or contains(@hint, 'Email')]"
             );
+            waitUntil(() -> !findWithUnimportantViews(emailBy).isEmpty(), 3);
             List<WebElement> emailEls = findWithUnimportantViews(emailBy);
+            if (emailEls.isEmpty()) {
+                scrollUp();
+                emailEls = findWithUnimportantViews(emailBy);
+            }
             if (emailEls.isEmpty()) {
                 scrollDown();
                 emailEls = findWithUnimportantViews(emailBy);
             }
             if (!emailEls.isEmpty()) {
                 sendKeys(emailEls.get(0), email);
+                List<WebElement> refreshed = findWithUnimportantViews(emailBy);
+                String combined = "";
+                if (!refreshed.isEmpty()) {
+                    String txt = refreshed.get(0).getText();
+                    String desc = refreshed.get(0).getAttribute("content-desc");
+                    combined = ((txt != null ? txt : "") + " " + (desc != null ? desc : "")).trim();
+                }
+                if (!combined.contains("@") && !refreshed.isEmpty()) {
+                    System.out.println("Email value missing '@' after sendKeys ('" + combined + "'); retrying tap + adbInput...");
+                    tapElement(refreshed.get(0));
+                    try { Thread.sleep(300); } catch (Exception ignore) {}
+                    adbInput(email);
+                    refreshed = findWithUnimportantViews(emailBy);
+                    if (!refreshed.isEmpty()) {
+                        String txt = refreshed.get(0).getText();
+                        String desc = refreshed.get(0).getAttribute("content-desc");
+                        combined = ((txt != null ? txt : "") + " " + (desc != null ? desc : "")).trim();
+                    }
+                }
+                System.out.println("Verified Email field state on About Your Home: '" + combined + "'");
                 hideKeyboard();
+            } else {
+                System.out.println("WARNING: Email input field not found on 'About your home'!");
             }
         } catch (Exception ex) {
             System.out.println("Email entry error: " + ex.getMessage());
         }
 
-        // 3. Underwriting Declaration questions (8 questions) via dynamic locators & scrolling
+        // 3. Underwriting Declaration questions (9 questions) via dynamic locators & scrolling
         System.out.println("Answering Home Underwriting Declaration questions (cleanEligibility=" + cleanEligibility + ")...");
         answerHomeUnderwritingDeclarations(cleanEligibility);
 
@@ -386,7 +574,7 @@ public class HomeInsuranceScreen extends BasePage {
             if (!nextBtns.isEmpty()) {
                 tapElement(nextBtns.get(nextBtns.size() - 1));
             }
-            if (waitUntil(() -> isCheckoutLoaded() || isReferralModalDisplayed(), 3)) {
+            if (waitUntil(() -> isCheckoutLoaded() || isReferralElementPresent(), 4)) {
                 break;
             }
         }
@@ -401,14 +589,26 @@ public class HomeInsuranceScreen extends BasePage {
             return;
         }
 
-        // Expected clean answers for Q1..Q8: Q1=No (Yes if referral test), Q2=Yes, Q3=Yes, Q4..Q8=No
-        boolean[] expectedYes = new boolean[]{!cleanEligibility, true, true, false, false, false, false, false};
+        // Expected answers for Q1..Q9:
+        // Q1..Q7 are pre-selected by default (No, No, Yes, Yes, No, No, No); Q8 (PEP) and Q9 (Related Party) are unselected by default.
+        boolean[] expectedYes = new boolean[]{
+            !cleanEligibility, // Q1: sustained any loss or damage during the last 3 years
+            false,             // Q2: declined to accept, canceled, refused to continue, special terms
+            true,              // Q3: brick, stone, or concrete construction
+            true,              // Q4: good state of repair
+            false,             // Q5: profession or business carried on in your premises
+            false,             // Q6: additional facts affecting the proposed insurance
+            false,             // Q7: basement
+            false,             // Q8: Politically Exposed Person (PEP)
+            false              // Q9: related party/Person
+        };
         String[][] questionKeywords = new String[][]{
-            {"loss", "damage", "claim", "declined", "cancel", "special terms", "3 years"},
-            {"building material", "standard", "constructed", "concrete"},
-            {"good state of repair", "state of repair", "repair", "maintained"},
-            {"business", "commercial", "profession"},
-            {"additional", "material fact", "other fact", "disclose"},
+            {"sustained any loss", "loss or damage", "last 3 years"},
+            {"declined to accept", "refused to continue", "special terms"},
+            {"brick, stone", "concrete construction", "incombustible"},
+            {"good state of repair", "state of repair", "maintained"},
+            {"profession or business", "business carried on", "commercial"},
+            {"additional facts", "disclosed to the company", "material fact"},
             {"basement", "cellar"},
             {"politically exposed", "pep"},
             {"related party", "related"}
@@ -416,10 +616,15 @@ public class HomeInsuranceScreen extends BasePage {
 
         int screenHeight = getSafeWindowSize().height;
         int maxTapY = (int) (screenHeight * 0.90);
-        boolean[] answered = new boolean[8];
+        boolean[] answered = new boolean[9];
+
+        // In referral test (!cleanEligibility), ensure Q1 at top of 'About your home' is visible before scrolling down
+        if (!cleanEligibility && findQuestionLabel(questionKeywords[0], maxTapY) == null) {
+            scrollUp();
+        }
 
         for (int scrollPass = 0; scrollPass < 3; scrollPass++) {
-            for (int q = 0; q < 8; q++) {
+            for (int q = 0; q < 9; q++) {
                 if (answered[q]) continue;
                 WebElement questionEl = findQuestionLabel(questionKeywords[q], maxTapY);
                 if (questionEl == null) continue;
@@ -442,10 +647,16 @@ public class HomeInsuranceScreen extends BasePage {
                     } catch (Exception ignore) {}
                 }
                 if (bestBtn != null) {
-                    tapElement(bestBtn);
+                    boolean alreadySelected = false;
+                    try {
+                        alreadySelected = "true".equalsIgnoreCase(bestBtn.getAttribute("selected"));
+                    } catch (Exception ignore) {}
+                    if (!alreadySelected) {
+                        tapElement(bestBtn);
+                        try { Thread.sleep(250); } catch (Exception ignore) {}
+                    }
                     answered[q] = true;
-                    try { Thread.sleep(250); } catch (Exception ignore) {}
-                    if (!cleanEligibility && q == 0 && isReferralModalDisplayed()) {
+                    if (!cleanEligibility && q == 0 && isReferralElementPresent()) {
                         return;
                     }
                 }
@@ -465,28 +676,24 @@ public class HomeInsuranceScreen extends BasePage {
             }
         }
 
-        // Fallback if question labels could not be matched by text: answer sequentially by index with dynamic scroll
-        int matchedCount = 0;
-        for (boolean a : answered) if (a) matchedCount++;
-        if (matchedCount == 0) {
-            scrollUp();
-            for (int i = 0; i < 8; i++) {
-                By targetBy = expectedYes[i] ? yesBy : noBy;
-                List<WebElement> btns = findWithUnimportantViews(targetBy);
-                if (i < btns.size()) {
-                    WebElement btn = btns.get(i);
-                    for (int s = 0; s < 2 && btn.getRect().getY() >= maxTapY; s++) {
-                        scrollDown();
-                        btns = findWithUnimportantViews(targetBy);
-                        if (i >= btns.size()) break;
-                        btn = btns.get(i);
-                    }
-                    if (i < btns.size() && btn.isDisplayed() && btn.getRect().getY() > 0 && btn.getRect().getY() < maxTapY) {
-                        tapElement(btn);
-                        try { Thread.sleep(250); } catch (Exception ignore) {}
-                        if (!cleanEligibility && i == 0 && isReferralModalDisplayed()) {
-                            return;
-                        }
+        // Fallback if Q8 (PEP) or Q9 (Related Party) at the bottom are still unselected
+        for (int q = 7; q <= 8; q++) {
+            if (!answered[q]) {
+                WebElement questionEl = findQuestionLabel(questionKeywords[q], maxTapY);
+                if (questionEl != null) {
+                    int qY = questionEl.getRect().getY();
+                    for (WebElement btn : findWithUnimportantViews(noBy)) {
+                        try {
+                            int bY = btn.getRect().getY();
+                            if (btn.isDisplayed() && bY >= qY - 20 && bY < maxTapY && (bY - qY) < (int) (screenHeight * 0.25)) {
+                                if (!"true".equalsIgnoreCase(btn.getAttribute("selected"))) {
+                                    tapElement(btn);
+                                    Thread.sleep(250);
+                                }
+                                answered[q] = true;
+                                break;
+                            }
+                        } catch (Exception ignore) {}
                     }
                 }
             }
@@ -628,7 +835,7 @@ public class HomeInsuranceScreen extends BasePage {
         return this;
     }
 
-    public boolean isReferralModalDisplayed() {
+    private boolean isReferralElementPresent() {
         try {
             By referralBy = By.xpath(
                 "//*[contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'underwriting') "
@@ -643,13 +850,24 @@ public class HomeInsuranceScreen extends BasePage {
                 + "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'referred') "
                 + "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'not eligible') "
                 + "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'not eligible') "
-                + "or contains(@content-desc, 'Cannot') or contains(@text, 'Cannot') "
-                + "or contains(@content-desc, 'Sorry') or contains(@text, 'Sorry')]"
+                + "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'required documents') "
+                + "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'required documents') "
+                + "or contains(@content-desc, 'National Address Certificate') or contains(@text, 'National Address Certificate') "
+                + "or contains(@content-desc, 'IBAN Certificate') or contains(@text, 'IBAN Certificate') "
+                + "or contains(@content-desc, 'Something Went Wrong') or contains(@text, 'Something Went Wrong') "
+                + "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'cannot') "
+                + "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'cannot') "
+                + "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'sorry') "
+                + "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'sorry')]"
             );
             return !findWithUnimportantViews(referralBy).isEmpty();
         } catch (Exception e) {
             return false;
         }
+    }
+
+    public boolean isReferralModalDisplayed() {
+        return waitUntil(this::isReferralElementPresent, 15);
     }
 
     // =========================================================================

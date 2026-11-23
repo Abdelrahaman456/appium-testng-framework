@@ -66,16 +66,16 @@ public class QuoteScreen extends BasePage {
     @AndroidFindBy(xpath = "//*[contains(@content-desc, 'related party') or contains(@text, 'related party') or contains(@content-desc, 'Related') or contains(@text, 'Related')]")
     private WebElement relatedPartyQuestionText;
 
-    @AndroidFindBy(xpath = "(//*[@resource-id='btn_yes_button' or @content-desc='Yes' or @text='Yes'])[1]")
+    @AndroidFindBy(xpath = "//*[@resource-id='btn_quote_page_motor_politically_exposed_person_yes'] | (//*[@resource-id='btn_yes_button' or @content-desc='Yes' or @text='Yes'])[1]")
     private WebElement pepYesButton;
 
-    @AndroidFindBy(xpath = "(//*[@resource-id='btn_no_button' or @content-desc='No' or @text='No'])[1]")
+    @AndroidFindBy(xpath = "//*[@resource-id='btn_quote_page_motor_politically_exposed_person_no'] | (//*[@resource-id='btn_no_button' or @content-desc='No' or @text='No'])[1]")
     private WebElement pepNoButton;
 
-    @AndroidFindBy(xpath = "(//*[@resource-id='btn_yes_button' or @content-desc='Yes' or @text='Yes'])[2]")
+    @AndroidFindBy(xpath = "//*[@resource-id='btn_quote_page_motor_party_person_yes'] | (//*[@resource-id='btn_yes_button' or @content-desc='Yes' or @text='Yes'])[2]")
     private WebElement relatedPartyYesButton;
 
-    @AndroidFindBy(xpath = "(//*[@resource-id='btn_no_button' or @content-desc='No' or @text='No'])[2]")
+    @AndroidFindBy(xpath = "//*[@resource-id='btn_quote_page_motor_party_person_no'] | (//*[@resource-id='btn_no_button' or @content-desc='No' or @text='No'])[2]")
     private WebElement relatedPartyNoButton;
 
     @AndroidFindBy(xpath = "//android.widget.Button[@clickable='true' and (@content-desc='Buy now' or @text='Buy now')] | //*[@resource-id='btn_quote_page_motor_buy_now' or @resource-id='btn_buy_now' or @content-desc='Buy now' or @text='Buy now']")
@@ -110,7 +110,7 @@ public class QuoteScreen extends BasePage {
     @AndroidFindBy(xpath = "//*[@resource-id='textfield_promo_code' or contains(@hint, 'Promo') or contains(@hint, 'promo') or contains(@resource-id, 'promo')]")
     private WebElement promoCodeField;
 
-    @AndroidFindBy(xpath = "//*[@resource-id='btn_apply_promo' or @content-desc='Apply' or @text='Apply' or contains(@content-desc, 'Apply')]")
+    @AndroidFindBy(xpath = "//*[@resource-id='btn_apply_button' or @resource-id='btn_apply_promo' or @content-desc='Apply' or @text='Apply' or contains(@content-desc, 'Apply')]")
     private WebElement applyPromoButton;
 
     @AndroidFindBy(xpath = "//*[contains(@content-desc, 'Promo applied') or contains(@text, 'Promo applied') or contains(@content-desc, 'Discount') or contains(@text, 'Discount')]")
@@ -192,35 +192,47 @@ public class QuoteScreen extends BasePage {
         }
     }
 
+    public boolean hasPromoCodeField() {
+        org.openqa.selenium.By promoBy = org.openqa.selenium.By.xpath(
+            "//*[@resource-id='textfield_promo_code' or contains(@hint, 'Promo') or contains(@hint, 'promo') or contains(@resource-id, 'promo')]"
+        );
+        return findDisplayedElement(promoBy) != null;
+    }
+
     public void enterPromoCode(String promoCode) {
         System.out.println("Entering promo code: " + promoCode);
-        try {
-            if (!isElementVisible(promoCodeField)) {
-                scrollDown();
-            }
-            waitForVisibility(promoCodeField);
-            sendKeys(promoCodeField, promoCode);
-            hideKeyboard();
-        } catch (Exception e) {
-            try {
-                WebElement el = driver.findElement(org.openqa.selenium.By.xpath("//*[@resource-id='textfield_promo_code' or contains(@hint, 'Promo') or contains(@hint, 'promo')]"));
-                sendKeys(el, promoCode);
-                hideKeyboard();
-            } catch (Exception ignore) {}
+        org.openqa.selenium.By promoBy = org.openqa.selenium.By.xpath(
+            "//*[@resource-id='textfield_promo_code' or contains(@hint, 'Promo') or contains(@hint, 'promo') or contains(@resource-id, 'promo')]"
+        );
+        WebElement field = findDisplayedElement(promoBy);
+        if (field == null) {
+            scrollDown();
+            field = findDisplayedElement(promoBy);
         }
+        if (field == null) {
+            throw new org.openqa.selenium.NoSuchElementException("Promo code field not found on QuoteScreen: " + promoBy);
+        }
+        sendKeys(field, promoCode);
+        hideKeyboard();
     }
 
     public void clickApplyPromoCode() {
         System.out.println("Clicking Apply promo code button...");
-        try {
-            waitForVisibility(applyPromoButton);
-            tapElement(applyPromoButton);
-        } catch (Exception e) {
-            try {
-                WebElement el = driver.findElement(org.openqa.selenium.By.xpath("//*[@content-desc='Apply' or @text='Apply']"));
-                tapElement(el);
-            } catch (Exception ignore) {}
+        org.openqa.selenium.By clickableApplyBy = org.openqa.selenium.By.xpath(
+            "//*[@resource-id='btn_apply_button' or @resource-id='btn_apply_promo']//*[@clickable='true'] "
+            + "| //android.widget.Button[@clickable='true' and (@content-desc='Apply' or @text='Apply')]"
+        );
+        org.openqa.selenium.By fallbackApplyBy = org.openqa.selenium.By.xpath(
+            "//*[@resource-id='btn_apply_button' or @resource-id='btn_apply_promo' or @content-desc='Apply' or @text='Apply']"
+        );
+        WebElement btn = findDisplayedElement(clickableApplyBy);
+        if (btn == null) {
+            btn = findDisplayedElement(fallbackApplyBy);
         }
+        if (btn == null) {
+            throw new org.openqa.selenium.NoSuchElementException("Apply promo code button not found on QuoteScreen.");
+        }
+        tapElement(btn);
         try { Thread.sleep(1500); } catch (Exception ignore) {}
     }
 
@@ -283,9 +295,13 @@ public class QuoteScreen extends BasePage {
             "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'cannot') " +
             "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'sorry') " +
             "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'sorry') " +
+            "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'required documents') " +
+            "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'required documents') " +
+            "or contains(@content-desc, 'National Address Certificate') or contains(@text, 'National Address Certificate') " +
+            "or contains(@content-desc, 'IBAN Certificate') or contains(@text, 'IBAN Certificate') " +
             "or contains(@content-desc, 'Something Went Wrong') or contains(@text, 'Something Went Wrong')]"
         );
-        return waitUntil(() -> !findWithUnimportantViews(referralBy).isEmpty(), 5);
+        return waitUntil(() -> !findWithUnimportantViews(referralBy).isEmpty(), 20);
     }
 
     public String getTotalPremiumText() {
@@ -473,42 +489,336 @@ public class QuoteScreen extends BasePage {
 
 
 
-    public void answerPepQuestion(boolean isYes) {
-        org.openqa.selenium.By pepLocator = org.openqa.selenium.By.xpath(
-            "//*[contains(@content-desc, 'Politically Exposed') or contains(@text, 'Politically Exposed') " +
-            "or @resource-id='btn_yes_button' or @content-desc='Yes']"
+    private void findAndTapDeclarationButton(org.openqa.selenium.By primaryBy, org.openqa.selenium.By fallbackBy,
+            WebElement pageFactoryFallback, String label) {
+        org.openqa.selenium.By belowDeclBy = org.openqa.selenium.By.xpath(
+            "//*[@resource-id='dd_sales_your_details_page_political_exposed' or @resource-id='textfield_quote_page_motor_email']"
         );
         for (int i = 0; i < 3; i++) {
-            if (!driver.findElements(pepLocator).isEmpty()) {
-                break;
+            WebElement btn = findDisplayedElement(primaryBy);
+            if (btn == null) {
+                btn = findDisplayedElement(fallbackBy);
             }
-            scrollDown();
-            try { Thread.sleep(500); } catch (Exception ignore) {}
+            if (btn != null) {
+                System.out.println("Tapping declaration button: " + label);
+                tapElement(btn);
+                return;
+            }
+            if (i < 2 && findDisplayedElement(belowDeclBy) != null) {
+                scrollUp();
+            } else {
+                scrollDown();
+            }
+            try { Thread.sleep(450); } catch (Exception ignore) {}
         }
-        if (isYes) {
-            click(pepYesButton);
+        click(pageFactoryFallback);
+    }
+
+    private String getElementLabel(WebElement el) {
+        if (el == null) {
+            return "";
+        }
+        try {
+            String desc = el.getAttribute("content-desc");
+            if (desc != null && !desc.trim().isEmpty()) {
+                return desc.trim();
+            }
+            String txt = el.getText();
+            if (txt != null && !txt.trim().isEmpty()) {
+                return txt.trim();
+            }
+        } catch (Exception ignore) {}
+        return "";
+    }
+
+    private boolean isExcludedDropdownLabel(String label) {
+        if (label == null || label.trim().isEmpty()) {
+            return true;
+        }
+        String lower = label.trim().toLowerCase();
+        if (lower.equals("scrim") || lower.equals("close") || lower.equals("back")
+                || lower.equals("cancel") || lower.equals("confirm") || lower.equals("save")
+                || lower.equals("done") || lower.equals("ok") || lower.equals("dismiss")
+                || lower.equals("yes") || lower.equals("no") || lower.equals("buy now")
+                || lower.equals("learn more")) {
+            return true;
+        }
+        return lower.contains("select pep type")
+                || lower.contains("politically exposed")
+                || lower.contains("related party")
+                || lower.contains("comprehensive cover")
+                || lower.contains("smart cover")
+                || lower.contains("saver cover");
+    }
+
+    private java.util.Set<String> collectVisibleClickableLabels() {
+        java.util.Set<String> labels = new java.util.HashSet<>();
+        try {
+            for (WebElement el : findWithUnimportantViews(org.openqa.selenium.By.xpath("//*[@clickable='true']"))) {
+                try {
+                    if (el.isDisplayed()) {
+                        String lbl = getElementLabel(el);
+                        if (!lbl.isEmpty()) {
+                            labels.add(lbl);
+                        }
+                    }
+                } catch (Exception ignore) {}
+            }
+        } catch (Exception ignore) {}
+        return labels;
+    }
+
+    private WebElement findDropdownOptionCandidate(java.util.Set<String> preOpenLabels) {
+        org.openqa.selenium.By scrimOptionsBy = org.openqa.selenium.By.xpath(
+            "//*[@content-desc='Scrim']/following::*[@clickable='true']"
+        );
+        for (WebElement el : findWithUnimportantViews(scrimOptionsBy)) {
+            try {
+                if (el.isDisplayed() && !isExcludedDropdownLabel(getElementLabel(el))) {
+                    return el;
+                }
+            } catch (Exception ignore) {}
+        }
+
+        org.openqa.selenium.By anyClickableOptionBy = org.openqa.selenium.By.xpath(
+            "//android.view.View[@clickable='true'] | //android.widget.Button[@clickable='true'] "
+            + "| //android.widget.CheckedTextView[@clickable='true'] | //android.widget.TextView[@clickable='true']"
+        );
+        for (WebElement el : findWithUnimportantViews(anyClickableOptionBy)) {
+            try {
+                if (el.isDisplayed()) {
+                    String lbl = getElementLabel(el);
+                    if (!isExcludedDropdownLabel(lbl) && !preOpenLabels.contains(lbl)) {
+                        return el;
+                    }
+                }
+            } catch (Exception ignore) {}
+        }
+        return null;
+    }
+
+    private WebElement waitForNewDropdownOption(java.util.Set<String> preOpenLabels, int timeoutSec) {
+        final WebElement[] found = new WebElement[1];
+        waitUntil(() -> {
+            found[0] = findDropdownOptionCandidate(preOpenLabels);
+            return found[0] != null;
+        }, timeoutSec);
+        return found[0];
+    }
+
+    private void selectDropdownFirstOptionIfPresent(org.openqa.selenium.By clickableDropdownBy,
+            org.openqa.selenium.By fallbackDropdownBy, String label) {
+        WebElement dropdown = findDisplayedElement(clickableDropdownBy);
+        if (dropdown == null) {
+            dropdown = findDisplayedElement(fallbackDropdownBy);
+        }
+        if (dropdown == null) {
+            scrollDown();
+            try { Thread.sleep(400); } catch (Exception ignore) {}
+            dropdown = findDisplayedElement(clickableDropdownBy);
+            if (dropdown == null) {
+                dropdown = findDisplayedElement(fallbackDropdownBy);
+            }
+        }
+        if (dropdown == null) {
+            System.out.println("No conditional dropdown found for " + label + "; continuing.");
+            return;
+        }
+
+        try {
+            int screenH = getSafeWindowSize().height;
+            org.openqa.selenium.Rectangle r = dropdown.getRect();
+            if (r.getY() + r.getHeight() >= screenH - 140) {
+                scrollDown();
+                try { Thread.sleep(400); } catch (Exception ignore) {}
+                WebElement refreshed = findDisplayedElement(clickableDropdownBy);
+                if (refreshed == null) {
+                    refreshed = findDisplayedElement(fallbackDropdownBy);
+                }
+                if (refreshed != null) {
+                    dropdown = refreshed;
+                }
+            }
+        } catch (Exception ignore) {}
+
+        java.util.Set<String> preOpenLabels = collectVisibleClickableLabels();
+
+        System.out.println("Opening " + label + " dropdown...");
+        tapElement(dropdown);
+        try { Thread.sleep(700); } catch (Exception ignore) {}
+
+        WebElement option = waitForNewDropdownOption(preOpenLabels, 3);
+        if (option == null) {
+            WebElement retryDropdown = findDisplayedElement(clickableDropdownBy);
+            if (retryDropdown == null) {
+                retryDropdown = findDisplayedElement(fallbackDropdownBy);
+            }
+            if (retryDropdown != null) {
+                tapElement(retryDropdown);
+                try { Thread.sleep(700); } catch (Exception ignore) {}
+                option = waitForNewDropdownOption(preOpenLabels, 3);
+            }
+        }
+
+        org.openqa.selenium.By confirmBy = org.openqa.selenium.By.xpath(
+            "//android.widget.Button[@clickable='true' and (@content-desc='Confirm' or @text='Confirm' or @content-desc='Save' or @text='Save' or @content-desc='Done' or @text='Done')] "
+            + "| //*[@resource-id='btn_confirm' or @content-desc='Confirm' or @text='Confirm']"
+        );
+
+        if (option != null) {
+            System.out.println("Selecting " + label + " option: " + getElementLabel(option));
+            tapElement(option);
+            try { Thread.sleep(500); } catch (Exception ignore) {}
+            WebElement confirmBtn = findDisplayedElement(confirmBy);
+            if (confirmBtn != null) {
+                System.out.println("Confirming " + label + " dropdown selection...");
+                tapElement(confirmBtn);
+                try { Thread.sleep(500); } catch (Exception ignore) {}
+            }
+        } else if (findDisplayedElement(org.openqa.selenium.By.xpath("//android.widget.SeekBar")) != null) {
+            WebElement confirmBtn = findDisplayedElement(confirmBy);
+            if (confirmBtn != null) {
+                System.out.println("Confirming " + label + " wheel picker selection...");
+                tapElement(confirmBtn);
+                try { Thread.sleep(500); } catch (Exception ignore) {}
+            }
         } else {
-            click(pepNoButton);
+            System.out.println("Warning: No selectable option appeared after opening " + label + " dropdown.");
+        }
+    }
+
+    public void answerPepQuestion(boolean isYes) {
+        org.openqa.selenium.By primaryBy = isYes
+            ? org.openqa.selenium.By.xpath("//*[@resource-id='btn_quote_page_motor_politically_exposed_person_yes']")
+            : org.openqa.selenium.By.xpath("//*[@resource-id='btn_quote_page_motor_politically_exposed_person_no']");
+        org.openqa.selenium.By fallbackBy = isYes
+            ? org.openqa.selenium.By.xpath("(//*[@resource-id='btn_yes_button' or @content-desc='Yes' or @text='Yes'])[1]")
+            : org.openqa.selenium.By.xpath("(//*[@resource-id='btn_no_button' or @content-desc='No' or @text='No'])[1]");
+        findAndTapDeclarationButton(primaryBy, fallbackBy, isYes ? pepYesButton : pepNoButton,
+                "PEP (" + (isYes ? "Yes" : "No") + ")");
+
+        if (isYes) {
+            try { Thread.sleep(600); } catch (Exception ignore) {}
+            org.openqa.selenium.By clickablePepDropdownBy = org.openqa.selenium.By.xpath(
+                "//*[@resource-id='dd_sales_your_details_page_political_exposed']//*[@clickable='true'] "
+                + "| //android.widget.Button[@clickable='true' and (contains(@content-desc, 'Select PEP type') or contains(@text, 'Select PEP type'))]"
+            );
+            org.openqa.selenium.By fallbackPepDropdownBy = org.openqa.selenium.By.xpath(
+                "//*[@resource-id='dd_sales_your_details_page_political_exposed' or contains(@content-desc, 'Select PEP type') or contains(@text, 'Select PEP type')]"
+            );
+            selectDropdownFirstOptionIfPresent(clickablePepDropdownBy, fallbackPepDropdownBy, "PEP type");
+
+            fillConditionalPepEmailIfPresent();
+        }
+    }
+
+    private void fillConditionalPepEmailIfPresent() {
+        try { Thread.sleep(400); } catch (Exception ignore) {}
+        org.openqa.selenium.By pepEmailBy = org.openqa.selenium.By.xpath(
+            "//*[@resource-id='textfield_quote_page_motor_email' or contains(@hint, 'email ID') or contains(@hint, 'Email ID')]"
+        );
+        WebElement emailField = findDisplayedElement(pepEmailBy);
+        if (emailField == null) {
+            scrollDown();
+            try { Thread.sleep(350); } catch (Exception ignore) {}
+            emailField = findDisplayedElement(pepEmailBy);
+        }
+        if (emailField == null) {
+            return;
+        }
+        try {
+            String existing = emailField.getText();
+            if (existing != null && existing.contains("@")) {
+                System.out.println("Conditional PEP email field already populated: " + existing.trim());
+                return;
+            }
+        } catch (Exception ignore) {}
+
+        try {
+            if (emailField.getRect().getY() > (int) (getSafeWindowSize().height * 0.70)) {
+                scrollDown();
+                try { Thread.sleep(350); } catch (Exception ignore) {}
+                WebElement scrolledField = findDisplayedElement(pepEmailBy);
+                if (scrolledField != null) {
+                    emailField = scrolledField;
+                }
+            }
+        } catch (Exception ignore) {}
+
+        String email = utils.TestDataBuilder.DEFAULT_EMAIL;
+        System.out.println("Filling conditional PEP email field (Attempt 1 via tapElement + adbInput): " + email);
+        tapElement(emailField);
+        try { Thread.sleep(700); } catch (Exception ignore) {}
+        adbInput(email);
+        try { Thread.sleep(500); } catch (Exception ignore) {}
+        hideKeyboard();
+
+        WebElement check1 = findDisplayedElement(pepEmailBy);
+        try {
+            if (check1 != null && check1.getText() != null && check1.getText().contains("@")) {
+                System.out.println("Verified conditional PEP email on attempt 1: " + check1.getText().trim());
+                return;
+            }
+        } catch (Exception ignore) {}
+
+        System.out.println("Conditional PEP email empty after attempt 1; retrying Attempt 2 via post-keyboard sendKeys...");
+        WebElement refreshed = findDisplayedElement(pepEmailBy);
+        if (refreshed == null) {
+            scrollDown();
+            try { Thread.sleep(350); } catch (Exception ignore) {}
+            refreshed = findDisplayedElement(pepEmailBy);
+        }
+        if (refreshed != null) {
+            tapElement(refreshed);
+            try { Thread.sleep(700); } catch (Exception ignore) {}
+            WebElement postKeyboardField = findDisplayedElement(pepEmailBy);
+            if (postKeyboardField != null) {
+                try {
+                    postKeyboardField.sendKeys(email);
+                } catch (Exception e) {
+                    adbInput(email);
+                }
+            } else {
+                adbInput(email);
+            }
+            try { Thread.sleep(500); } catch (Exception ignore) {}
+            hideKeyboard();
+
+            WebElement check2 = findDisplayedElement(pepEmailBy);
+            String verifiedText = "";
+            try {
+                if (check2 != null && check2.getText() != null) {
+                    verifiedText = check2.getText().trim();
+                }
+            } catch (Exception ignore) {}
+            System.out.println("Post-attempt-2 conditional PEP email text: '" + verifiedText + "'");
         }
     }
 
     public void answerRelatedPartyQuestion(boolean isYes) {
-        org.openqa.selenium.By relatedLocator = org.openqa.selenium.By.xpath(
-            "//*[contains(@content-desc, 'related party') or contains(@text, 'related party')] " +
-            "| (//*[@resource-id='btn_yes_button' or @content-desc='Yes' or @text='Yes'])[2]"
-        );
-        for (int i = 0; i < 3; i++) {
-            if (!driver.findElements(relatedLocator).isEmpty()) {
-                break;
-            }
-            scrollDown();
-            try { Thread.sleep(500); } catch (Exception ignore) {}
-        }
+        org.openqa.selenium.By primaryBy = isYes
+            ? org.openqa.selenium.By.xpath("//*[@resource-id='btn_quote_page_motor_party_person_yes']")
+            : org.openqa.selenium.By.xpath("//*[@resource-id='btn_quote_page_motor_party_person_no']");
+        org.openqa.selenium.By fallbackBy = isYes
+            ? org.openqa.selenium.By.xpath("(//*[@resource-id='btn_yes_button' or @content-desc='Yes' or @text='Yes'])[2]")
+            : org.openqa.selenium.By.xpath("(//*[@resource-id='btn_no_button' or @content-desc='No' or @text='No'])[2]");
+        findAndTapDeclarationButton(primaryBy, fallbackBy, isYes ? relatedPartyYesButton : relatedPartyNoButton,
+                "Related Party (" + (isYes ? "Yes" : "No") + ")");
+
         if (isYes) {
-            click(relatedPartyYesButton);
-        } else {
-            click(relatedPartyNoButton);
+            try { Thread.sleep(500); } catch (Exception ignore) {}
+            org.openqa.selenium.By secondaryClickableBy = org.openqa.selenium.By.xpath(
+                "//*[(contains(@resource-id, 'party_person') or contains(@resource-id, 'related')) and starts-with(@resource-id, 'dd_')]//*[@clickable='true'] "
+                + "| //android.widget.Button[@clickable='true' and contains(@content-desc, 'Select') and contains(@content-desc, '*') and not(contains(@content-desc, 'PEP'))]"
+            );
+            org.openqa.selenium.By secondaryFallbackBy = org.openqa.selenium.By.xpath(
+                "//*[(contains(@resource-id, 'party_person') or contains(@resource-id, 'related')) and starts-with(@resource-id, 'dd_')]"
+            );
+            if (findDisplayedElement(secondaryClickableBy) != null || findDisplayedElement(secondaryFallbackBy) != null) {
+                selectDropdownFirstOptionIfPresent(secondaryClickableBy, secondaryFallbackBy, "Related Party detail");
+            }
         }
+        fillConditionalPepEmailIfPresent();
     }
 
 
@@ -541,6 +851,10 @@ public class QuoteScreen extends BasePage {
             "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'manual review') " +
             "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'not eligible') " +
             "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'not eligible') " +
+            "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'required documents') " +
+            "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'required documents') " +
+            "or contains(@content-desc, 'National Address Certificate') or contains(@text, 'National Address Certificate') " +
+            "or contains(@content-desc, 'IBAN Certificate') or contains(@text, 'IBAN Certificate') " +
             "or contains(@content-desc, 'Something Went Wrong') or contains(@text, 'Something Went Wrong')]"
         );
 
@@ -581,8 +895,17 @@ public class QuoteScreen extends BasePage {
                     }
                 }
             }
-            System.out.println("Scrolling down (attempt " + (i + 1) + ")...");
-            scrollDown();
+            boolean atDeclarationsBottom = !driver.findElements(org.openqa.selenium.By.xpath(
+                "//*[contains(@content-desc, 'Politically Exposed') or contains(@content-desc, 'related party') "
+                + "or @resource-id='dd_sales_your_details_page_political_exposed' or @resource-id='textfield_quote_page_motor_email']"
+            )).isEmpty();
+            if (atDeclarationsBottom && i < 2) {
+                System.out.println("Scrolling up from declarations to reveal Buy Now (attempt " + (i + 1) + ")...");
+                scrollUp();
+            } else {
+                System.out.println("Scrolling down (attempt " + (i + 1) + ")...");
+                scrollDown();
+            }
         }
         if (tappedBuyNow) {
             return;
@@ -600,7 +923,10 @@ public class QuoteScreen extends BasePage {
             "//*[@resource-id='btn_checkout_page_motor_pay_now' or @resource-id='btn_pay_now' " +
             "or @content-desc='Pay now' or @text='Pay now' " +
             "or @resource-id='textfield_checkout_page_motor_email' or @resource-id='textfield_email' " +
-            "or @resource-id='textfield_checkout_page_motor_iban' or @resource-id='textfield_iban']"
+            "or @resource-id='textfield_checkout_page_motor_iban' or @resource-id='textfield_iban' " +
+            "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'required documents') " +
+            "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'required documents') " +
+            "or contains(@content-desc, 'National Address Certificate') or contains(@content-desc, 'IBAN Certificate')]"
         );
         try {
             long deadline = System.currentTimeMillis() + 4000L;

@@ -200,6 +200,41 @@ public class DriverManager {
 
      */
 
+    private static void closeChromeCustomTabIfActive(AppiumDriver currentDriver, String pkg) {
+        try {
+            String currentPkg = (currentDriver instanceof io.appium.java_client.android.AndroidDriver)
+                    ? ((io.appium.java_client.android.AndroidDriver) currentDriver).getCurrentPackage()
+                    : null;
+            boolean chromeActive = "com.android.chrome".equals(currentPkg)
+                    || ((currentPkg == null || (pkg != null && !pkg.equals(currentPkg)))
+                            && !currentDriver.findElements(org.openqa.selenium.By.xpath("//*[@package='com.android.chrome']")).isEmpty());
+            if (!chromeActive) {
+                return;
+            }
+            System.out.println("[FAST RESET] Chrome Custom Tab active (" + currentPkg + "); closing/terminating com.android.chrome...");
+            try {
+                java.util.List<org.openqa.selenium.WebElement> closeBtns = currentDriver.findElements(
+                    org.openqa.selenium.By.xpath("//*[@resource-id='com.android.chrome:id/close_button' or @content-desc='Close tab']"));
+                if (!closeBtns.isEmpty()) {
+                    closeBtns.get(0).click();
+                    Thread.sleep(500);
+                }
+            } catch (Exception ignore) {}
+            if (currentDriver instanceof io.appium.java_client.InteractsWithApps) {
+                try {
+                    ((io.appium.java_client.InteractsWithApps) currentDriver).terminateApp("com.android.chrome");
+                    Thread.sleep(400);
+                } catch (Exception ignore) {}
+                if (pkg != null && currentDriver instanceof io.appium.java_client.android.AndroidDriver) {
+                    String afterPkg = ((io.appium.java_client.android.AndroidDriver) currentDriver).getCurrentPackage();
+                    if (!pkg.equals(afterPkg)) {
+                        ((io.appium.java_client.InteractsWithApps) currentDriver).activateApp(pkg);
+                    }
+                }
+            }
+        } catch (Exception ignore) {}
+    }
+
     public static void resetAppToHome() {
         AppiumDriver currentDriver = getDriver();
         if (currentDriver != null) {
@@ -228,8 +263,32 @@ public class DriverManager {
                     "//android.widget.ImageView[@clickable='true' and (@content-desc='Login' or @content-desc='FAQs' or @content-desc='Contact us' or @content-desc='Complaints tracking' or contains(@content-desc, 'About') or contains(@content-desc, 'Privacy'))]"
                 );
 
+                String pkg = TestConfig.appPackage();
+                org.openqa.selenium.By appInteractiveBy = org.openqa.selenium.By.xpath(
+                    "//*[@package='" + pkg + "' and (@clickable='true' or string-length(@resource-id) > 0)]"
+                );
+                org.openqa.selenium.By launcherBy = org.openqa.selenium.By.xpath(
+                    "//*[@package='com.google.android.apps.nexuslauncher']"
+                );
+
                 for (int i = 0; i < 4; i++) {
                     try {
+                        closeChromeCustomTabIfActive(currentDriver, pkg);
+                        // Guard against pressing Android Back while on nexuslauncher or app splash screen
+                        if (!currentDriver.findElements(launcherBy).isEmpty() && currentDriver instanceof io.appium.java_client.InteractsWithApps) {
+                            System.out.println("[FAST RESET] Launcher detected; activating " + pkg + " and waiting for splash to finish...");
+                            ((io.appium.java_client.InteractsWithApps) currentDriver).activateApp(pkg);
+                        }
+                        if (currentDriver.findElements(appInteractiveBy).isEmpty()) {
+                            long splashWaitEnd = System.currentTimeMillis() + 12000L;
+                            while (System.currentTimeMillis() < splashWaitEnd) {
+                                if (!currentDriver.findElements(appInteractiveBy).isEmpty()) {
+                                    break;
+                                }
+                                Thread.sleep(300);
+                            }
+                        }
+
                         // 1. Already on Home -> Individual tab
                         java.util.List<org.openqa.selenium.WebElement> motorTile = currentDriver.findElements(motorTileBy);
                         if (!motorTile.isEmpty() && motorTile.get(0).isDisplayed()) {
@@ -274,6 +333,12 @@ public class DriverManager {
                         }
                     } catch (Exception ignore) {}
 
+                    // Never press Android Back if still on splash or nexuslauncher
+                    if (currentDriver.findElements(appInteractiveBy).isEmpty() || !currentDriver.findElements(launcherBy).isEmpty()) {
+                        System.out.println("[FAST RESET] Skipping Android Back because app is on splash screen or launcher.");
+                        break;
+                    }
+
                     System.out.println("[FAST RESET] Not on Home yet. Pressing Android Back (" + (i + 1) + "/4)...");
                     if (currentDriver instanceof io.appium.java_client.android.AndroidDriver) {
                         ((io.appium.java_client.android.AndroidDriver) currentDriver).pressKey(
@@ -286,7 +351,7 @@ public class DriverManager {
                 // If navigation did not reach Home, restart the app cleanly and poll dynamically for Home
                 if (currentDriver instanceof io.appium.java_client.InteractsWithApps) {
                     System.out.println("[FAST RESET] Navigation did not reach Home. Restarting app cleanly...");
-                    String pkg = TestConfig.appPackage();
+                    closeChromeCustomTabIfActive(currentDriver, pkg);
                     io.appium.java_client.InteractsWithApps appDriver = (io.appium.java_client.InteractsWithApps) currentDriver;
                     try {
                         appDriver.terminateApp(pkg);

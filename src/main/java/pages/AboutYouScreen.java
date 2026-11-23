@@ -312,86 +312,222 @@ public class AboutYouScreen extends BasePage {
 
     public void enterPhoneNumber(String phoneNumber) {
         dismissBlockingErrorModalIfPresent();
+        hideKeyboard();
         org.openqa.selenium.By locator = org.openqa.selenium.By.xpath("//android.widget.EditText[contains(@resource-id, 'phone_number')]");
+        for (int attempt = 0; attempt < 3 && findDisplayedElement(locator) == null; attempt++) {
+            scrollDown();
+            try { Thread.sleep(350); } catch (Exception ignore) {}
+        }
         WebElement field = getVisibleElement(locator);
         sendKeys(field, phoneNumber);
-        try {
-            if (driver instanceof io.appium.java_client.android.AndroidDriver) {
-                ((io.appium.java_client.android.AndroidDriver) driver).hideKeyboard();
-            }
-        } catch (Exception e) {}
+        hideKeyboard();
     }
 
     public void selectPolicyStartDate() {
+        org.openqa.selenium.By startDateBy = org.openqa.selenium.By.xpath(
+            "//*[@resource-id='textfield_about_you_page_motor_start_date']"
+        );
+        for (int attempt = 0; attempt < 2 && findDisplayedElement(startDateBy) == null; attempt++) {
+            scrollDown();
+            try { Thread.sleep(350); } catch (Exception ignore) {}
+        }
+        org.openqa.selenium.By activeConfirmBy = org.openqa.selenium.By.xpath(
+            "//android.widget.Button[@content-desc='Confirm' or @text='Confirm']"
+        );
         click(policyStartDateField);
         try { Thread.sleep(1000); } catch (Exception e) {} // Wait for modal animation to finish
+        int confirmCountBefore = driver.findElements(activeConfirmBy).size();
         click(confirmButton);
+        waitUntil(() -> {
+            java.util.List<WebElement> confirms = driver.findElements(activeConfirmBy);
+            if (confirms.size() < confirmCountBefore) {
+                return true;
+            }
+            for (WebElement btn : confirms) {
+                try {
+                    if (btn.isDisplayed()) {
+                        return false;
+                    }
+                } catch (Exception ignore) {}
+            }
+            return true;
+        }, 3);
     }
 
     public void clickPrivacyCheckbox() {
         System.out.println("Ensuring Privacy checkbox is checked...");
-        org.openqa.selenium.By locator = org.openqa.selenium.By.xpath(
-            "//*[@resource-id='tgl_about_you_page_motor_checkbox' or @resource-id='tgl_checkbox' or contains(@resource-id, 'checkbox') or @class='android.widget.Switch']"
+        hideKeyboard();
+        org.openqa.selenium.By primaryBy = org.openqa.selenium.By.xpath(
+            "//*[@resource-id='tgl_about_you_page_motor_checkbox']"
         );
-        boolean checked = clickPrivacySwitch(locator);
-        System.out.println("Privacy checkbox interaction completed (checked=" + checked + ").");
+        org.openqa.selenium.By fallbackBy = org.openqa.selenium.By.xpath(
+            "//*[@resource-id='tgl_checkbox' or contains(@resource-id, 'checkbox') or @class='android.widget.Switch']"
+        );
+
+        WebElement sw = findDisplayedElement(primaryBy);
+        if (sw == null) {
+            sw = findDisplayedElement(fallbackBy);
+        }
+        if (sw == null) {
+            scrollDown();
+            try { Thread.sleep(400); } catch (Exception ignore) {}
+            sw = findDisplayedElement(primaryBy);
+            if (sw == null) {
+                sw = findDisplayedElement(fallbackBy);
+            }
+        }
+        if (sw == null) {
+            System.out.println("Privacy checkbox not found on About You screen.");
+            return;
+        }
+
+        String checkedBefore = null;
+        try { checkedBefore = sw.getAttribute("checked"); } catch (Exception ignore) {}
+        if ("true".equalsIgnoreCase(checkedBefore)) {
+            System.out.println("Privacy checkbox is already checked.");
+            return;
+        }
+
+        // Single clean tap only: tgl_about_you_page_motor_checkbox does not flip its accessibility checked attribute
+        tapElement(sw);
+        try { Thread.sleep(500); } catch (Exception ignore) {}
+
+        String checkedAfter = null;
+        try {
+            WebElement refreshed = findDisplayedElement(primaryBy);
+            if (refreshed == null) {
+                refreshed = findDisplayedElement(fallbackBy);
+            }
+            if (refreshed != null) {
+                checkedAfter = refreshed.getAttribute("checked");
+            }
+        } catch (Exception ignore) {}
+        System.out.println("Privacy checkbox interaction completed (checked=" + checkedAfter + ").");
     }
 
     public void clickNext() {
         System.out.println("Clicking Next button on About You screen...");
         hideKeyboard();
-        org.openqa.selenium.By nextBy = org.openqa.selenium.By.xpath(
-            "//*[@resource-id='btn_about_you_page_motor_next_button' or @resource-id='btn_next_button']//*[@clickable='true'] " +
-            "| //android.widget.Button[@clickable='true' and (@content-desc='Next' or @text='Next')] " +
-            "| //*[@resource-id='btn_about_you_page_motor_next_button' or @resource-id='btn_next_button' or @content-desc='Next' or @text='Next']"
+        org.openqa.selenium.By clickableNextBy = org.openqa.selenium.By.xpath(
+            "//*[@resource-id='btn_about_you_page_motor_next_button' or @resource-id='btn_next_button']//*[@clickable='true'] "
+            + "| //android.widget.Button[@clickable='true' and (@content-desc='Next' or @text='Next')]"
         );
-        java.util.List<WebElement> candidates = findWithUnimportantViews(nextBy);
-        if (candidates.isEmpty()) {
-            scrollDown();
-            candidates = findWithUnimportantViews(nextBy);
-        }
-        for (WebElement el : candidates) {
-            try {
-                if (el.isDisplayed()) {
-                    tapElement(el);
-                    return;
+        org.openqa.selenium.By fallbackNextBy = org.openqa.selenium.By.xpath(
+            "//*[@resource-id='btn_about_you_page_motor_next_button' or @resource-id='btn_next_button' or @content-desc='Next' or @text='Next']"
+        );
+        org.openqa.selenium.By otpBy = org.openqa.selenium.By.xpath(
+            "//*[@resource-id='textfield_otp_pin_field' or contains(@resource-id, 'otp_pin') or contains(@resource-id, 'pin_field')]"
+        );
+        org.openqa.selenium.By quoteBy = org.openqa.selenium.By.xpath(
+            "//*[@content-desc=\"Here's your quote\" or @resource-id='btn_quote_page_motor_buy_now' or contains(@content-desc, 'Comprehensive Cover')]"
+        );
+        org.openqa.selenium.By blockingModalBy = org.openqa.selenium.By.xpath(
+            "//*[contains(@content-desc, 'Something Went Wrong') or contains(@text, 'Something Went Wrong') "
+            + "or contains(@content-desc, 'Retrieving data') or contains(@text, 'Retrieving data')]"
+        );
+
+        for (int attempt = 1; attempt <= 3; attempt++) {
+            if (!driver.findElements(otpBy).isEmpty() || !driver.findElements(quoteBy).isEmpty()) {
+                return;
+            }
+            dismissBlockingErrorModalIfPresent();
+
+            WebElement target = findDisplayedElement(clickableNextBy);
+            if (target == null) {
+                target = findDisplayedElement(fallbackNextBy);
+            }
+            if (target == null) {
+                scrollDown();
+                target = findDisplayedElement(clickableNextBy);
+                if (target == null) {
+                    target = findDisplayedElement(fallbackNextBy);
                 }
-            } catch (Exception ignore) {}
+            }
+
+            if (target != null) {
+                tapElement(target);
+            } else {
+                click(nextButton);
+            }
+
+            boolean settled = waitUntil(() -> {
+                if (!driver.findElements(otpBy).isEmpty() || !driver.findElements(quoteBy).isEmpty()) {
+                    return true;
+                }
+                if (!driver.findElements(blockingModalBy).isEmpty()) {
+                    return true;
+                }
+                return isValidationErrorDisplayed();
+            }, 5);
+
+            if (!driver.findElements(otpBy).isEmpty() || !driver.findElements(quoteBy).isEmpty()) {
+                System.out.println("Successfully transitioned past About You screen (attempt " + attempt + ").");
+                return;
+            }
+            if (!driver.findElements(blockingModalBy).isEmpty()) {
+                System.out.println("Blocking UAT modal detected after Next (attempt " + attempt + "); dismissing...");
+                dismissBlockingErrorModalIfPresent();
+                continue;
+            }
+            if (settled && isValidationErrorDisplayed()) {
+                System.out.println("Validation error detected on About You screen; stopping Next retries.");
+                return;
+            }
+            System.out.println("About You Next attempt " + attempt + "/3 did not transition yet; retrying...");
         }
-        if (!candidates.isEmpty()) {
-            tapElement(candidates.get(candidates.size() - 1));
+    }
+
+    private void selectRadioOption(String label, org.openqa.selenium.By clickableBy, org.openqa.selenium.By fallbackBy, org.openqa.selenium.By expectedFieldBy) {
+        System.out.println("Selecting " + label + " radio button...");
+        WebElement radio = findDisplayedElement(clickableBy);
+        if (radio == null) {
+            radio = findDisplayedElement(fallbackBy);
+        }
+        if (radio == null) {
+            radio = getVisibleElement(fallbackBy);
+        }
+
+        boolean isClickable = false;
+        try { isClickable = "true".equalsIgnoreCase(radio.getAttribute("clickable")); } catch (Exception ignore) {}
+        if (isClickable) {
+            try {
+                click(radio);
+            } catch (Exception e) {
+                System.out.println("Standard click on " + label + " radio failed, attempting physical tap...");
+                tapElement(radio);
+            }
+        } else {
+            tapElement(radio);
+        }
+
+        if (waitUntil(() -> findDisplayedElement(expectedFieldBy) != null, 2)) {
             return;
         }
-        click(nextButton);
+
+        System.out.println(label + " target field not visible yet; re-tapping fresh radio element...");
+        WebElement freshRadio = findDisplayedElement(clickableBy);
+        if (freshRadio == null) {
+            freshRadio = findDisplayedElement(fallbackBy);
+        }
+        if (freshRadio != null) {
+            tapElement(freshRadio);
+            waitUntil(() -> findDisplayedElement(expectedFieldBy) != null, 2);
+        }
     }
 
     public void selectSequenceNumberRadio() {
-        System.out.println("Selecting Sequence Number radio button (resource-id: radio_btn_about_you_page_motor_sequence_number)...");
-        org.openqa.selenium.By locator = org.openqa.selenium.By.xpath("//*[@resource-id='radio_btn_about_you_page_motor_sequence_number' or @resource-id='radio_btn_sequence_number' or @content-desc='Sequence Number' or @text='Sequence Number'] | //*[contains(@resource-id, 'sequence_number') and contains(@resource-id, 'radio')]");
-        WebElement radio = getVisibleElement(locator);
-        
-        try {
-            click(radio);
-        } catch (Exception e) {
-            System.out.println("Standard click on Sequence Number radio failed, attempting physical tap...");
-            tapElement(radio);
-        }
-        
-        try { Thread.sleep(1000); } catch (Exception e) {}
-        
-        // Self-verification: check if sequence number text field is visible. If not, re-tap radio button!
-        try {
-            org.openqa.selenium.By seqFieldLocator = org.openqa.selenium.By.xpath("//android.widget.EditText[contains(@resource-id, 'sequence_number')]");
-            WebElement seqField = driver.findElement(seqFieldLocator);
-            if (!seqField.isDisplayed()) {
-                System.out.println("Sequence number field not visible yet. Tapping radio button again...");
-                tapElement(radio);
-                try { Thread.sleep(1000); } catch (Exception e) {}
-            }
-        } catch (Exception e) {
-            System.out.println("Re-attempting tap on Sequence Number radio...");
-            tapElement(radio);
-        }
+        org.openqa.selenium.By clickableBy = org.openqa.selenium.By.xpath(
+            "//*[@resource-id='radio_btn_about_you_page_motor_sequence_number']//*[@clickable='true'] "
+            + "| //android.widget.Button[@clickable='true' and (@content-desc='Sequence Number' or @text='Sequence Number')]"
+        );
+        org.openqa.selenium.By fallbackBy = org.openqa.selenium.By.xpath(
+            "//*[@resource-id='radio_btn_about_you_page_motor_sequence_number' or @resource-id='radio_btn_sequence_number' or @content-desc='Sequence Number' or @text='Sequence Number'] "
+            + "| //*[contains(@resource-id, 'sequence_number') and contains(@resource-id, 'radio')]"
+        );
+        org.openqa.selenium.By seqFieldLocator = org.openqa.selenium.By.xpath(
+            "//android.widget.EditText[@resource-id='textfield_about_you_page_motor_sequence_number' or contains(@resource-id, 'sequence_number')]"
+        );
+        selectRadioOption("Sequence Number", clickableBy, fallbackBy, seqFieldLocator);
     }
 
     private void tapLeftEdge(WebElement element) {
@@ -399,65 +535,60 @@ public class AboutYouScreen extends BasePage {
     }
 
     public void selectCustomCardRadio() {
-        System.out.println("Selecting Custom Card radio button...");
-        org.openqa.selenium.By locator = org.openqa.selenium.By.xpath("//*[@resource-id='radio_btn_about_you_page_motor_custom_card' or @resource-id='radio_btn_custom_card' or @content-desc='Custom Card' or @text='Custom Card'] | //*[contains(@resource-id, 'custom_card') and contains(@resource-id, 'radio')]");
-        WebElement radio = getVisibleElement(locator);
-        
-        try {
-            click(radio);
-        } catch (Exception e) {
-            System.out.println("Standard click on Custom Card radio failed, attempting physical tap...");
-            tapElement(radio);
-        }
-        
-        try { Thread.sleep(1000); } catch (Exception e) {}
-        
-        // Self-verification: check if custom card text field is visible. If not, re-tap radio button!
-        try {
-            org.openqa.selenium.By customFieldLocator = org.openqa.selenium.By.xpath("//android.widget.EditText[contains(@resource-id, 'custom_card')]");
-            if (driver.findElements(customFieldLocator).isEmpty()) {
-                System.out.println("Custom Card text field not visible yet. Re-tapping radio button...");
-                
-                WebElement freshRadio = driver.findElement(locator);
-                try {
-                    driver.executeScript("mobile: clickGesture", com.google.common.collect.ImmutableMap.of(
-                        "elementId", ((org.openqa.selenium.remote.RemoteWebElement) freshRadio).getId()
-                    ));
-                } catch (Exception ex) {
-                    tapElement(freshRadio);
-                }
-                try { Thread.sleep(1000); } catch (Exception e) {}
-            }
-        } catch (Exception e) {
-            System.out.println("Re-attempting tap on Custom Card radio...");
-            try {
-                WebElement freshRadio = driver.findElement(locator);
-                try {
-                    driver.executeScript("mobile: clickGesture", com.google.common.collect.ImmutableMap.of(
-                        "elementId", ((org.openqa.selenium.remote.RemoteWebElement) freshRadio).getId()
-                    ));
-                } catch (Exception ex) {
-                    tapElement(freshRadio);
-                }
-            } catch (Exception staleEx) {
-                System.out.println("Failed to find radio for retry: " + staleEx.getMessage());
-            }
-        }
+        org.openqa.selenium.By clickableBy = org.openqa.selenium.By.xpath(
+            "//*[@resource-id='radio_btn_about_you_page_motor_custom_card']//*[@clickable='true'] "
+            + "| //android.widget.Button[@clickable='true' and (@content-desc='Custom Card' or @text='Custom Card')]"
+        );
+        org.openqa.selenium.By fallbackBy = org.openqa.selenium.By.xpath(
+            "//*[@resource-id='radio_btn_about_you_page_motor_custom_card' or @resource-id='radio_btn_custom_card' or @content-desc='Custom Card' or @text='Custom Card'] "
+            + "| //*[contains(@resource-id, 'custom_card') and contains(@resource-id, 'radio')]"
+        );
+        org.openqa.selenium.By customFieldLocator = org.openqa.selenium.By.xpath(
+            "//android.widget.EditText[@resource-id='textfield_about_you_page_motor_custom_card' or contains(@resource-id, 'custom_card')]"
+        );
+        selectRadioOption("Custom Card", clickableBy, fallbackBy, customFieldLocator);
     }
 
     public void enterCustomCard(String customCard) {
         org.openqa.selenium.By locator = org.openqa.selenium.By.xpath("//android.widget.EditText[contains(@resource-id, 'custom_card')]");
-        WebElement field = getVisibleElement(locator);
-        
+        WebElement field = findDisplayedElement(locator);
+        if (field == null) {
+            scrollUp();
+            field = getVisibleElement(locator);
+        }
+
         sendKeys(field, customCard);
-        
-        // Hide keyboard after typing to ensure the state saves
         try {
-            if (driver instanceof io.appium.java_client.android.AndroidDriver) {
-                ((io.appium.java_client.android.AndroidDriver) driver).hideKeyboard();
-            }
-            Thread.sleep(500);
+            driver.executeScript("mobile: performEditorAction", com.google.common.collect.ImmutableMap.of("action", "done"));
         } catch (Exception ignore) {}
+        hideKeyboard();
+
+        if (customCard != null && !getCustomCardText().replaceAll("\\D", "").contains(customCard.replaceAll("\\D", ""))) {
+            System.out.println("Custom Card digits not retained after sendKeys; re-entering via tapElement + adbInput...");
+            WebElement retryField = findDisplayedElement(locator);
+            if (retryField != null) {
+                tapElement(retryField);
+                try { Thread.sleep(300); } catch (Exception ignore) {}
+                try { retryField.clear(); } catch (Exception ignore) {}
+                adbInput(customCard);
+                try {
+                    driver.executeScript("mobile: performEditorAction", com.google.common.collect.ImmutableMap.of("action", "done"));
+                } catch (Exception ignore) {}
+                hideKeyboard();
+            }
+        }
+    }
+
+    public String getCustomCardText() {
+        try {
+            org.openqa.selenium.By locator = org.openqa.selenium.By.xpath("//android.widget.EditText[contains(@resource-id, 'custom_card')]");
+            WebElement field = findDisplayedElement(locator);
+            if (field != null) {
+                String txt = field.getText();
+                return txt != null ? txt.trim() : "";
+            }
+        } catch (Exception ignore) {}
+        return "";
     }
 
     public String getSequenceNumberText() {

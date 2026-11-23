@@ -59,6 +59,15 @@ public class HomeScreen extends BasePage {
         System.out.println("Navigating to " + productName + " Product via dynamic locator...");
         By homeSignals = By.xpath("//*[@resource-id='btn_home_product_motor']");
         try {
+            if (!driver.findElements(By.xpath("//*[@package='com.google.android.apps.nexuslauncher']")).isEmpty()
+                    && driver instanceof io.appium.java_client.InteractsWithApps) {
+                String pkg = utils.TestConfig.appPackage();
+                System.out.println("[HomeScreen] Launcher detected; activating " + pkg + " and waiting for HomeScreen...");
+                ((io.appium.java_client.InteractsWithApps) driver).activateApp(pkg);
+                waitUntil(() -> !driver.findElements(By.xpath(
+                    "//*[@resource-id='btn_home_product_motor' or @content-desc='Home' or @content-desc='All products' or @content-desc='Individual']"
+                )).isEmpty(), 15);
+            }
             if (isElementVisible(element) || isElementVisible(fallbackLocator)) {
                 WebElement el = isElementVisible(element) ? element : getVisibleElement(fallbackLocator);
                 clickElReliably(el);

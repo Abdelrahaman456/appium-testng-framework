@@ -143,9 +143,9 @@ public class IncomeInsuranceTest extends BaseTest {
         completeCheckoutAndPayment(incomeScreen, "Income Insurance Flow 2 Tier & Employment Comparison");
     }
 
-    @Test(priority = 3, groups = {"income", "underwriting"}, description = "Income Insurance Flow 3: Underwriting Condition Declared ('Yes' path triggering referral)")
+    @Test(priority = 3, groups = {"income", "underwriting"}, description = "Income Insurance Flow 3: Pre-Existing Condition Exclusion Gate on Quote")
     public void testIncomeInsuranceFlow3_UnderwritingConditionDeclared() {
-        System.out.println("\n=== [INCOME INSURANCE FLOW 3] Underwriting Condition Declared ('Yes' path) ===");
+        System.out.println("\n=== [INCOME INSURANCE FLOW 3] Pre-Existing Diseases Exclusion Gate ===");
 
         HomeScreen homeScreen = new HomeScreen();
         homeScreen.clickIncomeProduct();
@@ -162,23 +162,32 @@ public class IncomeInsuranceTest extends BaseTest {
         OtpModal otpModal = new OtpModal();
         otpModal.enterOtp(TestDataBuilder.DEFAULT_OTP);
 
-        incomeScreen.fillEmploymentDetails("Employed", "18000", "Financial Analyst");
-        incomeScreen.clickEmploymentProceed();
+        incomeScreen.waitForPlanSelectionScreen();
 
-        // Declare "Yes" to trigger underwriting assessment for prior disability/claim history
-        System.out.println("Declaring pre-existing disability/claim condition (Answering 'Yes')...");
-        incomeScreen.answerAllDeclarationQuestions(true);
-        incomeScreen.clickDeclarationProceed();
+        Assert.assertTrue(incomeScreen.isPreExistingExclusionNoticeDisplayed(),
+                "Quote screen should display pre-existing diseases exclusion switch and 30-day waiting notice!");
+        Assert.assertFalse(incomeScreen.isPreExistingExclusionChecked(),
+                "Pre-existing diseases exclusion checkbox should start unchecked on Quote screen!");
 
-        boolean isReferral = incomeScreen.isUnderwritingReferralDisplayed();
-        Assert.assertTrue(isReferral, "Underwriting referral notice should display when disability history is declared!");
-        System.out.println("Underwriting referral notice displayed: " + isReferral);
+        // Proceed reports enabled='true' in Flutter semantics even while visually disabled; verify click stays on Quote
+        incomeScreen.tapQuoteProceed();
+        Assert.assertFalse(incomeScreen.isCheckoutActiveNow(),
+                "Proceed must NOT advance to Checkout while pre-existing diseases exclusion checkbox is unchecked!");
+        Assert.assertTrue(incomeScreen.isPreExistingExclusionNoticeDisplayed(),
+                "Quote screen with pre-existing diseases exclusion and 30-day notice should remain visible when unchecked!");
+
+        incomeScreen.acceptPreExistingExclusionNotice();
+        Assert.assertTrue(incomeScreen.isQuoteProceedButtonEnabled(),
+                "Proceed button should be enabled after accepting pre-existing diseases exclusion checkbox!");
+        incomeScreen.tapQuoteProceed();
+        Assert.assertTrue(incomeScreen.isCheckoutLoaded(),
+                "Checkout screen should load after accepting pre-existing diseases exclusion checkbox and clicking Proceed!");
         System.out.println("=== Income Insurance Flow 3 Completed Successfully! ===");
     }
 
-    @Test(priority = 4, groups = {"income", "negative"}, description = "Income Insurance Flow 4: Form Validation / Negative Boundary Check (Income below threshold)")
+    @Test(priority = 4, groups = {"income", "negative"}, description = "Income Insurance Flow 4: About You Form Validation (Invalid ID / Missing DOB)")
     public void testIncomeInsuranceFlow4_FormValidation() {
-        System.out.println("\n=== [INCOME INSURANCE FLOW 4] Form Validation / Minimum Income Boundary Check ===");
+        System.out.println("\n=== [INCOME INSURANCE FLOW 4] About You Form Validation (Invalid ID / Missing DOB) ===");
 
         HomeScreen homeScreen = new HomeScreen();
         homeScreen.clickIncomeProduct();
@@ -187,22 +196,22 @@ public class IncomeInsuranceTest extends BaseTest {
         incomeScreen.clickInsureNowIfPresent();
 
         String email = TestDataBuilder.generateUniqueEmail();
-        incomeScreen.fillApplicantDetails(VALID_ID, VALID_PHONE, email);
-        incomeScreen.selectDob();
+        // Enter invalid National ID and omit DOB selection to validate About you form blocking
+        incomeScreen.fillApplicantDetails("0000000000", VALID_PHONE, email);
         incomeScreen.acceptPrivacyNotice();
         incomeScreen.clickNext();
 
         OtpModal otpModal = new OtpModal();
-        otpModal.enterOtp(TestDataBuilder.DEFAULT_OTP);
+        Assert.assertFalse(otpModal.isModalDisplayed(),
+                "OTP modal must NOT open when National ID is invalid and DOB is missing!");
+        Assert.assertTrue(incomeScreen.isApplicantDetailsDisplayed(),
+                "App must remain on 'About you' screen when form inputs are invalid/incomplete!");
 
-        // Boundary check: Ineligible monthly income below minimum threshold (e.g. 1000 SAR < minimum 3000 SAR)
-        System.out.println("Entering income below minimum threshold (1,000 SAR)...");
-        incomeScreen.fillEmploymentDetails("Employed", "1000", "Intern");
-        incomeScreen.clickEmploymentProceed();
-
-        boolean hasError = incomeScreen.isValidationErrorDisplayed();
-        Assert.assertTrue(hasError, "Validation error should display when income is below minimum threshold!");
-        System.out.println("Validation error triggered as expected on income threshold: " + hasError);
+        boolean hasErrorOrDisabledNext = incomeScreen.isValidationErrorDisplayed()
+                || !incomeScreen.isAboutYouNextEnabled();
+        Assert.assertTrue(hasErrorOrDisabledNext,
+                "Validation error should display or Next button should remain disabled on 'About you'!");
+        System.out.println("Validation error/disabled gate triggered on About you: " + hasErrorOrDisabledNext);
         System.out.println("=== Income Insurance Flow 4 Completed Successfully! ===");
     }
 

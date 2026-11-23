@@ -178,21 +178,26 @@ public class MalpracticeTest extends BaseTest {
         String applicantPhone = TestDataBuilder.DEFAULT_PHONE;
         String applicantEmail = TestDataBuilder.generateUniqueEmail();
 
-        System.out.println("[Step 1] Enabling Prior Acts / Retroactive Coverage...");
-        malpScreen.selectProfession("Acute Care Surgery");
-        malpScreen.enterLicenseNumber("SCFHS-8947219");
-        malpScreen.enterHospitalName("King Faisal Specialist Hospital");
-        malpScreen.selectPriorInsurance(true);
-        malpScreen.enterRetroactiveDate("01/01/2023");
-        malpScreen.declarePriorClaims(true);
+        System.out.println("[Step 1] Filling Practitioner Details & Prior Acts / Retroactive Coverage (top-to-bottom)...");
         malpScreen.fillPractitionerDetails(applicantId, applicantPhone, applicantEmail);
         malpScreen.selectDob();
+        malpScreen.selectProfession("Acute Care Surgery");
+        malpScreen.selectPriorInsurance(true);
+        malpScreen.declarePriorClaims(true);
+        malpScreen.enterPriorPolicyNumber("POL-8947219");
+        malpScreen.enterPriorPolicyExpiryDate(2027);
+        malpScreen.enterRetroactiveDate("01/01/2023");
         malpScreen.acceptPrivacyNotice();
         malpScreen.clickNext();
 
+        OtpModal otpModal = new OtpModal();
+        if (otpModal.isModalDisplayed()) {
+            System.out.println("OTP modal detected in Malpractice Flow 3; entering default OTP...");
+            otpModal.enterOtp(TestDataBuilder.DEFAULT_OTP);
+        }
+
         System.out.println("[Step 2] Validating Underwriting Referral or Quote Adjustment...");
-        boolean isUnderwritingState = malpScreen.isUnderwritingReferralDisplayed()
-                || malpScreen.isQuoteLoaded();
+        boolean isUnderwritingState = malpScreen.waitForUnderwritingOrQuoteState(20);
 
         Assert.assertTrue(isUnderwritingState,
                 "Underwriting state was not properly handled when prior acts and claims were declared!");
