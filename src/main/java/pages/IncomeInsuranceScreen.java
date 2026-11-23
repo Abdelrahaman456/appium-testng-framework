@@ -334,20 +334,51 @@ public class IncomeInsuranceScreen extends BasePage {
     public boolean isValidationErrorDisplayed() {
         try {
             WebDriverWait waitErr = new WebDriverWait(driver, Duration.ofSeconds(5));
-            return waitErr.until(d -> {
-                if (isElementVisible(validationErrorMessage)) return true;
-                return !driver.findElements(By.xpath(
-                    "//*[contains(@resource-id, 'error') "
-                    + "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'invalid') "
-                    + "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'invalid') "
-                    + "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'minimum') "
-                    + "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'minimum') "
-                    + "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'required') "
-                    + "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'required')]")).isEmpty();
-            });
+            By errBy = By.xpath(
+                "//*[contains(@resource-id, 'error') "
+                + "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'invalid') "
+                + "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'invalid') "
+                + "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'not valid') "
+                + "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'not valid') "
+                + "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'minimum') "
+                + "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'minimum') "
+                + "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'required') "
+                + "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'required') "
+                + "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'must start') "
+                + "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'must start') "
+                + "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'something went wrong') "
+                + "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'something went wrong')]"
+            );
+            return waitErr.until(d -> isElementVisible(validationErrorMessage)
+                    || isErrorDialogDisplayed()
+                    || !findWithUnimportantViews(errBy).isEmpty());
         } catch (Exception e) {
             return false;
         }
+    }
+
+    public boolean isApplicantDetailsDisplayed() {
+        return !findWithUnimportantViews(By.xpath(
+                "//*[@resource-id='textfield_national_id' or @resource-id='textfield_phone_number']")).isEmpty()
+                && !new OtpModal().isModalDisplayed();
+    }
+
+    public boolean isAboutYouNextEnabled() {
+        List<WebElement> btns = findWithUnimportantViews(By.xpath(
+                "//android.widget.Button[@content-desc='Next' or @text='Next'] "
+                + "| //*[@resource-id='btn_next_button']//*[@clickable='true'] "
+                + "| //*[@resource-id='btn_next_button']"));
+        if (btns.isEmpty()) {
+            return false;
+        }
+        for (WebElement btn : btns) {
+            try {
+                if ("false".equalsIgnoreCase(btn.getAttribute("enabled"))) {
+                    return false;
+                }
+            } catch (Exception ignore) {}
+        }
+        return true;
     }
 
     // --- Employment & Income Actions ---
@@ -569,7 +600,66 @@ public class IncomeInsuranceScreen extends BasePage {
     public IncomeInsuranceScreen clickBuyNow() {
         System.out.println("Accepting Quote declaration switch if unchecked and clicking Proceed / Buy now...");
         clickPrivacySwitch(By.xpath("//*[@resource-id='tgl_checkbox' or contains(@resource-id, 'checkbox') or @class='android.widget.Switch']"));
+        return tapQuoteProceed();
+    }
 
+    private static final By QUOTE_PRE_EXISTING_EXCLUSION_BY = By.xpath(
+            "//*[contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'pre-existing') "
+            + "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'pre-existing')]");
+
+    private static final By QUOTE_30_DAY_NOTICE_BY = By.xpath(
+            "//*[contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'first 30 days') "
+            + "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'first 30 days')]");
+
+    private static final By QUOTE_SWITCH_BY = By.xpath(
+            "//*[@resource-id='tgl_checkbox' or contains(@resource-id, 'checkbox') or @class='android.widget.Switch']");
+
+    private static final By CHECKOUT_ACTIVE_BY = By.xpath(
+            "//*[@content-desc='Checkout' or @text='Checkout' or @resource-id='textfield_iban' "
+            + "or @resource-id='textfield_building_number' or @resource-id='btn_pay_now' or @content-desc='Pay now']");
+
+    public boolean isPreExistingExclusionNoticeDisplayed() {
+        return waitUntil(() -> !findWithUnimportantViews(QUOTE_PRE_EXISTING_EXCLUSION_BY).isEmpty()
+                && !findWithUnimportantViews(QUOTE_30_DAY_NOTICE_BY).isEmpty(), 10);
+    }
+
+    public boolean isPreExistingExclusionChecked() {
+        List<WebElement> switches = findWithUnimportantViews(QUOTE_SWITCH_BY);
+        for (WebElement sw : switches) {
+            try {
+                if ("true".equalsIgnoreCase(sw.getAttribute("checked"))) {
+                    return true;
+                }
+            } catch (Exception ignore) {}
+        }
+        return false;
+    }
+
+    public IncomeInsuranceScreen acceptPreExistingExclusionNotice() {
+        System.out.println("Accepting pre-existing diseases exclusion checkbox ONCE on Income Quote...");
+        clickPrivacySwitch(QUOTE_SWITCH_BY);
+        return this;
+    }
+
+    public boolean isQuoteProceedButtonEnabled() {
+        List<WebElement> btns = findWithUnimportantViews(By.xpath(
+                "//android.widget.Button[@content-desc='Proceed' or @text='Proceed'] "
+                + "| //*[@resource-id='btn_proceed']//*[@clickable='true'] "
+                + "| //*[@resource-id='btn_proceed']"));
+        if (btns.isEmpty()) {
+            return false;
+        }
+        for (WebElement btn : btns) {
+            try {
+                if ("false".equalsIgnoreCase(btn.getAttribute("enabled"))) {
+                    return false;
+                }
+            } catch (Exception ignore) {}
+        }
+        return true;
+    }
+
+    public IncomeInsuranceScreen tapQuoteProceed() {
         By clickableAction = By.xpath(
                 "//*[@clickable='true' and (@content-desc='Proceed' or @text='Proceed' or @resource-id='btn_proceed' or @content-desc='Buy now' or @text='Buy now' or @resource-id='btn_buy_now')]");
         By anyAction = By.xpath(
@@ -580,27 +670,31 @@ public class IncomeInsuranceScreen extends BasePage {
                 List<WebElement> clickable = driver.findElements(clickableAction);
                 if (!clickable.isEmpty() && clickable.get(0).isDisplayed()) {
                     tapElement(clickable.get(0));
-                    try { Thread.sleep(2000); } catch (Exception ignore) {}
+                    waitUntil(() -> isCheckoutActiveNow(), 3);
                     return this;
                 }
                 List<WebElement> any = driver.findElements(anyAction);
                 if (!any.isEmpty() && any.get(0).isDisplayed()) {
                     tapElement(any.get(0));
-                    try { Thread.sleep(2000); } catch (Exception ignore) {}
+                    waitUntil(() -> isCheckoutActiveNow(), 3);
                     return this;
                 }
             } catch (Exception ignore) {}
             scrollDown();
-            try { Thread.sleep(1000); } catch (Exception ignore) {}
+            try { Thread.sleep(800); } catch (Exception ignore) {}
         }
 
         try {
             tapPreferredClickable(clickableAction, buyNowButton);
+            waitUntil(() -> isCheckoutActiveNow(), 3);
         } catch (Exception e) {
             // dynamic locator used; coordinate fallback removed
         }
-        try { Thread.sleep(2000); } catch (Exception ignore) {}
         return this;
+    }
+
+    public boolean isCheckoutActiveNow() {
+        return !findWithUnimportantViews(CHECKOUT_ACTIVE_BY).isEmpty();
     }
 
     // --- Checkout & National Address (CRITICAL IBAN RULE) ---

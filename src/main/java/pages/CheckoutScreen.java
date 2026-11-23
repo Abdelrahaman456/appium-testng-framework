@@ -61,14 +61,14 @@ public class CheckoutScreen extends BasePage {
             "//*[@resource-id='textfield_checkout_page_motor_email' or @resource-id='textfield_email' or contains(@resource-id, 'email') or @hint='Email' or contains(@hint, 'email')]"
         );
         try {
-            List<WebElement> els = driver.findElements(emailBy);
-            if (els.isEmpty()) {
+            WebElement field = findDisplayedElement(emailBy);
+            if (field == null) {
                 scrollUp();
-                waitUntil(() -> !driver.findElements(emailBy).isEmpty(), 3);
-                els = driver.findElements(emailBy);
+                waitUntil(() -> findDisplayedElement(emailBy) != null, 3);
+                field = findDisplayedElement(emailBy);
             }
-            if (!els.isEmpty()) {
-                sendKeys(els.get(0), email);
+            if (field != null) {
+                sendKeys(field, email);
                 return;
             }
             List<WebElement> atEls = driver.findElements(org.openqa.selenium.By.xpath("//*[contains(@text, '@')]"));
@@ -79,56 +79,99 @@ public class CheckoutScreen extends BasePage {
             }
         } catch (Exception e) {
             System.out.println("Email field skipped/already filled: " + e.getMessage());
+        } finally {
+            hideKeyboard();
+        }
+    }
+
+    private boolean ibanFieldContains(WebElement el, String expectedDigits) {
+        if (el == null || expectedDigits == null || expectedDigits.isEmpty()) {
+            return false;
+        }
+        try {
+            String text = el.getText();
+            if (text == null) {
+                return false;
+            }
+            String actualDigits = text.replaceAll("\\D", "");
+            return actualDigits.contains(expectedDigits);
+        } catch (Exception e) {
+            return false;
         }
     }
 
     public void enterIban(String iban) {
         System.out.println("Entering IBAN into Checkout field: " + iban);
-        
+        hideKeyboard();
+
         // Strip 'SA' prefix up front so the UI field receives strictly the 22 numeric digits
-        String numericOnly = (iban != null && iban.toUpperCase().startsWith("SA")) ? iban.substring(2) : iban;
-        
+        String cleaned = iban == null ? "" : iban.trim().replaceAll("\\s+", "");
+        String numericOnly = cleaned.toUpperCase().startsWith("SA") ? cleaned.substring(2) : cleaned;
+        String expectedDigits = numericOnly.replaceAll("\\D", "");
+
         org.openqa.selenium.By ibanBy = org.openqa.selenium.By.xpath(
             "//android.widget.EditText[@resource-id='textfield_iban' or @resource-id='textfield_checkout_page_motor_iban' " +
             "or contains(@resource-id, 'iban') or contains(@hint, 'IBAN')] | //*[@resource-id='textfield_iban' or contains(@resource-id, 'iban')]"
         );
-        
+
         try {
-            waitUntil(() -> !findWithUnimportantViews(ibanBy).isEmpty(), 4);
-            java.util.List<WebElement> list = findWithUnimportantViews(ibanBy);
-            if (list.isEmpty()) {
+            waitUntil(() -> findDisplayedElement(ibanBy) != null, 4);
+            WebElement el = findDisplayedElement(ibanBy);
+            if (el == null) {
                 System.out.println("IBAN field not visible yet; scrolling down and retrying dynamic locator...");
                 scrollDown();
-                waitUntil(() -> !findWithUnimportantViews(ibanBy).isEmpty(), 4);
-                list = findWithUnimportantViews(ibanBy);
+                waitUntil(() -> findDisplayedElement(ibanBy) != null, 4);
+                el = findDisplayedElement(ibanBy);
             }
-            if (!list.isEmpty()) {
-                WebElement el = list.get(list.size() - 1);
-                try {
-                    tapElement(el);
-                    try { Thread.sleep(300); } catch (Exception ignore) {}
-                    el.clear();
-                    el.sendKeys(numericOnly);
-                    System.out.println("Entered IBAN digits via direct sendKeys: " + numericOnly);
-                    hideKeyboard();
+            if (el == null) {
+                System.out.println("IBAN field not found on Checkout screen after scrollDown retry.");
+                return;
+            }
+
+            for (int attempt = 1; attempt <= 2; attempt++) {
+                hideKeyboard();
+                el = findDisplayedElement(ibanBy);
+                if (el == null) {
+                    scrollDown();
+                    el = findDisplayedElement(ibanBy);
+                }
+                if (el == null) {
+                    break;
+                }
+
+                if (attempt == 1) {
+                    try {
+                        tapElement(el);
+                        try { Thread.sleep(300); } catch (Exception ignore) {}
+                        try { el.clear(); } catch (Exception ignore) {}
+                        el.sendKeys(numericOnly);
+                        System.out.println("Attempt 1: sent IBAN digits via direct sendKeys: " + numericOnly);
+                    } catch (Exception ex) {
+                        System.out.println("IBAN direct sendKeys note: " + ex.getMessage());
+                    }
+                } else {
+                    System.out.println("Attempt 2: IBAN value missing/mismatched; re-focusing via tapElement and adbInput...");
+                    try {
+                        tapElement(el);
+                        try { Thread.sleep(350); } catch (Exception ignore) {}
+                        try { el.clear(); } catch (Exception ignore) {}
+                        adbInput(numericOnly);
+                        try { Thread.sleep(350); } catch (Exception ignore) {}
+                    } catch (Exception ex) {
+                        System.out.println("IBAN adbInput retry note: " + ex.getMessage());
+                    }
+                }
+
+                hideKeyboard();
+                WebElement verifiedEl = findDisplayedElement(ibanBy);
+                if (ibanFieldContains(verifiedEl, expectedDigits)) {
+                    System.out.println("IBAN verified in Checkout field on attempt " + attempt + ".");
                     return;
-                } catch (Exception ex) {
-                    System.out.println("IBAN direct sendKeys note: " + ex.getMessage());
                 }
                 try {
-                    org.openqa.selenium.Rectangle r = el.getRect();
-                    int cx = r.getX() + (r.getWidth() / 2);
-                    int cy = r.getY() + (r.getHeight() / 2);
-                    System.out.println("Focusing IBAN field at dynamic center: (" + cx + ", " + cy + ")");
-                    adbTap(cx, cy);
-                    try { Thread.sleep(300); } catch (Exception ignore) {}
-                    adbInput(numericOnly);
-                    System.out.println("Entered IBAN digits via dynamic adb: " + numericOnly);
-                    hideKeyboard();
-                    return;
+                    String currentVal = verifiedEl != null ? verifiedEl.getText() : "null";
+                    System.out.println("IBAN verification failed after attempt " + attempt + " (observed text: '" + currentVal + "').");
                 } catch (Exception ignore) {}
-            } else {
-                System.out.println("IBAN field not found on Checkout screen after scrollDown retry.");
             }
         } catch (Exception ex) {
             System.out.println("IBAN find error: " + ex.getMessage());
@@ -342,5 +385,148 @@ public class CheckoutScreen extends BasePage {
             "//*[@content-desc='Checkout' or @text='Checkout' or @resource-id='btn_pay_now' or @content-desc='Pay now' or @text='Pay now' or contains(@content-desc, 'Payment Method')]"
         );
         return waitUntil(() -> !findWithUnimportantViews(checkoutBy).isEmpty(), 8);
+    }
+
+    public void expandOrderSummaryDetails() {
+        org.openqa.selenium.By promoBy = org.openqa.selenium.By.xpath(
+            "//*[@resource-id='textfield_checkout_page_motor_promo_code' or @resource-id='textfield_promo_code']"
+        );
+        if (findDisplayedElement(promoBy) != null) {
+            System.out.println("Order Summary Details already expanded (promo field visible).");
+            return;
+        }
+        org.openqa.selenium.By detailsBy = org.openqa.selenium.By.xpath(
+            "//*[@resource-id='btn_checkout_page_motor_detials_btn' or @resource-id='btn_detials_btn' or @content-desc='Details' or @text='Details']"
+        );
+        waitUntil(() -> findDisplayedElement(promoBy) != null || findDisplayedElement(detailsBy) != null, 3);
+        if (findDisplayedElement(promoBy) != null) {
+            System.out.println("Order Summary Details already expanded (promo field visible).");
+            return;
+        }
+        WebElement detailsBtn = findDisplayedElement(detailsBy);
+        if (detailsBtn == null) {
+            scrollUp();
+            detailsBtn = findDisplayedElement(detailsBy);
+        }
+        if (detailsBtn != null) {
+            System.out.println("Expanding Order Summary Details on Checkout screen...");
+            tapElement(detailsBtn);
+            waitUntil(() -> findDisplayedElement(promoBy) != null, 4);
+        } else {
+            System.out.println("Warning: Order Summary Details button not found on Checkout screen.");
+        }
+    }
+
+    public void enterPromoCode(String promoCode) {
+        System.out.println("Entering promo code on Checkout: " + promoCode);
+        org.openqa.selenium.By promoBy = org.openqa.selenium.By.xpath(
+            "//*[@resource-id='textfield_checkout_page_motor_promo_code' or @resource-id='textfield_promo_code' "
+            + "or contains(@hint, 'Promo') or contains(@hint, 'promo')]"
+        );
+        WebElement field = findDisplayedElement(promoBy);
+        if (field == null) {
+            expandOrderSummaryDetails();
+            field = findDisplayedElement(promoBy);
+        }
+        if (field == null) {
+            scrollUp();
+            field = findDisplayedElement(promoBy);
+        }
+        if (field == null) {
+            throw new org.openqa.selenium.NoSuchElementException("Promo code field not found on CheckoutScreen.");
+        }
+        sendKeys(field, promoCode);
+        hideKeyboard();
+    }
+
+    public void clickApplyPromoCode() {
+        System.out.println("Clicking Apply promo code button on Checkout...");
+        hideKeyboard();
+        org.openqa.selenium.By clickableApplyBy = org.openqa.selenium.By.xpath(
+            "//*[@resource-id='btn_apply_button' or @resource-id='btn_apply_promo']//*[@clickable='true'] "
+            + "| //android.widget.Button[@clickable='true' and (@content-desc='Apply' or @text='Apply')]"
+        );
+        org.openqa.selenium.By fallbackApplyBy = org.openqa.selenium.By.xpath(
+            "//*[@resource-id='btn_apply_button' or @resource-id='btn_apply_promo' or @content-desc='Apply' or @text='Apply']"
+        );
+        org.openqa.selenium.By compositePromoBy = org.openqa.selenium.By.xpath(
+            "//*[@resource-id='textfield_checkout_page_motor_promo_code' or (contains(@hint, 'promo') and contains(@hint, 'Apply'))]"
+        );
+
+        WebElement applyBtn = findDisplayedElement(clickableApplyBy);
+        if (applyBtn == null) {
+            applyBtn = findDisplayedElement(fallbackApplyBy);
+        }
+        if (applyBtn != null) {
+            tapElement(applyBtn);
+            try { Thread.sleep(1500); } catch (Exception ignore) {}
+            return;
+        }
+
+        WebElement compositePromo = findDisplayedElement(compositePromoBy);
+        if (compositePromo == null) {
+            scrollUp();
+            applyBtn = findDisplayedElement(clickableApplyBy);
+            if (applyBtn == null) {
+                applyBtn = findDisplayedElement(fallbackApplyBy);
+            }
+            if (applyBtn != null) {
+                tapElement(applyBtn);
+                try { Thread.sleep(1500); } catch (Exception ignore) {}
+                return;
+            }
+            compositePromo = findDisplayedElement(compositePromoBy);
+        }
+
+        if (compositePromo != null) {
+            org.openqa.selenium.Rectangle r = compositePromo.getRect();
+            int applyX = r.getX() + (int) (r.getWidth() * 0.88);
+            int applyY = r.getY() + (r.getHeight() / 2);
+            System.out.println("Tapping composite Checkout promo Apply region at dynamic rect (" + applyX + ", " + applyY + ")...");
+            tapCoordinates(applyX, applyY);
+            try { Thread.sleep(1500); } catch (Exception ignore) {}
+            return;
+        }
+
+        throw new org.openqa.selenium.NoSuchElementException("Apply promo button (btn_apply_button / composite promo Apply) not found on CheckoutScreen.");
+    }
+
+    public boolean isPromoCodeInvalid() {
+        try {
+            org.openqa.selenium.By invalidPromoBy = org.openqa.selenium.By.xpath(
+                "//*[not(@resource-id='textfield_checkout_page_motor_promo_code' or @resource-id='textfield_promo_code') "
+                + "and (contains(@resource-id, 'promo_error') "
+                + "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'invalid') "
+                + "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'invalid') "
+                + "or contains(translate(@hint, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'invalid') "
+                + "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'not valid') "
+                + "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'not valid') "
+                + "or contains(translate(@hint, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'not valid') "
+                + "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'incorrect') "
+                + "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'incorrect') "
+                + "or contains(translate(@hint, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'incorrect') "
+                + "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'expired') "
+                + "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'expired') "
+                + "or contains(translate(@hint, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'expired') "
+                + "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'not found') "
+                + "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'not found') "
+                + "or contains(translate(@hint, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'not found') "
+                + "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'does not exist') "
+                + "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'does not exist') "
+                + "or contains(translate(@hint, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'does not exist') "
+                + "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'something went wrong') "
+                + "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'something went wrong'))] "
+                + "| //*[@resource-id='textfield_checkout_page_motor_promo_code' or @resource-id='textfield_promo_code']"
+                + "[contains(translate(@hint, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'invalid') "
+                + "or contains(translate(@hint, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'not valid') "
+                + "or contains(translate(@hint, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'incorrect') "
+                + "or contains(translate(@hint, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'expired') "
+                + "or contains(translate(@hint, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'not found') "
+                + "or contains(translate(@hint, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'does not exist')]"
+            );
+            return waitUntil(() -> findDisplayedElement(invalidPromoBy) != null, 6);
+        } catch (Exception e) {
+            return false;
+        }
     }
 }

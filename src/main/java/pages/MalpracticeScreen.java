@@ -200,40 +200,90 @@ public class MalpracticeScreen extends BasePage {
     public MalpracticeScreen selectProfession(String profession) {
         System.out.println("Selecting Profession: " + profession);
         hideKeyboard();
-        try {
-            waitForVisibility(professionInput);
-            professionInput.click();
-            Thread.sleep(600);
-            try { professionInput.clear(); } catch (Exception ignored) {}
-            String prefix = profession.contains(" ") ? profession.split(" ")[0] : profession;
-            professionInput.sendKeys(prefix);
-            Thread.sleep(1500);
+        By professionBy = By.xpath("//android.widget.EditText[contains(@hint, 'Profession') or contains(@hint, 'profession')]");
+        By optionBy = By.xpath("//android.view.View[contains(@content-desc, '" + profession + "') or contains(@text, '" + profession + "')]");
+        String prefix = profession.contains(" ") ? profession.split(" ")[0] : profession;
 
-            By optionBy = By.xpath("//*[contains(@text, '" + profession + "') or contains(@content-desc, '" + profession + "')]");
-            List<WebElement> options = driver.findElements(optionBy);
-            boolean clicked = false;
-            for (WebElement opt : options) {
-                if (!opt.equals(professionInput) && opt.isDisplayed()) {
-                    System.out.println("Found profession suggestion in DOM! Tapping: " + opt.getText());
-                    tapElement(opt);
-                    clicked = true;
-                    break;
+        for (int attempt = 0; attempt < 3; attempt++) {
+            try {
+                WebElement input = findDisplayedElement(professionBy);
+                if (input == null) {
+                    waitForVisibility(professionInput);
+                    input = professionInput;
                 }
+                tapElement(input);
+                try { Thread.sleep(500); } catch (Exception ignore) {}
+
+                input = findDisplayedElement(professionBy);
+                if (input == null) {
+                    input = professionInput;
+                }
+                try { input.clear(); } catch (Exception ignored) {}
+                String query = (attempt == 2) ? profession : prefix;
+                input.sendKeys(query);
+
+                boolean foundInDom = waitUntil(() -> !findWithUnimportantViews(optionBy).isEmpty(), 6);
+                if (!foundInDom) {
+                    hideKeyboard();
+                    foundInDom = waitUntil(() -> !findWithUnimportantViews(optionBy).isEmpty(), 4);
+                }
+
+                boolean clicked = false;
+                if (foundInDom) {
+                    List<WebElement> options = findWithUnimportantViews(optionBy);
+                    for (WebElement opt : options) {
+                        try {
+                            if (opt.isDisplayed()) {
+                                System.out.println("Found profession suggestion in DOM! Tapping: "
+                                        + opt.getText() + " / " + opt.getAttribute("content-desc"));
+                                tapElement(opt);
+                                clicked = true;
+                                break;
+                            }
+                        } catch (Exception ignore) {}
+                    }
+                }
+
+                if (!clicked) {
+                    WebElement refreshed = findDisplayedElement(professionBy);
+                    org.openqa.selenium.Rectangle r = (refreshed != null ? refreshed : input).getRect();
+                    int suggX = r.getX() + (int) (r.getWidth() * 0.25);
+                    int suggY = r.getY() + r.getHeight() + Math.max(85, (int) (r.getHeight() * 0.75));
+                    System.out.println("Tapping suggestion overlay dynamically at (" + suggX + ", " + suggY + ")...");
+                    tapCoordinates(suggX, suggY);
+                }
+
+                boolean updated = waitUntil(() -> {
+                    WebElement checkEl = findDisplayedElement(professionBy);
+                    if (checkEl == null) {
+                        return false;
+                    }
+                    String txt = "";
+                    try { txt = checkEl.getText(); } catch (Exception ignore) {}
+                    String low = (txt != null ? txt.trim().toLowerCase() : "");
+                    return !low.isEmpty() && !low.equals(prefix.toLowerCase())
+                            && (low.contains(profession.toLowerCase()) || low.length() > prefix.length() + 3)
+                            && findWithUnimportantViews(optionBy).isEmpty();
+                }, 3);
+
+                hideKeyboard();
+                if (updated) {
+                    WebElement verified = findDisplayedElement(professionBy);
+                    System.out.println("Verified Profession selected (attempt " + (attempt + 1) + "): '"
+                            + (verified != null ? verified.getText() : profession) + "'");
+                    try { Thread.sleep(400); } catch (Exception ignore) {}
+                    return this;
+                }
+
+                System.out.println("Profession selection attempt " + (attempt + 1)
+                        + " did not lock full value / close overlay; retrying...");
+                try { Thread.sleep(400); } catch (Exception ignore) {}
+            } catch (Exception e) {
+                System.out.println("Profession selection attempt " + (attempt + 1) + " error: " + e.getMessage());
             }
-            if (!clicked) {
-                org.openqa.selenium.Rectangle r = professionInput.getRect();
-                int suggX = r.getX() + (int) (r.getWidth() * 0.25);
-                int suggY = r.getY() + r.getHeight() + Math.max(10, (int) (r.getHeight() * 0.25));
-                System.out.println("Tapping suggestion overlay at (" + suggX + ", " + suggY + ")...");
-                tapCoordinates(suggX, suggY);
-            }
-            Thread.sleep(800);
-            hideKeyboard();
-        } catch (Exception e) {
-            System.out.println("Profession selection handled: " + e.getMessage());
         }
         hideKeyboard();
-        try { Thread.sleep(600); } catch (Exception ignore) {}
+        try { Thread.sleep(500); } catch (Exception ignore) {}
         return this;
     }
 
@@ -264,65 +314,312 @@ public class MalpracticeScreen extends BasePage {
         By targetLocator = hasPrior
             ? By.xpath("//*[@resource-id='btn_yes_button' or @content-desc='Yes' or @text='Yes']")
             : By.xpath("//*[@resource-id='btn_no_button' or @content-desc='No' or @text='No']");
+        By priorConditionalBy = By.xpath(
+            "//*[contains(@content-desc, 'prior insurance provider') or contains(@text, 'prior insurance provider') "
+            + "or @resource-id='dd_select_your_prior_insurance_provider' "
+            + "or @resource-id='textfield_retroactive_date' "
+            + "or @resource-id='btn_claims_yes' "
+            + "or contains(@resource-id, 'retroactive')]");
+        By providerDdBy = By.xpath(
+            "//*[@resource-id='dd_select_your_prior_insurance_provider' "
+            + "or contains(@hint, 'prior insurance provider') or contains(@content-desc, 'prior insurance provider') or contains(@text, 'prior insurance provider')]");
 
         for (int attempt = 0; attempt < 3; attempt++) {
-            List<WebElement> btns = driver.findElements(targetLocator);
+            hideKeyboard();
+            List<WebElement> btns = findWithUnimportantViews(targetLocator);
             if (btns.isEmpty()) {
                 scrollDown();
-                btns = driver.findElements(targetLocator);
+                btns = findWithUnimportantViews(targetLocator);
             }
             if (!btns.isEmpty()) {
-                WebElement btn = btns.get(btns.size() - 1);
-                try {
-                    btn.click();
-                } catch (Exception clickEx) {
-                    tapElement(btn);
-                }
-                try { Thread.sleep(800); } catch (Exception ignore) {}
+                WebElement btn = btns.get(0);
+                tapElement(btn);
 
-                // Verify: If No was selected, the provider dropdown should NOT be visible
                 if (!hasPrior) {
-                    List<WebElement> providerDropdown = driver.findElements(By.xpath(
-                        "//*[contains(@content-desc, 'prior insurance provider') or contains(@text, 'prior insurance provider') or @resource-id='dd_select_your_prior_insurance_provider']"));
-                    if (providerDropdown.isEmpty() || !providerDropdown.get(0).isDisplayed()) {
+                    if (waitUntil(() -> findWithUnimportantViews(priorConditionalBy).isEmpty(), 3)) {
                         System.out.println("Successfully confirmed 'No' selected for Prior Insurance!");
                         return this;
                     }
                 } else {
-                    return this;
+                    if (waitUntil(() -> !findWithUnimportantViews(priorConditionalBy).isEmpty(), 3)) {
+                        System.out.println("Successfully confirmed 'Yes' selected for Prior Insurance (conditional fields visible)!");
+                        handlePriorInsuranceProviderDropdownIfPresent(providerDdBy);
+                        return this;
+                    }
+                    System.out.println("Prior Insurance 'Yes' attempt " + (attempt + 1)
+                            + " did not expand conditional fields yet; retrying...");
                 }
             } else {
                 scrollDown();
             }
         }
+        if (hasPrior) {
+            handlePriorInsuranceProviderDropdownIfPresent(providerDdBy);
+        }
         return this;
     }
 
-    public MalpracticeScreen enterRetroactiveDate(String date) {
-        System.out.println("Entering Retroactive / Prior Acts Date: " + date);
+    private void handlePriorInsuranceProviderDropdownIfPresent(By providerDdBy) {
         try {
-            By dateBy = By.xpath("//*[@resource-id='textfield_retroactive_date' or contains(@resource-id, 'retroactive') or contains(@hint, 'Date')]");
-            List<WebElement> fields = driver.findElements(dateBy);
-            if (!fields.isEmpty()) {
-                tapElement(fields.get(0));
-                fields.get(0).sendKeys(date);
+            List<WebElement> dds = findWithUnimportantViews(providerDdBy);
+            if (dds.isEmpty() || !dds.get(0).isDisplayed()) {
+                return;
+            }
+            System.out.println("Prior insurance provider dropdown detected; selecting an option...");
+            WebElement dd = dds.get(0);
+            org.openqa.selenium.Rectangle ddRect = dd.getRect();
+            tapElement(dd);
+
+            By optionItemsBy = By.xpath(
+                "//android.view.View[@scrollable='true']//android.view.View[@clickable='true' and @content-desc and string-length(@content-desc) > 2] "
+                + "| //*[@role='menuitem' or @role='option']");
+            waitUntil(() -> !findWithUnimportantViews(optionItemsBy).isEmpty(), 3);
+            List<WebElement> opts = findWithUnimportantViews(optionItemsBy);
+            boolean selected = false;
+            for (WebElement opt : opts) {
+                try {
+                    String desc = opt.getAttribute("content-desc");
+                    String low = (desc != null ? desc.trim().toLowerCase() : "");
+                    if (opt.isDisplayed() && !low.isEmpty()
+                            && !"yes".equals(low) && !"no".equals(low)
+                            && !"next".equals(low) && !"proceed".equals(low)
+                            && !"close".equals(low) && !"back".equals(low)
+                            && !low.contains("prior insurance provider")) {
+                        System.out.println("Selecting prior insurance provider option: " + desc);
+                        tapElement(opt);
+                        selected = true;
+                        break;
+                    }
+                } catch (Exception ignore) {}
+            }
+            if (!selected) {
+                int optX = ddRect.getX() + (ddRect.getWidth() / 2);
+                int optY = ddRect.getY() + ddRect.getHeight() + Math.max(85, (int) (ddRect.getHeight() * 0.75));
+                System.out.println("Tapping prior provider dropdown option dynamically at (" + optX + ", " + optY + ")...");
+                tapCoordinates(optX, optY);
+            }
+            try { Thread.sleep(500); } catch (Exception ignore) {}
+        } catch (Exception e) {
+            System.out.println("Prior provider dropdown selection note: " + e.getMessage());
+        }
+    }
+
+    private MalpracticeScreen selectMonthYearPicker(By fieldBy, int targetYear, String fieldLabel) {
+        System.out.println("Selecting " + fieldLabel + " (Target Year: " + targetYear + ")...");
+        try {
+            hideKeyboard();
+            List<WebElement> fields = findWithUnimportantViews(fieldBy);
+            for (int s = 0; s < 2 && fields.isEmpty(); s++) {
+                scrollDown();
+                waitUntil(() -> !findWithUnimportantViews(fieldBy).isEmpty(), 2);
+                fields = findWithUnimportantViews(fieldBy);
+            }
+            if (fields.isEmpty()) {
+                System.out.println("WARNING: " + fieldLabel + " field not found!");
+                return this;
+            }
+
+            WebElement field = fields.get(0);
+            String cls = "";
+            try { cls = field.getAttribute("className"); } catch (Exception ignore) {}
+            if (cls != null && cls.contains("EditText")) {
+                sendKeys(field, "01/" + targetYear);
                 hideKeyboard();
+                return this;
+            }
+
+            tapElement(field);
+            By confirmBy = By.xpath(
+                "(//*[@text='Confirm' or @content-desc='Confirm' or @text='Done' or @content-desc='Done' or @text='OK' or @content-desc='OK'])[last()]");
+            By seekBarBy = By.xpath("//android.widget.SeekBar");
+            waitUntil(() -> !findWithUnimportantViews(seekBarBy).isEmpty()
+                    || !findWithUnimportantViews(confirmBy).isEmpty(), 4);
+
+            boolean swipeUpDecreasesYear = true;
+            Integer lastYear = null;
+            for (int attempt = 0; attempt < 8; attempt++) {
+                List<WebElement> wheels = findWithUnimportantViews(seekBarBy);
+                WebElement yearWheel = null;
+                String yearDesc = null;
+                for (WebElement w : wheels) {
+                    String desc = "";
+                    try { desc = w.getAttribute("content-desc"); } catch (Exception ignore) {}
+                    if (desc == null || desc.trim().isEmpty()) {
+                        try { desc = w.getText(); } catch (Exception ignore) {}
+                    }
+                    if (desc != null && desc.trim().matches("\\d{4}")) {
+                        yearWheel = w;
+                        yearDesc = desc.trim();
+                        break;
+                    }
+                }
+                if (yearWheel == null) {
+                    List<WebElement> yearNodes = findWithUnimportantViews(By.xpath(
+                        "//android.view.View[@content-desc='" + targetYear + "' or @text='" + targetYear + "']"));
+                    if (!yearNodes.isEmpty()) {
+                        tapElement(yearNodes.get(0));
+                        break;
+                    }
+                    if (wheels.isEmpty() && findWithUnimportantViews(confirmBy).isEmpty()) {
+                        System.out.println(fieldLabel + " wheel picker not detected; skipping scroll.");
+                        break;
+                    }
+                    Dimension size = getSafeWindowSize();
+                    int wheelX = (int) (size.width * 0.35);
+                    scrollWheel(wheelX, (int) (size.height * 0.45), (int) (size.height * 0.65));
+                    try { Thread.sleep(500); } catch (Exception ignore) {}
+                    continue;
+                }
+
+                int currentYear = Integer.parseInt(yearDesc);
+                if (currentYear == targetYear) {
+                    System.out.println(fieldLabel + " year wheel aligned at " + targetYear + "!");
+                    break;
+                }
+                if (lastYear != null) {
+                    if (lastYear > targetYear && currentYear > lastYear) {
+                        swipeUpDecreasesYear = !swipeUpDecreasesYear;
+                    } else if (lastYear < targetYear && currentYear < lastYear) {
+                        swipeUpDecreasesYear = !swipeUpDecreasesYear;
+                    }
+                }
+                lastYear = currentYear;
+
+                org.openqa.selenium.Rectangle r = yearWheel.getRect();
+                int wheelX = r.getX() + (r.getWidth() / 2);
+                int centerY = r.getY() + (r.getHeight() / 2);
+                int diff = Math.abs(currentYear - targetYear);
+                int deltaY = Math.min(200, Math.max(50, diff * 26));
+                boolean needLowerYear = currentYear > targetYear;
+                boolean swipeDown = needLowerYear ? swipeUpDecreasesYear : !swipeUpDecreasesYear;
+                if (swipeDown) {
+                    scrollWheel(wheelX, centerY - (deltaY / 2), centerY + (deltaY / 2));
+                } else {
+                    scrollWheel(wheelX, centerY + (deltaY / 2), centerY - (deltaY / 2));
+                }
+                try { Thread.sleep(500); } catch (Exception ignore) {}
+            }
+
+            List<WebElement> confirms = findWithUnimportantViews(confirmBy);
+            if (!confirms.isEmpty()) {
+                tapElement(confirms.get(confirms.size() - 1));
+                waitUntil(() -> findWithUnimportantViews(confirmBy).isEmpty(), 3);
+            }
+            List<WebElement> updated = findWithUnimportantViews(fieldBy);
+            String val = !updated.isEmpty() ? updated.get(0).getText() : null;
+            System.out.println("Verified " + fieldLabel + " text after picker confirm: '" + val + "'");
+        } catch (Exception e) {
+            System.out.println(fieldLabel + " picker handling note: " + e.getMessage());
+        }
+        return this;
+    }
+
+    public MalpracticeScreen enterPriorPolicyNumber(String policyNumber) {
+        System.out.println("Entering Prior Policy Number: " + policyNumber);
+        try {
+            hideKeyboard();
+            By policyBy = By.xpath("//*[@resource-id='textfield_policy_number' or contains(@hint, 'Policy number')]");
+            List<WebElement> fields = findWithUnimportantViews(policyBy);
+            if (fields.isEmpty()) {
+                scrollDown();
+                waitUntil(() -> !findWithUnimportantViews(policyBy).isEmpty(), 2);
+                fields = findWithUnimportantViews(policyBy);
+            }
+            if (fields.isEmpty()) {
+                scrollUp();
+                waitUntil(() -> !findWithUnimportantViews(policyBy).isEmpty(), 2);
+                fields = findWithUnimportantViews(policyBy);
+            }
+            if (!fields.isEmpty()) {
+                sendKeys(fields.get(0), policyNumber);
+                List<WebElement> refreshed = findWithUnimportantViews(policyBy);
+                String val = !refreshed.isEmpty() ? refreshed.get(0).getText() : null;
+                if (val == null || val.trim().isEmpty()) {
+                    tapElement(fields.get(0));
+                    try { Thread.sleep(300); } catch (Exception ignore) {}
+                    adbInput(policyNumber);
+                }
+                hideKeyboard();
+            } else {
+                System.out.println("WARNING: Prior Policy Number field (textfield_policy_number) not found!");
+            }
+        } catch (Exception e) {
+            System.out.println("Prior Policy Number entry note: " + e.getMessage());
+        }
+        return this;
+    }
+
+    public MalpracticeScreen enterPriorPolicyExpiryDate(int targetYear) {
+        By expiryBy = By.xpath(
+            "//*[@resource-id='textfield_expiry_date' or contains(@hint, 'Expiry date') or contains(@hint, 'expiry date')]");
+        return selectMonthYearPicker(expiryBy, targetYear, "Prior Policy Expiry Date");
+    }
+
+    public MalpracticeScreen enterPriorPolicyExpiryDate() {
+        return enterPriorPolicyExpiryDate(2027);
+    }
+
+    public MalpracticeScreen enterRetroactiveDate(String date) {
+        int targetYear = 2023;
+        try {
+            java.util.regex.Matcher m = java.util.regex.Pattern.compile("\\b(19\\d{2}|20\\d{2})\\b").matcher(date);
+            if (m.find()) {
+                targetYear = Integer.parseInt(m.group(1));
             }
         } catch (Exception ignore) {}
-        return this;
+        By retroBy = By.xpath(
+            "//*[@resource-id='textfield_retrospective_date' or @resource-id='textfield_retroactive_date' "
+            + "or contains(@resource-id, 'retrospective') or contains(@resource-id, 'retroactive') "
+            + "or contains(@hint, 'Retrospective') or contains(@hint, 'Retroactive')]");
+        return selectMonthYearPicker(retroBy, targetYear, "Retrospective / Prior Acts Date");
     }
 
     public MalpracticeScreen declarePriorClaims(boolean hasClaims) {
         System.out.println("Declaring Prior Malpractice Claims: " + (hasClaims ? "Yes" : "No"));
         try {
-            By locator = hasClaims
-                ? By.xpath("//*[@resource-id='btn_claims_yes' or @resource-id='btn_yes_button'] | (//*[@text='Yes' or @content-desc='Yes'])[last()]")
-                : By.xpath("//*[@resource-id='btn_claims_no' or @resource-id='btn_no_button'] | (//*[@text='No' or @content-desc='No'])[last()]");
-            List<WebElement> btns = findWithUnimportantViews(locator);
-            if (!btns.isEmpty()) {
-                tapElement(btns.get(btns.size() - 1));
+            hideKeyboard();
+            By claimsSwitchBy = By.xpath(
+                "//android.view.View[contains(@content-desc, 'previous claims')]/preceding::android.widget.Switch[1]");
+            List<WebElement> switches = findWithUnimportantViews(claimsSwitchBy);
+            if (switches.isEmpty()) {
+                By policyBy = By.xpath("//*[@resource-id='textfield_policy_number' or @resource-id='textfield_expiry_date']");
+                if (!findWithUnimportantViews(policyBy).isEmpty()) {
+                    scrollUp();
+                } else {
+                    scrollDown();
+                }
+                waitUntil(() -> !findWithUnimportantViews(claimsSwitchBy).isEmpty(), 2);
+                switches = findWithUnimportantViews(claimsSwitchBy);
             }
-        } catch (Exception ignore) {}
+            if (!switches.isEmpty()) {
+                WebElement sw = switches.get(0);
+                String checked = null;
+                try { checked = sw.getAttribute("checked"); } catch (Exception ignore) {}
+                boolean currentlyChecked = "true".equalsIgnoreCase(checked);
+                if (hasClaims && !currentlyChecked) {
+                    clickPrivacySwitch(claimsSwitchBy);
+                } else if (!hasClaims && currentlyChecked) {
+                    tapElement(sw);
+                } else {
+                    System.out.println("'I have previous claims' switch already in target state: checked=" + currentlyChecked);
+                }
+                try { Thread.sleep(400); } catch (Exception ignore) {}
+                return this;
+            }
+
+            By specificClaimsBy = hasClaims
+                ? By.xpath("//*[@resource-id='btn_claims_yes']")
+                : By.xpath("//*[@resource-id='btn_claims_no']");
+            List<WebElement> specificBtns = findWithUnimportantViews(specificClaimsBy);
+            if (!specificBtns.isEmpty()) {
+                tapElement(specificBtns.get(specificBtns.size() - 1));
+            } else {
+                System.out.println("WARNING: 'I have previous claims' switch / Yes-No button not found!");
+            }
+            try { Thread.sleep(500); } catch (Exception ignore) {}
+        } catch (Exception e) {
+            System.out.println("Prior claims declaration note: " + e.getMessage());
+        }
         return this;
     }
 
@@ -372,11 +669,12 @@ public class MalpracticeScreen extends BasePage {
                     "//*[contains(@content-desc, 'OTP') or contains(@text, 'OTP') or contains(@content-desc, 'Verification') or contains(@text, 'Verification') or @resource-id='textfield_otp_code' or contains(@resource-id, 'otp_pin') or contains(@resource-id, 'pin_field')]")).isEmpty();
                 boolean onQuote = !driver.findElements(By.xpath(
                     "//*[contains(@content-desc, 'quote') or contains(@content-desc, 'Plan') or @resource-id='btn_buy_now']")).isEmpty();
-                return onOtp || onQuote;
+                boolean onReferral = isUnderwritingReferralDisplayed();
+                return onOtp || onQuote || onReferral;
             }, 10);
 
             if (transitioned) {
-                System.out.println("Successfully transitioned past Practitioner Details to OTP / Quote!");
+                System.out.println("Successfully transitioned past Practitioner Details to OTP / Quote / Underwriting!");
                 return this;
             }
 
@@ -613,7 +911,7 @@ public class MalpracticeScreen extends BasePage {
     // =========================================================================
     public boolean isQuoteLoaded() {
         try {
-            return isElementVisible(buyNowButton) || !driver.findElements(By.xpath(
+            return isElementVisible(buyNowButton) || !findWithUnimportantViews(By.xpath(
                 "//*[@resource-id='btn_buy_now' or @resource-id='btn_sales_quote_page_buy_now_button' or contains(@content-desc, 'Buy now') or contains(@text, 'Buy now') or contains(@content-desc, 'quote') or contains(@text, 'quote')]")).isEmpty();
         } catch (Exception e) {
             return false;
@@ -622,7 +920,7 @@ public class MalpracticeScreen extends BasePage {
 
     public boolean isCheckoutLoaded() {
         try {
-            return !driver.findElements(By.xpath("//*[@resource-id='textfield_building_number']")).isEmpty();
+            return !findWithUnimportantViews(By.xpath("//*[@resource-id='textfield_building_number']")).isEmpty();
         } catch (Exception e) {
             return false;
         }
@@ -630,7 +928,7 @@ public class MalpracticeScreen extends BasePage {
 
     public boolean isValidationErrorDisplayed() {
         try {
-            return !driver.findElements(By.xpath(
+            return !findWithUnimportantViews(By.xpath(
                 "//*[contains(@resource-id, 'error') or contains(@content-desc, 'invalid') or contains(@text, 'invalid') or contains(@text, 'Invalid') or contains(@content-desc, 'Invalid') or contains(@text, 'required') or contains(@content-desc, 'required') or contains(@content-desc, 'Please enter') or contains(@text, 'Please enter')]")).isEmpty();
         } catch (Exception e) {
             return false;
@@ -647,7 +945,7 @@ public class MalpracticeScreen extends BasePage {
 
     public boolean isUnderwritingReferralDisplayed() {
         try {
-            return !driver.findElements(By.xpath(
+            return !findWithUnimportantViews(By.xpath(
                 "//*[contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'underwriting') "
                 + "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'underwriting') "
                 + "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'review') "
@@ -659,5 +957,9 @@ public class MalpracticeScreen extends BasePage {
         } catch (Exception e) {
             return false;
         }
+    }
+
+    public boolean waitForUnderwritingOrQuoteState(int timeoutSeconds) {
+        return waitUntil(() -> isUnderwritingReferralDisplayed() || isQuoteLoaded(), timeoutSeconds);
     }
 }

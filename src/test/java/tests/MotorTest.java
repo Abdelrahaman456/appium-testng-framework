@@ -98,6 +98,9 @@ public class MotorTest extends BaseTest {
         aboutYouScreen.selectCustomCardRadio();
         aboutYouScreen.enterCustomCard(TestDataBuilder.DEFAULT_CUSTOM_CARD);
         aboutYouScreen.selectCarModelYear(TestDataBuilder.DEFAULT_CAR_YEAR);
+        if (!aboutYouScreen.getCustomCardText().replaceAll("\\D", "").contains(TestDataBuilder.DEFAULT_CUSTOM_CARD)) {
+            aboutYouScreen.enterCustomCard(TestDataBuilder.DEFAULT_CUSTOM_CARD);
+        }
         aboutYouScreen.enterNationalId(nationalId);
 
         fillRemainingFields(aboutYouScreen);
@@ -146,6 +149,9 @@ public class MotorTest extends BaseTest {
         aboutYouScreen.selectCustomCardRadio();
         aboutYouScreen.enterCustomCard(TestDataBuilder.DEFAULT_CUSTOM_CARD);
         aboutYouScreen.selectCarModelYear(TestDataBuilder.DEFAULT_CAR_YEAR);
+        if (!aboutYouScreen.getCustomCardText().replaceAll("\\D", "").contains(TestDataBuilder.DEFAULT_CUSTOM_CARD)) {
+            aboutYouScreen.enterCustomCard(TestDataBuilder.DEFAULT_CUSTOM_CARD);
+        }
         aboutYouScreen.enterNationalId(nationalId);
 
         fillRemainingFields(aboutYouScreen);
@@ -275,12 +281,14 @@ public class MotorTest extends BaseTest {
         quoteScreen.toggleReplacementCarAddon();
 
         // Apply Promo Code
-        quoteScreen.enterPromoCode("PROMO10");
-        quoteScreen.clickApplyPromoCode();
-        try { Thread.sleep(2000); } catch (Exception ignore) {}
+        if (quoteScreen.hasPromoCodeField()) {
+            quoteScreen.enterPromoCode("PROMO10");
+            quoteScreen.clickApplyPromoCode();
+            try { Thread.sleep(2000); } catch (Exception ignore) {}
 
-        // Re-expand Comprehensive cover after promo code re-rates and refreshes the card list
-        quoteScreen.selectComprehensiveCover();
+            // Re-expand Comprehensive cover after promo code re-rates and refreshes the card list
+            quoteScreen.selectComprehensiveCover();
+        }
 
         quoteScreen.clickBuyNow();
         quoteScreen.clickSkipUpsell();
@@ -309,7 +317,8 @@ public class MotorTest extends BaseTest {
 
         CheckoutScreen checkoutScreen = new CheckoutScreen();
         boolean outcomeObserved = quoteScreen.isUnderwritingOrReferralDisplayed()
-                || checkoutScreen.isCheckoutScreenDisplayed();
+                || checkoutScreen.isCheckoutScreenDisplayed()
+                || quoteScreen.isUnderwritingOrReferralDisplayed();
         Assert.assertTrue(outcomeObserved,
                 "After answering PEP/Related Party as Yes and clicking Buy now, expected underwriting/referral notice or Checkout screen.");
         System.out.println("Motor Flow 6 PEP Underwriting Question Verified!");
@@ -328,10 +337,22 @@ public class MotorTest extends BaseTest {
         quoteScreen.selectComprehensiveCover();
 
         System.out.println("Applying invalid promo code 'INVALID_999'...");
-        quoteScreen.enterPromoCode("INVALID_999");
-        quoteScreen.clickApplyPromoCode();
+        boolean isError;
+        if (quoteScreen.hasPromoCodeField()) {
+            quoteScreen.enterPromoCode("INVALID_999");
+            quoteScreen.clickApplyPromoCode();
+            isError = quoteScreen.isPromoCodeInvalid();
+        } else {
+            selectCoverType(quoteScreen, "Comprehensive");
+            CheckoutScreen checkoutScreen = new CheckoutScreen();
+            Assert.assertTrue(checkoutScreen.waitForPageToLoad(),
+                    "Checkout screen did not load while testing invalid promo code for National ID: " + nationalId);
+            checkoutScreen.expandOrderSummaryDetails();
+            checkoutScreen.enterPromoCode("INVALID_999");
+            checkoutScreen.clickApplyPromoCode();
+            isError = checkoutScreen.isPromoCodeInvalid();
+        }
 
-        boolean isError = quoteScreen.isPromoCodeInvalid();
         Assert.assertTrue(isError, "Invalid promo code should trigger an error or remain rejected.");
         System.out.println("Invalid promo code handled (error badge displayed: " + isError + ")");
     }

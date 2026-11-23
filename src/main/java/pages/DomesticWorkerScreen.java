@@ -190,16 +190,24 @@ public class DomesticWorkerScreen extends BasePage {
             }
 
             boolean transitioned = waitUntil(() -> {
+                boolean otpNow = !driver.findElements(By.xpath(
+                    "//*[contains(@content-desc, 'OTP') or contains(@text, 'OTP') or contains(@content-desc, 'Verification') or contains(@text, 'Verification') or @resource-id='textfield_otp_code' or contains(@resource-id, 'otp_pin')]")).isEmpty();
+                boolean memberNow = !driver.findElements(By.xpath(
+                    "//*[@resource-id='textfield_iqama_id' or @resource-id='textfield_member_id' or @resource-id='btn_add' or @content-desc='Add']")).isEmpty();
+                boolean errNow = isErrorDialogDisplayed() || isValidationErrorDisplayed();
+                return otpNow || memberNow || errNow;
+            }, 6);
+
+            if (transitioned) {
                 boolean onOtp = !driver.findElements(By.xpath(
                     "//*[contains(@content-desc, 'OTP') or contains(@text, 'OTP') or contains(@content-desc, 'Verification') or contains(@text, 'Verification') or @resource-id='textfield_otp_code' or contains(@resource-id, 'otp_pin')]")).isEmpty();
                 boolean onMember = !driver.findElements(By.xpath(
                     "//*[@resource-id='textfield_iqama_id' or @resource-id='textfield_member_id' or @resource-id='btn_add' or @content-desc='Add']")).isEmpty();
-                boolean onError = isErrorDialogDisplayed();
-                return onOtp || onMember || onError;
-            }, 6);
-
-            if (transitioned) {
-                System.out.println("Successfully transitioned past Sponsor Details!");
+                if (onOtp || onMember) {
+                    System.out.println("Successfully transitioned past Sponsor Details!");
+                } else {
+                    System.out.println("Validation error/dialog detected on Sponsor Details.");
+                }
                 return this;
             }
             System.out.println("Still on Sponsor Details, re-attempting Next tap...");
@@ -506,7 +514,8 @@ public class DomesticWorkerScreen extends BasePage {
 
     public boolean isSponsorDetailsScreenDisplayed() {
         try {
-            return isElementVisible(nationalIdInput) || isElementVisible(nextButton);
+            return (isElementVisible(nationalIdInput) || isElementVisible(nextButton))
+                    && !new OtpModal().isModalDisplayed();
         } catch (Exception e) {
             return false;
         }

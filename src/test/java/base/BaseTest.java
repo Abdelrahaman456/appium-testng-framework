@@ -69,15 +69,43 @@ public class BaseTest {
             System.out.println("[SESSION REUSE] Appium session active. Reusing current app session for fast execution!");
         }
 
-        // Ensure target app is in foreground
+        // Ensure target app is in foreground and past the splash screen before fast reset
         try {
             AppiumDriver d = DriverManager.getDriver();
-            if (d instanceof io.appium.java_client.android.AndroidDriver) {
-                String currentPkg = ((io.appium.java_client.android.AndroidDriver) d).getCurrentPackage();
-                if (appPackage != null && !appPackage.equals(currentPkg)) {
+            if (d instanceof io.appium.java_client.android.AndroidDriver && appPackage != null) {
+                io.appium.java_client.android.AndroidDriver ad = (io.appium.java_client.android.AndroidDriver) d;
+                String currentPkg = ad.getCurrentPackage();
+                if ("com.android.chrome".equals(currentPkg)
+                        || (!appPackage.equals(currentPkg)
+                                && !d.findElements(org.openqa.selenium.By.xpath("//*[@package='com.android.chrome']")).isEmpty())) {
+                    System.out.println("[BaseTest] Detected leftover Chrome Custom Tab (" + currentPkg + "); closing/terminating com.android.chrome...");
+                    try {
+                        java.util.List<org.openqa.selenium.WebElement> closeBtns = d.findElements(
+                            org.openqa.selenium.By.xpath("//*[@resource-id='com.android.chrome:id/close_button' or @content-desc='Close tab']"));
+                        if (!closeBtns.isEmpty()) {
+                            closeBtns.get(0).click();
+                            Thread.sleep(500);
+                        }
+                    } catch (Exception ignore) {}
+                    try {
+                        ((io.appium.java_client.InteractsWithApps) d).terminateApp("com.android.chrome");
+                        Thread.sleep(400);
+                    } catch (Exception ignore) {}
+                    currentPkg = ad.getCurrentPackage();
+                }
+                if (!appPackage.equals(currentPkg)) {
                     System.out.println("[BaseTest] App not in foreground (current: " + currentPkg + "). Activating " + appPackage + "...");
                     ((io.appium.java_client.InteractsWithApps) d).activateApp(appPackage);
-                    Thread.sleep(1500);
+                }
+                org.openqa.selenium.By appReadyBy = org.openqa.selenium.By.xpath(
+                    "//*[@package='" + appPackage + "' and (@clickable='true' or string-length(@resource-id) > 0)]"
+                );
+                long splashDeadline = System.currentTimeMillis() + 15000L;
+                while (System.currentTimeMillis() < splashDeadline) {
+                    if (!d.findElements(appReadyBy).isEmpty()) {
+                        break;
+                    }
+                    Thread.sleep(300);
                 }
             }
         } catch (Exception ignore) {}

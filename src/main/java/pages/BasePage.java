@@ -280,17 +280,17 @@ public class BasePage {
         try {
             if (driver instanceof io.appium.java_client.android.AndroidDriver) {
                 io.appium.java_client.android.AndroidDriver androidDriver = (io.appium.java_client.android.AndroidDriver) driver;
+                boolean keyboardShown = false;
+                try {
+                    keyboardShown = androidDriver.isKeyboardShown();
+                } catch (Exception ignore) {}
+                if (!keyboardShown) {
+                    return;
+                }
                 try {
                     androidDriver.hideKeyboard();
                 } catch (Exception ignore) {}
-                try {
-                    androidDriver.pressKey(new io.appium.java_client.android.nativekey.KeyEvent(io.appium.java_client.android.nativekey.AndroidKey.ESCAPE));
-                } catch (Exception e) {
-                    try {
-                        Runtime.getRuntime().exec(buildAdbCommand("shell", "input", "keyevent", "111")).waitFor();
-                    } catch (Exception ignore) {}
-                }
-                try { Thread.sleep(600); } catch (Exception ignore) {}
+                try { Thread.sleep(350); } catch (Exception ignore) {}
             } else if (driver instanceof io.appium.java_client.HidesKeyboard) {
                 ((io.appium.java_client.HidesKeyboard) driver).hideKeyboard();
             }
@@ -353,11 +353,32 @@ public class BasePage {
         }
     }
 
-    public void scrollDown() {
+    private void performVerticalScroll(boolean down) {
         org.openqa.selenium.Dimension size = getSafeWindowSize();
         int startX = size.width / 2;
-        int startY = (int) (size.height * 0.7);
-        int endY = (int) (size.height * 0.3);
+        int startY = (int) (size.height * (down ? 0.7 : 0.3));
+        int endY = (int) (size.height * (down ? 0.3 : 0.7));
+
+        // If a ScrollView is active (including IME-compressed ScrollViews), swipe strictly inside its bounds
+        try {
+            java.util.List<WebElement> scrollViews = driver.findElements(org.openqa.selenium.By.xpath("//android.widget.ScrollView"));
+            for (int i = scrollViews.size() - 1; i >= 0; i--) {
+                WebElement sv = scrollViews.get(i);
+                if (sv.isDisplayed()) {
+                    org.openqa.selenium.Rectangle r = sv.getRect();
+                    if (r.getHeight() > 200 && r.getWidth() > 200) {
+                        startX = Math.max(1, Math.min(size.width - 1, r.getX() + (r.getWidth() / 2)));
+                        int topY = Math.max(1, r.getY() + (int) (r.getHeight() * 0.20));
+                        int bottomY = Math.min(size.height - 1, r.getY() + (int) (r.getHeight() * 0.80));
+                        if (bottomY > topY + 60) {
+                            startY = down ? bottomY : topY;
+                            endY = down ? topY : bottomY;
+                            break;
+                        }
+                    }
+                }
+            }
+        } catch (Exception ignore) {}
 
         PointerInput finger = new PointerInput(PointerInput.Kind.TOUCH, "finger");
         Sequence scroll = new Sequence(finger, 1);
@@ -369,20 +390,12 @@ public class BasePage {
         try { Thread.sleep(350); } catch (Exception ignore) {}
     }
 
-    public void scrollUp() {
-        org.openqa.selenium.Dimension size = getSafeWindowSize();
-        int startX = size.width / 2;
-        int startY = (int) (size.height * 0.3);
-        int endY = (int) (size.height * 0.7);
+    public void scrollDown() {
+        performVerticalScroll(true);
+    }
 
-        PointerInput finger = new PointerInput(PointerInput.Kind.TOUCH, "finger");
-        Sequence scroll = new Sequence(finger, 1);
-        scroll.addAction(finger.createPointerMove(Duration.ofMillis(0), PointerInput.Origin.viewport(), startX, startY));
-        scroll.addAction(finger.createPointerDown(PointerInput.MouseButton.LEFT.asArg()));
-        scroll.addAction(finger.createPointerMove(Duration.ofMillis(600), PointerInput.Origin.viewport(), startX, endY));
-        scroll.addAction(finger.createPointerUp(PointerInput.MouseButton.LEFT.asArg()));
-        driver.perform(Arrays.asList(scroll));
-        try { Thread.sleep(350); } catch (Exception ignore) {}
+    public void scrollUp() {
+        performVerticalScroll(false);
     }
 
     public void scrollWheel(int startX, int startY, int endY) {
@@ -433,84 +446,68 @@ public class BasePage {
         return elements;
     }
 
+    protected WebElement findDisplayedElement(org.openqa.selenium.By locator) {
+        java.util.List<WebElement> elements = findWithUnimportantViews(locator);
+        for (WebElement el : elements) {
+            try {
+                if (el.isDisplayed()) {
+                    return el;
+                }
+            } catch (Exception ignored) {}
+        }
+        return null;
+    }
+
     public boolean clickPrivacySwitch() {
         return clickPrivacySwitch(org.openqa.selenium.By.xpath("//*[@resource-id='tgl_checkbox' or contains(@resource-id, 'checkbox') or @class='android.widget.Switch']"));
     }
 
     protected boolean clickPrivacySwitch(org.openqa.selenium.By locator) {
         hideKeyboard();
-        try { Thread.sleep(600); } catch (Exception ignore) {}
-        for (int attempt = 0; attempt < 3; attempt++) {
-            java.util.List<WebElement> switches = findWithUnimportantViews(locator);
-            if (!switches.isEmpty()) {
-                WebElement sw = switches.get(0);
-                String checkedBefore = null;
-                try { checkedBefore = sw.getAttribute("checked"); } catch (Exception ignored) {}
-                if ("true".equalsIgnoreCase(checkedBefore)) {
-                    System.out.println("Privacy checkbox/switch is already checked.");
-                    return true;
-                }
-
-                org.openqa.selenium.Rectangle r = sw.getRect();
-                int thumbX = r.getX() + (r.getWidth() / 2);
-                int cy = r.getY() + (r.getHeight() / 2);
-
-                // 1. Try native click first
-                try {
-                    sw.click();
-                    Thread.sleep(500);
-                } catch (Exception ignored) {}
-
-                java.util.List<WebElement> after = findWithUnimportantViews(locator);
-                if (!after.isEmpty() && "true".equalsIgnoreCase(after.get(0).getAttribute("checked"))) {
-                    System.out.println("Privacy switch toggled to checked via native click.");
-                    return true;
-                }
-
-                // 2. Try single pointer tap at switch center
-                System.out.println("Tapping switch at center (" + thumbX + ", " + cy + ")...");
-                tapCoordinates(thumbX, cy);
-                try { Thread.sleep(500); } catch (Exception ignored) {}
-
-                after = findWithUnimportantViews(locator);
-                if (!after.isEmpty() && "true".equalsIgnoreCase(after.get(0).getAttribute("checked"))) {
-                    System.out.println("Privacy switch toggled to checked via tapCoordinates.");
-                    return true;
-                }
-
-                // 3. Try single adb tap at switch center
-                adbTap(thumbX, cy);
-                try { Thread.sleep(500); } catch (Exception ignored) {}
-
-                after = findWithUnimportantViews(locator);
-                if (!after.isEmpty() && "true".equalsIgnoreCase(after.get(0).getAttribute("checked"))) {
-                    System.out.println("Privacy switch toggled to checked via adbTap.");
-                    return true;
-                }
-
-                // 4. Try tapping slightly to the right (track)
-                int trackX = r.getX() + Math.min(r.getWidth() + 10, (int) (r.getWidth() * 1.4));
-                System.out.println("Tapping switch track fallback (" + trackX + ", " + cy + ")...");
-                tapCoordinates(trackX, cy);
-                try { Thread.sleep(500); } catch (Exception ignored) {}
-
-                after = findWithUnimportantViews(locator);
-                if (!after.isEmpty() && "true".equalsIgnoreCase(after.get(0).getAttribute("checked"))) {
-                    System.out.println("Privacy switch toggled to checked via track fallback tap.");
-                    return true;
-                }
-                if (attempt < 2) {
-                    scrollDown();
-                    try { Thread.sleep(500); } catch (Exception ignore) {}
-                }
-            } else {
-                System.out.println("Privacy switch not found in DOM; scrolling down to re-locate dynamically...");
-                if (attempt < 2) {
-                    scrollDown();
-                    try { Thread.sleep(500); } catch (Exception ignored) {}
-                }
-            }
+        WebElement sw = findDisplayedElement(locator);
+        if (sw == null) {
+            System.out.println("Privacy switch not visible in DOM; scrolling down once to locate dynamically...");
+            scrollDown();
+            try { Thread.sleep(400); } catch (Exception ignored) {}
+            sw = findDisplayedElement(locator);
         }
+        if (sw == null) {
+            System.out.println("Privacy switch not found in DOM after scroll.");
+            return false;
+        }
+
+        String checkedBefore = null;
+        try { checkedBefore = sw.getAttribute("checked"); } catch (Exception ignored) {}
+        if ("true".equalsIgnoreCase(checkedBefore)) {
+            System.out.println("Privacy checkbox/switch is already checked.");
+            return true;
+        }
+
+        boolean isClickable = false;
+        try { isClickable = "true".equalsIgnoreCase(sw.getAttribute("clickable")); } catch (Exception ignored) {}
+
+        // Perform one primary interaction only (never stack click + tapCoordinates + adbTap on opaque Flutter switches)
+        if (isClickable) {
+            try {
+                sw.click();
+            } catch (Exception e) {
+                tapElement(sw);
+            }
+        } else {
+            tapElement(sw);
+        }
+        try { Thread.sleep(600); } catch (Exception ignored) {}
+
+        WebElement afterSw = findDisplayedElement(locator);
+        if (afterSw != null) {
+            try {
+                if ("true".equalsIgnoreCase(afterSw.getAttribute("checked"))) {
+                    System.out.println("Privacy switch toggled to checked.");
+                    return true;
+                }
+            } catch (Exception ignored) {}
+        }
+        System.out.println("Privacy switch tapped once; accessibility checked attribute remains false.");
         return false;
     }
 

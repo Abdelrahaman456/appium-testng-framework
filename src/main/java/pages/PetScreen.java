@@ -28,6 +28,9 @@ public class PetScreen extends BasePage {
         PageFactory.initElements(new AppiumFieldDecorator(driver, Duration.ofSeconds(2)), this);
     }
 
+    private boolean privacyAcceptedOnScreen = false;
+    private boolean lastDeclarationAnswerYes = false;
+
     // =========================================================================
     // 1. LANDING SCREEN
     // =========================================================================
@@ -97,7 +100,7 @@ public class PetScreen extends BasePage {
     @AndroidFindBy(xpath = "//*[@resource-id='btn_proceed' or @resource-id='btn_next_button' or @content-desc='Proceed' or @content-desc='Next' or @text='Proceed' or @text='Next']")
     private WebElement declarationProceedButton;
 
-    @AndroidFindBy(xpath = "//*[contains(@content-desc, 'referral') or contains(@text, 'referral') or contains(@content-desc, 'exclusion') or contains(@text, 'exclusion')]")
+    @AndroidFindBy(xpath = "//*[contains(@content-desc, 'referral') or contains(@text, 'referral') or contains(@content-desc, 'underwriting') or contains(@text, 'underwriting') or contains(@content-desc, 'manual review') or contains(@text, 'manual review') or contains(@content-desc, 'not eligible') or contains(@text, 'not eligible')]")
     private WebElement underwritingNotice;
 
     // =========================================================================
@@ -202,6 +205,8 @@ public class PetScreen extends BasePage {
 
     public PetScreen enterPetName(String name) {
         System.out.println("Entering Pet Name: " + name);
+        privacyAcceptedOnScreen = false;
+        lastDeclarationAnswerYes = false;
         WebDriverWait waitName = new WebDriverWait(driver, Duration.ofSeconds(15));
         WebElement field = waitName.until(ExpectedConditions.presenceOfElementLocated(
             By.xpath("//*[@resource-id='textfield_your_pet_name' or @resource-id='textfield_pet_name' or contains(@resource-id, 'pet_name') or contains(@hint, 'Name') or contains(@hint, 'Pet')]")));
@@ -307,53 +312,125 @@ public class PetScreen extends BasePage {
         return this;
     }
 
+    private static final By BREED_FIELD_BY = By.xpath(
+            "//android.widget.EditText[@resource-id='textfield_your_pet_name']/following::android.widget.EditText[not(@resource-id) or @resource-id=''][1] "
+            + "| //android.widget.EditText[contains(@hint, 'breed') or contains(@hint, 'Breed') or contains(@text, 'breed')] "
+            + "| //*[@resource-id='dropdown_breed' or contains(@resource-id, 'breed')]");
+
+    private static final By CITY_FIELD_BY = By.xpath(
+            "//*[@resource-id='textfield_email']/preceding::android.widget.EditText[1] "
+            + "| //android.widget.EditText[contains(@hint, 'City')]");
+
+    private boolean isDropdownFieldPopulated(By fieldBy, String exactPlaceholderPhrase) {
+        try {
+            WebElement el = findDisplayedElement(fieldBy);
+            if (el == null) {
+                return true;
+            }
+            String val = el.getText();
+            if (val == null || val.trim().isEmpty()) {
+                return false;
+            }
+            String lower = val.trim().toLowerCase();
+            return !lower.contains(exactPlaceholderPhrase.toLowerCase())
+                    && !lower.equals("breed")
+                    && !lower.equals("city");
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    private void swipeVertical(int cx, int startY, int endY) {
+        org.openqa.selenium.interactions.PointerInput finger = new org.openqa.selenium.interactions.PointerInput(
+                org.openqa.selenium.interactions.PointerInput.Kind.TOUCH, "finger");
+        org.openqa.selenium.interactions.Sequence swipe = new org.openqa.selenium.interactions.Sequence(finger, 1);
+        swipe.addAction(finger.createPointerMove(Duration.ZERO, org.openqa.selenium.interactions.PointerInput.Origin.viewport(), cx, startY));
+        swipe.addAction(finger.createPointerDown(org.openqa.selenium.interactions.PointerInput.MouseButton.LEFT.asArg()));
+        swipe.addAction(finger.createPointerMove(Duration.ofMillis(400), org.openqa.selenium.interactions.PointerInput.Origin.viewport(), cx, endY));
+        swipe.addAction(finger.createPointerUp(org.openqa.selenium.interactions.PointerInput.MouseButton.LEFT.asArg()));
+        driver.perform(java.util.Collections.singletonList(swipe));
+    }
+
+    private void swipeInsideRect(org.openqa.selenium.Rectangle r, boolean down) {
+        int cx = r.getX() + (r.getWidth() / 2);
+        int startY = r.getY() + (int) (r.getHeight() * (down ? 0.78 : 0.22));
+        int endY = r.getY() + (int) (r.getHeight() * (down ? 0.22 : 0.78));
+        swipeVertical(cx, startY, endY);
+    }
+
     public PetScreen selectPetBreedIfPresent() {
         System.out.println("Selecting Pet Breed from dropdown...");
+        hideKeyboard();
+        By scrollableOptBy = By.xpath(
+                "//android.view.View[@scrollable='true']//android.view.View[@clickable='true' and string-length(@content-desc) > 2]");
+        By anyOptBy = By.xpath(
+                "//android.view.View[@clickable='true' and string-length(@content-desc) > 2 "
+                + "and not(contains(@content-desc, 'Privacy')) and not(contains(@content-desc, 'About')) "
+                + "and not(contains(@content-desc, 'Woof')) and not(contains(@content-desc, 'Meow')) "
+                + "and not(contains(@content-desc, 'Male')) and not(contains(@content-desc, 'Female'))]");
         try {
-            By breedBy = By.xpath("//android.widget.EditText[contains(@hint, 'breed') or contains(@hint, 'Breed') or contains(@text, 'breed')] | //*[@resource-id='dropdown_breed' or contains(@resource-id, 'breed') or contains(@content-desc, 'breed') or contains(@content-desc, 'Breed')]");
-            WebElement trigger = null;
-            if (isElementVisible(breedDropdown)) {
-                trigger = breedDropdown;
-            } else {
-                List<WebElement> els = driver.findElements(breedBy);
-                if (!els.isEmpty()) trigger = els.get(0);
-            }
+            for (int attempt = 1; attempt <= 2; attempt++) {
+                WebElement trigger = findDisplayedElement(BREED_FIELD_BY);
+                if (trigger == null && isElementVisible(breedDropdown)) {
+                    trigger = breedDropdown;
+                }
+                if (trigger == null) {
+                    return this;
+                }
+                if (isDropdownFieldPopulated(BREED_FIELD_BY, "your pet")) {
+                    return this;
+                }
 
-            if (trigger != null) {
-                By anyOptBy = By.xpath("//android.view.View[@clickable='true' and string-length(@content-desc) > 2 and not(contains(@content-desc, 'Privacy')) and not(contains(@content-desc, 'About')) and not(contains(@content-desc, 'Woof')) and not(contains(@content-desc, 'Meow'))]");
-                for (int attempt = 1; attempt <= 3; attempt++) {
-                    try {
-                        trigger.click();
-                    } catch (Exception e) {
-                        tapElement(trigger);
+                // Tap once using W3C touch gesture (bare .click() or double-tapping drops/toggles Flutter overlay)
+                tapElement(trigger);
+                boolean opened = waitUntil(
+                        () -> !driver.findElements(scrollableOptBy).isEmpty() || !driver.findElements(anyOptBy).isEmpty(),
+                        6);
+
+                // Fallback 1: tap the right chevron inside Breed field bounds
+                if (!opened) {
+                    WebElement refreshed = findDisplayedElement(BREED_FIELD_BY);
+                    if (refreshed != null) {
+                        org.openqa.selenium.Rectangle r = refreshed.getRect();
+                        tapCoordinates(r.getX() + (int) (r.getWidth() * 0.90), r.getY() + (r.getHeight() / 2));
+                        opened = waitUntil(
+                                () -> !driver.findElements(scrollableOptBy).isEmpty() || !driver.findElements(anyOptBy).isEmpty(),
+                                3);
                     }
-                    Thread.sleep(1200);
-                    List<WebElement> options = driver.findElements(anyOptBy);
-                    if (!options.isEmpty()) {
-                        System.out.println("Selecting first breed option: " + options.get(0).getAttribute("content-desc"));
+                }
+
+                // Fallback 2: type "a" directly into the Breed EditText (no separate Hint='Search' field exists)
+                if (!opened) {
+                    WebElement refreshed = findDisplayedElement(BREED_FIELD_BY);
+                    if (refreshed != null) {
                         try {
-                            options.get(0).click();
+                            refreshed.sendKeys("a");
                         } catch (Exception e) {
-                            tapElement(options.get(0));
+                            adbInput("a");
                         }
-                        Thread.sleep(800);
-                        hideKeyboard();
-                        Thread.sleep(500);
-                        break;
+                        opened = waitUntil(
+                                () -> !driver.findElements(scrollableOptBy).isEmpty() || !driver.findElements(anyOptBy).isEmpty(),
+                                3);
                     }
-                    // Check if search edittext opened
-                    List<WebElement> searchFields = driver.findElements(By.xpath("//android.widget.EditText[contains(@hint, 'Search') or contains(@text, 'Search') or contains(@hint, 'search')]"));
-                    if (!searchFields.isEmpty()) {
-                        searchFields.get(0).sendKeys("Mix");
-                        Thread.sleep(1000);
-                        List<WebElement> filtered = driver.findElements(anyOptBy);
-                        if (!filtered.isEmpty()) {
-                            filtered.get(0).click();
-                            Thread.sleep(800);
-                            hideKeyboard();
-                            break;
-                        }
+                }
+
+                List<WebElement> options = driver.findElements(scrollableOptBy);
+                if (options.isEmpty()) {
+                    options = driver.findElements(anyOptBy);
+                }
+                if (!options.isEmpty()) {
+                    WebElement firstOpt = options.get(0);
+                    System.out.println("Selecting first breed option: " + firstOpt.getAttribute("content-desc"));
+                    tapElement(firstOpt);
+                    try { Thread.sleep(600); } catch (Exception ignore) {}
+                    hideKeyboard();
+                    try { Thread.sleep(400); } catch (Exception ignore) {}
+                    if (isDropdownFieldPopulated(BREED_FIELD_BY, "your pet")) {
+                        System.out.println("Verified Pet Breed populated.");
+                        return this;
                     }
+                } else {
+                    hideKeyboard();
                 }
             }
         } catch (Exception e) {
@@ -456,49 +533,140 @@ public class PetScreen extends BasePage {
         return this;
     }
 
+    private String lastSelectedCity = "Riyadh";
+
     public PetScreen selectCity(String cityName) {
         System.out.println("Selecting City: " + cityName);
+        if (cityName != null && !cityName.trim().isEmpty()) {
+            lastSelectedCity = cityName.trim();
+        }
+        hideKeyboard();
+        By scrollableListBy = By.xpath("//android.view.View[@scrollable='true']");
+        By scrollableCityBy = By.xpath(
+                "//android.view.View[@scrollable='true']//android.view.View[@clickable='true' and string-length(@content-desc) > 1]");
+        By anyCityBy = By.xpath(
+                "//android.view.View[@clickable='true' and string-length(@content-desc) > 2 "
+                + "and not(contains(@content-desc, 'Privacy')) and not(contains(@content-desc, 'About')) "
+                + "and not(contains(@content-desc, 'Woof')) and not(contains(@content-desc, 'Meow')) "
+                + "and not(contains(@content-desc, 'Male')) and not(contains(@content-desc, 'Female'))]");
+        String cityLower = lastSelectedCity.toLowerCase();
+        By targetCityBy = By.xpath(
+                "//android.view.View[@scrollable='true']//android.view.View[@clickable='true' "
+                + "and (contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), '" + cityLower + "') "
+                + "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), '" + cityLower + "'))] "
+                + "| //android.view.View[@clickable='true' "
+                + "and (contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), '" + cityLower + "') "
+                + "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), '" + cityLower + "'))]");
         try {
-            if (isElementVisible(cityDropdown)) {
-                By anyCityBy = By.xpath(
-                        "//android.view.View[@clickable='true' and string-length(@content-desc) > 2 and not(contains(@content-desc, 'Privacy')) and not(contains(@content-desc, 'About'))]");
-                for (int openAttempt = 1; openAttempt <= 2; openAttempt++) {
-                    tapElement(cityDropdown);
-                    Thread.sleep(1000);
-                    if (!driver.findElements(anyCityBy).isEmpty()) {
-                        break;
+            for (int attempt = 1; attempt <= 2; attempt++) {
+                WebElement cityField = findDisplayedElement(CITY_FIELD_BY);
+                if (cityField == null) {
+                    scrollDown();
+                    cityField = findDisplayedElement(CITY_FIELD_BY);
+                }
+                if (cityField == null && isElementVisible(cityDropdown)) {
+                    cityField = cityDropdown;
+                }
+                if (cityField == null) {
+                    return this;
+                }
+
+                // Tap once using W3C touch gesture (do not blind-double-tap within 1s)
+                tapElement(cityField);
+                boolean opened = waitUntil(
+                        () -> !driver.findElements(scrollableCityBy).isEmpty() || !driver.findElements(anyCityBy).isEmpty(),
+                        5);
+
+                if (!opened) {
+                    WebElement refreshed = findDisplayedElement(CITY_FIELD_BY);
+                    if (refreshed != null) {
+                        org.openqa.selenium.Rectangle r = refreshed.getRect();
+                        tapCoordinates(r.getX() + (int) (r.getWidth() * 0.90), r.getY() + (r.getHeight() / 2));
+                        opened = waitUntil(
+                                () -> !driver.findElements(scrollableCityBy).isEmpty() || !driver.findElements(anyCityBy).isEmpty(),
+                                4);
                     }
                 }
+
+                if (!opened) {
+                    hideKeyboard();
+                    continue;
+                }
+
                 boolean selected = false;
-                for (int i = 0; i < 2; i++) {
-                    List<WebElement> cityOpts = driver.findElements(By.xpath(
-                            "//android.view.View[@clickable='true' and (contains(@content-desc, '" + cityName + "') or contains(@text, '" + cityName + "'))]"));
+                String prevSignature = "";
+                int stagnantSwipes = 0;
+                for (int i = 0; i < 24; i++) {
+                    List<WebElement> cityOpts = driver.findElements(targetCityBy);
                     if (!cityOpts.isEmpty()) {
+                        System.out.println("Found target city option: " + cityOpts.get(0).getAttribute("content-desc"));
                         tapElement(cityOpts.get(0));
                         selected = true;
                         break;
                     }
-                    List<WebElement> anyCities = driver.findElements(anyCityBy);
-                    if (!anyCities.isEmpty()) {
-                        org.openqa.selenium.Rectangle first = anyCities.get(0).getRect();
-                        org.openqa.selenium.Rectangle last = anyCities.get(anyCities.size() - 1).getRect();
-                        int cx = first.getX() + first.getWidth() / 2;
-                        scrollWheel(cx, last.getY() + last.getHeight() / 2, first.getY());
-                        Thread.sleep(400);
-                    } else {
+                    List<WebElement> anyCities = driver.findElements(scrollableCityBy);
+                    if (anyCities.isEmpty()) {
+                        anyCities = driver.findElements(anyCityBy);
+                    }
+                    if (anyCities.isEmpty()) {
                         break;
                     }
+                    String sig = "";
+                    try {
+                        sig = anyCities.get(0).getAttribute("content-desc") + "|"
+                                + anyCities.get(anyCities.size() - 1).getAttribute("content-desc");
+                    } catch (Exception ignore) {}
+                    if (!sig.isEmpty() && sig.equals(prevSignature)) {
+                        stagnantSwipes++;
+                        if (stagnantSwipes >= 2) {
+                            break;
+                        }
+                    } else {
+                        stagnantSwipes = 0;
+                    }
+                    prevSignature = sig;
+
+                    List<WebElement> containers = driver.findElements(scrollableListBy);
+                    if (!containers.isEmpty()) {
+                        swipeInsideRect(containers.get(0).getRect(), true);
+                    } else {
+                        org.openqa.selenium.Rectangle first = anyCities.get(0).getRect();
+                        org.openqa.selenium.Rectangle last = anyCities.get(anyCities.size() - 1).getRect();
+                        int spanTop = first.getY();
+                        int spanBottom = last.getY() + last.getHeight();
+                        int spanHeight = Math.max(120, spanBottom - spanTop);
+                        swipeVertical(
+                                first.getX() + (first.getWidth() / 2),
+                                spanTop + (int) (spanHeight * 0.78),
+                                spanTop + (int) (spanHeight * 0.22));
+                    }
+                    try { Thread.sleep(350); } catch (Exception ignore) {}
                 }
+
                 if (!selected) {
-                    List<WebElement> anyCities = driver.findElements(anyCityBy);
+                    List<WebElement> anyCities = driver.findElements(scrollableCityBy);
+                    if (anyCities.isEmpty()) {
+                        anyCities = driver.findElements(anyCityBy);
+                    }
                     if (!anyCities.isEmpty()) {
+                        System.out.println("Target city '" + lastSelectedCity + "' not matched in scroll; selecting visible fallback: "
+                                + anyCities.get(0).getAttribute("content-desc"));
                         tapElement(anyCities.get(0));
                     }
                 }
-                Thread.sleep(500);
+
+                try { Thread.sleep(500); } catch (Exception ignore) {}
                 hideKeyboard();
+                try { Thread.sleep(400); } catch (Exception ignore) {}
+
+                if (isDropdownFieldPopulated(CITY_FIELD_BY, "city of residence")) {
+                    System.out.println("Verified City of residence populated.");
+                    return this;
+                }
             }
-        } catch (Exception ignore) {}
+        } catch (Exception e) {
+            System.out.println("City selection notice: " + e.getMessage());
+        }
         return this;
     }
 
@@ -530,9 +698,16 @@ public class PetScreen extends BasePage {
     }
 
     public PetScreen acceptPrivacyNotice() {
+        if (privacyAcceptedOnScreen) {
+            System.out.println("Privacy notice already accepted on current 'About your pet' screen; keeping switch ON.");
+            return this;
+        }
         System.out.println("Toggling Privacy notice switch...");
         By switchBy = By.xpath("//*[@resource-id='tgl_checkbox' or contains(@resource-id, 'checkbox') or @class='android.widget.Switch']");
         clickPrivacySwitch(switchBy);
+        if (!findWithUnimportantViews(switchBy).isEmpty()) {
+            privacyAcceptedOnScreen = true;
+        }
         return this;
     }
 
@@ -544,6 +719,10 @@ public class PetScreen extends BasePage {
                 + " | //android.widget.Button[(@content-desc='Next' or @text='Next') and @clickable='true']"
                 + " | //*[@resource-id='btn_next_button']"
                 + " | //android.widget.Button[@content-desc='Next' or @text='Next']");
+        By aboutPetBy = By.xpath("//*[@resource-id='textfield_your_pet_name' or @content-desc='About your pet']");
+        By ageBoundaryErrorBy = By.xpath(
+                "//*[contains(@content-desc, 'between 4 months and 8 years') or contains(@text, 'between 4 months and 8 years') "
+                + "or contains(@content-desc, 'age limit') or contains(@text, 'age limit')]");
         for (int retry = 0; retry < 3; retry++) {
             try {
                 List<WebElement> btns = findWithUnimportantViews(nextBtnBy);
@@ -568,7 +747,7 @@ public class PetScreen extends BasePage {
             }
             try {
                 Thread.sleep(2500);
-                List<WebElement> expandingBtns = driver.findElements(
+                List<WebElement> expandingBtns = findWithUnimportantViews(
                         By.xpath("//*[contains(@content-desc, 'Got it') or contains(@text, 'Got it') or contains(@content-desc, 'continue')]"));
                 if (!expandingBtns.isEmpty() && expandingBtns.get(0).isDisplayed()) {
                     System.out.println("Dismissing 'We are expanding!' bottom sheet modal...");
@@ -579,15 +758,28 @@ public class PetScreen extends BasePage {
                 if (otpModal.isModalDisplayed()) {
                     System.out.println("OTP modal detected after Pet 'Next'; verifying OTP...");
                     otpModal.enterOtp(TestDataBuilder.DEFAULT_OTP);
+                    Thread.sleep(2000);
                 }
             } catch (Exception ignore) {}
 
-            if (driver.findElements(By.xpath("//*[@resource-id='textfield_your_pet_name' or @content-desc='About your pet']")).isEmpty()) {
+            if (driver.findElements(aboutPetBy).isEmpty()) {
                 System.out.println("Transitioned successfully out of 'About your pet'!");
                 break;
             }
-            System.out.println("Still on 'About your pet'; re-toggling Privacy notice switch...");
-            acceptPrivacyNotice();
+            if (!driver.findElements(ageBoundaryErrorBy).isEmpty()) {
+                System.out.println("Detected expected age boundary validation on 'About your pet'; keeping validation state.");
+                break;
+            }
+            System.out.println("Still on 'About your pet'; checking missing required dropdowns without re-toggling checked Privacy switch...");
+            if (!isDropdownFieldPopulated(BREED_FIELD_BY, "your pet")) {
+                selectPetBreedIfPresent();
+            }
+            if (!isDropdownFieldPopulated(CITY_FIELD_BY, "city of residence")) {
+                selectCity(lastSelectedCity);
+            }
+            if (!privacyAcceptedOnScreen) {
+                acceptPrivacyNotice();
+            }
         }
         return this;
     }
@@ -604,6 +796,8 @@ public class PetScreen extends BasePage {
      */
     public PetScreen fillAboutYourPet(String name, String type, int years, int months, String gender, String city, String email, String phone, String microchipId) {
         System.out.println("Filling 'About your pet' screen: Name=" + name + ", Type=" + type + ", Age=" + years + "y " + months + "m");
+        privacyAcceptedOnScreen = false;
+        lastDeclarationAnswerYes = false;
         enterPetName(name);
         selectPetType(type);
         selectPetBreedIfPresent();
@@ -664,11 +858,133 @@ public class PetScreen extends BasePage {
 
     // --- Medical / Health Declarations ---
 
+    private int tapAllDisplayedYesButtons() {
+        By yesBy = By.xpath("//*[@clickable='true' and (@resource-id='btn_yes_button' or @content-desc='Yes' or @text='Yes')]");
+        List<WebElement> yesBtns = findWithUnimportantViews(yesBy);
+        if (yesBtns.isEmpty()) {
+            yesBtns = findWithUnimportantViews(By.xpath("//*[@resource-id='btn_yes_button' or @content-desc='Yes' or @text='Yes']"));
+        }
+        int tapped = 0;
+        for (WebElement btn : yesBtns) {
+            try {
+                if (btn.isDisplayed()) {
+                    tapElement(btn);
+                    tapped++;
+                    Thread.sleep(300);
+                }
+            } catch (Exception ignore) {}
+        }
+        return tapped;
+    }
+
+    private boolean handleExpandingAndOtpIfPresent() {
+        boolean handled = false;
+        try {
+            List<WebElement> expandingBtns = findWithUnimportantViews(
+                    By.xpath("//*[contains(@content-desc, 'Got it') or contains(@text, 'Got it') or contains(@content-desc, 'continue')]"));
+            if (!expandingBtns.isEmpty() && expandingBtns.get(0).isDisplayed()) {
+                System.out.println("Dismissing 'We are expanding!' bottom sheet modal...");
+                tapElement(expandingBtns.get(0));
+                Thread.sleep(2000);
+                handled = true;
+            }
+            OtpModal otpModal = new OtpModal();
+            if (otpModal.isModalDisplayed()) {
+                System.out.println("OTP modal detected; verifying OTP...");
+                otpModal.enterOtp(TestDataBuilder.DEFAULT_OTP);
+                Thread.sleep(2000);
+                handled = true;
+            }
+        } catch (Exception ignore) {}
+        return handled;
+    }
+
+    private static final By OWNER_ID_BY = By.xpath(
+            "//*[@resource-id='textfield_national_id' or contains(@resource-id, 'national_id')]");
+
+    private static final By OTP_PIN_BY = By.xpath(
+            "//*[@resource-id='textfield_otp_pin_field' or contains(@resource-id, 'otp_pin') or contains(@resource-id, 'pin_field')]");
+
+    private static final By CHECKOUT_BY = By.xpath(
+            "//*[@resource-id='textfield_iban' or @resource-id='textfield_checkout_page_motor_iban' "
+            + "or @resource-id='btn_pay_now' or @resource-id='btn_checkout_page_motor_pay_now' "
+            + "or @content-desc='Pay now' or @text='Pay now' or @content-desc='Checkout' or @text='Checkout']");
+
+    private boolean isCheckoutActiveNow() {
+        return !findWithUnimportantViews(CHECKOUT_BY).isEmpty();
+    }
+
+    private boolean fillOwnerDetailsAndOtpIfPresent() {
+        List<WebElement> ownerIdFields = driver.findElements(OWNER_ID_BY);
+        if (ownerIdFields.isEmpty()) {
+            return false;
+        }
+        System.out.println("Pet Owner Details screen detected; filling National ID & DOB...");
+        try {
+            String currentVal = ownerIdFields.get(0).getText();
+            if (currentVal == null || !currentVal.contains(TestDataBuilder.DEFAULT_SELLER_ID)) {
+                sendKeys(ownerIdFields.get(0), TestDataBuilder.DEFAULT_SELLER_ID);
+            }
+            hideKeyboard();
+            List<WebElement> dobFields = driver.findElements(By.xpath(
+                    "//*[@resource-id='textfield_month_year_of_birth_txt' or @resource-id='textfield_year_monthof_birth' "
+                    + "or contains(@resource-id, 'birth') or contains(@resource-id, 'dob') "
+                    + "or @hint='Month/Year of birth' or contains(@hint, 'birth')]"));
+            if (!dobFields.isEmpty()) {
+                String dobText = dobFields.get(0).getText();
+                if (dobText == null || !dobText.contains("1998")) {
+                    scrollDobWheelAndConfirm(dobFields.get(0));
+                }
+            }
+            waitUntil(() -> !driver.findElements(By.xpath(
+                    "//android.widget.Button[@enabled='true' and (@content-desc='Next' or @text='Next' or @content-desc='Proceed' or @text='Proceed')] "
+                    + "| //*[@resource-id='btn_next_button' and @enabled='true']")).isEmpty(), 3);
+            // Tap Next button on Owner Details (no privacy switch on this screen)
+            By ownerNextBy = By.xpath(
+                    "//android.widget.Button[(@content-desc='Next' or @text='Next' or @content-desc='Proceed' or @text='Proceed') and @clickable='true'] "
+                    + "| //*[@resource-id='btn_next_button' and @clickable='true'] "
+                    + "| //*[@resource-id='btn_next_button' or @content-desc='Next' or @text='Next' or @content-desc='Proceed' or @text='Proceed']");
+            List<WebElement> nextBtns = findWithUnimportantViews(ownerNextBy);
+            if (nextBtns.isEmpty()) {
+                scrollDown();
+                nextBtns = findWithUnimportantViews(ownerNextBy);
+            }
+            if (!nextBtns.isEmpty()) {
+                WebElement target = nextBtns.get(0);
+                for (WebElement b : nextBtns) {
+                    if ("true".equals(b.getAttribute("clickable"))) {
+                        target = b;
+                        break;
+                    }
+                }
+                tapElement(target);
+            }
+            waitUntil(() -> !driver.findElements(OTP_PIN_BY).isEmpty()
+                    || isCheckoutActiveNow()
+                    || isReferralSignalPresentNow(), 15);
+            OtpModal otpModal = new OtpModal();
+            if (otpModal.isModalDisplayed()) {
+                System.out.println("OTP modal detected after Pet owner Next; entering OTP...");
+                otpModal.enterOtp(TestDataBuilder.DEFAULT_OTP);
+                waitUntil(() -> driver.findElements(OTP_PIN_BY).isEmpty()
+                        || isCheckoutActiveNow()
+                        || isReferralSignalPresentNow(), 15);
+            }
+        } catch (Exception ignore) {}
+        return true;
+    }
+
     public PetScreen answerAllDeclarationQuestions(boolean answerYes) {
         System.out.println("Answering Pet Declarations (Answer=" + (answerYes ? "Yes" : "No") + ")...");
-        By quoteCardsBy = By.xpath("//*[contains(@content-desc, 'FurBasic') or contains(@content-desc, 'FurDeluxe') or contains(@content-desc, 'FurRoyal') or contains(@content-desc, 'Fur basic') or contains(@content-desc, 'Fur deluxe')]");
+        lastDeclarationAnswerYes = answerYes;
+        By quoteCardsBy = By.xpath(
+                "//*[contains(@content-desc, 'FurBasic') or contains(@content-desc, 'FurDeluxe') or contains(@content-desc, 'FurRoyal') "
+                + "or contains(@content-desc, 'Fur basic') or contains(@content-desc, 'Fur deluxe') "
+                + "or @resource-id='btn_buy_now' or @resource-id='btn_sales_quote_page_buy_now_button']");
         By petMoreBy = By.xpath("//*[contains(@content-desc, 'A bit more about') or contains(@text, 'A bit more about')]");
         By yesNoBy = By.xpath("//*[@resource-id='btn_no_button' or @resource-id='btn_yes_button' or @text='No' or @content-desc='No' or @text='Yes' or @content-desc='Yes']");
+        By pepBy = By.xpath("//*[contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'politically exposed') "
+                + "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'politically exposed')]");
 
         if (!answerYes) {
             if (!driver.findElements(quoteCardsBy).isEmpty() && driver.findElements(petMoreBy).isEmpty()) {
@@ -688,60 +1004,153 @@ public class PetScreen extends BasePage {
             return this;
         }
 
-        try {
-            new WebDriverWait(driver, Duration.ofSeconds(15))
-                    .until(ExpectedConditions.presenceOfElementLocated(
-                            By.xpath("//*[contains(@content-desc, 'FurBasic') or contains(@content-desc, 'FurDeluxe') or contains(@content-desc, 'FurRoyal') or contains(@content-desc, 'A bit more about') or @resource-id='btn_yes_button' or @content-desc='Yes']")));
-        } catch (Exception ignore) {}
+        // answerYes == true (Flow 3 Underwriting Referral): wait cleanly through expanding/OTP/Quote/Owner Details until 'A bit more about' or referral loads
+        By proceedCtaBy = By.xpath("//*[@clickable='true' and (@resource-id='btn_proceed' or @content-desc='Proceed' or @text='Proceed' or @content-desc='Buy now' or @text='Buy now')]");
+        for (int step = 0; step < 6; step++) {
+            waitUntil(() -> !driver.findElements(petMoreBy).isEmpty()
+                    || !driver.findElements(yesNoBy).isEmpty()
+                    || !driver.findElements(quoteCardsBy).isEmpty()
+                    || !driver.findElements(OWNER_ID_BY).isEmpty()
+                    || !driver.findElements(OTP_PIN_BY).isEmpty(), 12);
 
-        if (!driver.findElements(quoteCardsBy).isEmpty() && driver.findElements(petMoreBy).isEmpty()) {
-            System.out.println("Flow 3 Underwriting: Currently on Pet Quote screen; clicking Proceed to reach 'A bit more about'...");
-            try {
-                scrollDown();
-                Thread.sleep(600);
-                answerMemberDeclarations(false);
-                tapPreferredButton(
-                        By.xpath("//*[@clickable='true' and (@resource-id='btn_proceed' or @content-desc='Proceed' or @text='Proceed' or @content-desc='Buy now' or @text='Buy now')]"),
-                        buyNowButton);
-                new WebDriverWait(driver, Duration.ofSeconds(10))
-                        .until(ExpectedConditions.presenceOfElementLocated(yesNoBy));
-            } catch (Exception ignore) {}
+            if (!driver.findElements(petMoreBy).isEmpty()
+                    || (!driver.findElements(yesNoBy).isEmpty() && driver.findElements(quoteCardsBy).isEmpty())) {
+                break;
+            }
+            if (handleExpandingAndOtpIfPresent()) {
+                continue;
+            }
+            if (!driver.findElements(quoteCardsBy).isEmpty() && driver.findElements(petMoreBy).isEmpty()) {
+                System.out.println("Flow 3 Underwriting: Currently on Pet Quote screen; clicking Proceed/Buy now to reach 'A bit more about'...");
+                try {
+                    scrollDown();
+                    Thread.sleep(600);
+                    if (!driver.findElements(pepBy).isEmpty()) {
+                        answerMemberDeclarations(false);
+                    }
+                    tapPreferredButton(proceedCtaBy, buyNowButton);
+                    Thread.sleep(2500);
+                } catch (Exception ignore) {}
+                continue;
+            }
+            if (fillOwnerDetailsAndOtpIfPresent()) {
+                continue;
+            }
+            try { Thread.sleep(1500); } catch (Exception ignore) {}
         }
 
-        List<WebElement> yesBtns = driver.findElements(By.xpath("//*[@clickable='true' and (@resource-id='btn_yes_button' or @content-desc='Yes' or @text='Yes')]"));
-        if (yesBtns.isEmpty()) {
-            yesBtns = driver.findElements(By.xpath("//*[@resource-id='btn_yes_button' or @content-desc='Yes' or @text='Yes']"));
+        if (driver.findElements(petMoreBy).isEmpty() && !driver.findElements(quoteCardsBy).isEmpty()) {
+            return this;
         }
-        for (WebElement btn : yesBtns) {
-            try {
-                if (btn.isDisplayed()) {
-                    tapElement(btn);
-                    Thread.sleep(300);
-                }
-            } catch (Exception ignore) {}
+        int tapped = tapAllDisplayedYesButtons();
+        if (!driver.findElements(By.xpath("//android.widget.ScrollView")).isEmpty()) {
+            scrollDown();
+            tapped += tapAllDisplayedYesButtons();
         }
+        System.out.println("Flow 3 Underwriting: Tapped " + tapped + " 'Yes' declaration option(s).");
+        waitUntil(() -> !driver.findElements(By.xpath(
+                "//android.widget.Button[@enabled='true' and (@content-desc='Proceed' or @text='Proceed')] "
+                + "| //*[@resource-id='btn_proceed' and @enabled='true']")).isEmpty(), 4);
         return this;
+    }
+
+    private boolean isReferralSignalPresentNow() {
+        if (isCheckoutActiveNow()) {
+            return false;
+        }
+        if (isElementVisible(underwritingNotice)) {
+            return true;
+        }
+        return !findWithUnimportantViews(By.xpath(
+                "//*[(contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'referral') "
+                + "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'referral') "
+                + "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'not eligible') "
+                + "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'not eligible') "
+                + "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'underwriting') "
+                + "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'underwriting') "
+                + "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'manual review') "
+                + "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'manual review') "
+                + "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'under review') "
+                + "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'under review') "
+                + "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'required documents') "
+                + "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'required documents') "
+                + "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'pre-existing') "
+                + "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'pre-existing') "
+                + "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'declined') "
+                + "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'declined') "
+                + "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'sorry') "
+                + "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'sorry') "
+                + "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'cannot') "
+                + "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'cannot') "
+                + "or ((contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'exclusion') "
+                + "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'exclusion')) "
+                + "and not(contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'terms')) "
+                + "and not(contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'terms'))))]")).isEmpty();
     }
 
     public PetScreen clickDeclarationProceed() {
         System.out.println("Checking Pet Medical Declaration before clicking Proceed...");
         hideKeyboard();
         try {
-            By quoteCardsBy = By.xpath("//*[contains(@content-desc, 'FurBasic') or contains(@content-desc, 'FurDeluxe') or contains(@content-desc, 'FurRoyal') or contains(@content-desc, 'Fur basic') or contains(@content-desc, 'Fur deluxe')]");
+            By quoteCardsBy = By.xpath(
+                    "//*[contains(@content-desc, 'FurBasic') or contains(@content-desc, 'FurDeluxe') or contains(@content-desc, 'FurRoyal') "
+                    + "or contains(@content-desc, 'Fur basic') or contains(@content-desc, 'Fur deluxe') "
+                    + "or @resource-id='btn_buy_now' or @resource-id='btn_sales_quote_page_buy_now_button']");
             By petMoreBy = By.xpath("//*[contains(@content-desc, 'A bit more about') or contains(@text, 'A bit more about')]");
+            By yesNoBy = By.xpath("//*[@resource-id='btn_no_button' or @resource-id='btn_yes_button' or @text='No' or @content-desc='No' or @text='Yes' or @content-desc='Yes']");
             if (!driver.findElements(quoteCardsBy).isEmpty() && driver.findElements(petMoreBy).isEmpty()) {
                 System.out.println("On Pet Quote screen; skipping pre-quote declaration Proceed.");
                 return this;
             }
-            List<WebElement> yesNoOptions = driver.findElements(
-                    By.xpath("//*[@resource-id='btn_no_button' or @resource-id='btn_yes_button' or @text='No' or @content-desc='No' or @text='Yes' or @content-desc='Yes']"));
-            if (!yesNoOptions.isEmpty()) {
-                tapPreferredButton(
-                        By.xpath("//*[@clickable='true' and (@content-desc='Proceed' or @text='Proceed' or @content-desc='Next' or @text='Next')]"),
-                        declarationProceedButton);
-                try { Thread.sleep(2000); } catch (Exception ignore) {}
-            } else {
-                System.out.println("No declaration questions present; skipping Proceed click.");
+            By enabledProceedBy = By.xpath(
+                    "//*[@clickable='true' and (@content-desc='Proceed' or @text='Proceed' or @content-desc='Next' or @text='Next')]");
+            for (int page = 0; page < 3; page++) {
+                if (isCheckoutActiveNow() || isReferralSignalPresentNow()) {
+                    break;
+                }
+                if (lastDeclarationAnswerYes && fillOwnerDetailsAndOtpIfPresent()) {
+                    waitUntil(() -> isCheckoutActiveNow()
+                            || isReferralSignalPresentNow()
+                            || !driver.findElements(yesNoBy).isEmpty()
+                            || !driver.findElements(OWNER_ID_BY).isEmpty()
+                            || !driver.findElements(OTP_PIN_BY).isEmpty(), 15);
+                    handleExpandingAndOtpIfPresent();
+                    if (isCheckoutActiveNow() || isReferralSignalPresentNow()) {
+                        break;
+                    }
+                }
+                List<WebElement> yesNoOptions = driver.findElements(yesNoBy);
+                if (yesNoOptions.isEmpty() || (!driver.findElements(quoteCardsBy).isEmpty() && driver.findElements(petMoreBy).isEmpty())) {
+                    if (page == 0 && driver.findElements(OWNER_ID_BY).isEmpty()) {
+                        System.out.println("No declaration questions present; skipping Proceed click.");
+                    }
+                    break;
+                }
+                if (page > 0) {
+                    if (!lastDeclarationAnswerYes) {
+                        break;
+                    }
+                    System.out.println("Post-Proceed Yes/No declaration/PEP screen detected; answering 'Yes' and proceeding...");
+                    tapAllDisplayedYesButtons();
+                }
+                waitUntil(() -> !driver.findElements(By.xpath(
+                        "//android.widget.Button[@enabled='true' and (@content-desc='Proceed' or @text='Proceed' or @content-desc='Next' or @text='Next')]")).isEmpty(), 4);
+                tapPreferredButton(enabledProceedBy, declarationProceedButton);
+                waitUntil(() -> isCheckoutActiveNow()
+                        || isReferralSignalPresentNow()
+                        || !driver.findElements(OWNER_ID_BY).isEmpty()
+                        || !driver.findElements(petMoreBy).isEmpty()
+                        || !driver.findElements(OTP_PIN_BY).isEmpty(), 15);
+                handleExpandingAndOtpIfPresent();
+            }
+            if (lastDeclarationAnswerYes && !isCheckoutActiveNow() && !isReferralSignalPresentNow()) {
+                handleExpandingAndOtpIfPresent();
+                if (fillOwnerDetailsAndOtpIfPresent()) {
+                    waitUntil(() -> isCheckoutActiveNow()
+                            || isReferralSignalPresentNow()
+                            || !driver.findElements(OTP_PIN_BY).isEmpty(), 15);
+                    handleExpandingAndOtpIfPresent();
+                }
             }
         } catch (Exception e) {
             // dynamic locator used; coordinate fallback removed
@@ -751,19 +1160,12 @@ public class PetScreen extends BasePage {
 
     public boolean isUnderwritingReferralDisplayed() {
         try {
-            WebDriverWait waitReferral = new WebDriverWait(driver, Duration.ofSeconds(10));
-            return waitReferral.until(d -> {
-                if (isElementVisible(underwritingNotice)) return true;
-                return !driver.findElements(By.xpath(
-                    "//*[contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'referral') "
-                    + "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'referral') "
-                    + "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'exclusion') "
-                    + "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'exclusion') "
-                    + "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'not eligible') "
-                    + "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'not eligible') "
-                    + "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'underwriting') "
-                    + "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'underwriting')]")).isEmpty();
-            });
+            if (isCheckoutActiveNow()) {
+                System.out.println("Checkout screen is active; not misclassifying Terms/Exclusions link as underwriting referral.");
+                return false;
+            }
+            WebDriverWait waitReferral = new WebDriverWait(driver, Duration.ofSeconds(15));
+            return waitReferral.until(d -> isReferralSignalPresentNow());
         } catch (Exception e) {
             return false;
         }
@@ -865,47 +1267,7 @@ public class PetScreen extends BasePage {
                 }
             } catch (Exception ignore) {}
 
-            List<WebElement> ownerIdFields = driver.findElements(By.xpath("//*[@resource-id='textfield_national_id' or contains(@resource-id, 'national_id')]"));
-            if (!ownerIdFields.isEmpty()) {
-                System.out.println("Pet Owner Details screen detected; filling National ID & DOB...");
-                try {
-                    String currentVal = ownerIdFields.get(0).getText();
-                    if (currentVal == null || !currentVal.contains(TestDataBuilder.DEFAULT_SELLER_ID)) {
-                        sendKeys(ownerIdFields.get(0), TestDataBuilder.DEFAULT_SELLER_ID);
-                    }
-                    hideKeyboard();
-                    List<WebElement> dobFields = driver.findElements(By.xpath("//*[@resource-id='textfield_month_year_of_birth_txt' or @resource-id='textfield_year_monthof_birth' or contains(@resource-id, 'birth') or contains(@resource-id, 'dob') or @hint='Month/Year of birth' or contains(@hint, 'birth')]"));
-                    if (!dobFields.isEmpty()) {
-                        String dobText = dobFields.get(0).getText();
-                        if (dobText == null || !dobText.contains("1998")) {
-                            scrollDobWheelAndConfirm(dobFields.get(0));
-                        }
-                    }
-                    // Tap Next button on Owner Details (no privacy switch on this screen)
-                    By ownerNextBy = By.xpath("//android.widget.Button[(@content-desc='Next' or @text='Next' or @content-desc='Proceed' or @text='Proceed') and @clickable='true'] | //*[@resource-id='btn_next_button' and @clickable='true'] | //*[@resource-id='btn_next_button' or @content-desc='Next' or @text='Next' or @content-desc='Proceed' or @text='Proceed']");
-                    List<WebElement> nextBtns = findWithUnimportantViews(ownerNextBy);
-                    if (nextBtns.isEmpty()) {
-                        scrollDown();
-                        nextBtns = findWithUnimportantViews(ownerNextBy);
-                    }
-                    if (!nextBtns.isEmpty()) {
-                        WebElement target = nextBtns.get(0);
-                        for (WebElement b : nextBtns) {
-                            if ("true".equals(b.getAttribute("clickable"))) {
-                                target = b;
-                                break;
-                            }
-                        }
-                        tapElement(target);
-                    }
-                    Thread.sleep(2500);
-                    OtpModal otpModal = new OtpModal();
-                    if (otpModal.isModalDisplayed()) {
-                        System.out.println("OTP modal detected after Pet owner Next; entering OTP...");
-                        otpModal.enterOtp(TestDataBuilder.DEFAULT_OTP);
-                        Thread.sleep(2500);
-                    }
-                } catch (Exception ignore) {}
+            if (fillOwnerDetailsAndOtpIfPresent()) {
                 continue;
             }
 

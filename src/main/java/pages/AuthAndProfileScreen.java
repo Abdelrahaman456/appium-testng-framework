@@ -241,11 +241,34 @@ public class AuthAndProfileScreen extends BasePage {
 
     public boolean openAndVerifyPrivacyPolicy() {
         System.out.println("Opening 'Privacy Policy' from My profile...");
-        waitUntil(() -> isElementVisible(privacyPolicyCardBy), 8);
-        tapElement(getVisibleElement(privacyPolicyCardBy));
-        By privacyContentBy = By.xpath("//*[contains(@content-desc, 'Privacy') or contains(@text, 'Privacy') or contains(@class, 'WebView')]");
-        boolean loaded = waitUntil(() -> isElementVisible(privacyContentBy) && !isElementVisible(aboutTreeCardBy), 8);
-        navigateBackToParent(aboutTreeCardBy);
+        waitUntil(() -> isElementVisible(privacyPolicyCardBy) && isElementVisible(aboutTreeCardBy), 8);
+        try { Thread.sleep(500); } catch (Exception ignore) {}
+
+        By privacyContentBy = By.xpath(
+            "//*[contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'privacy') "
+            + "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'privacy') "
+            + "or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'policy') "
+            + "or contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'policy') "
+            + "or contains(@class, 'WebView') "
+            + "or @resource-id='com.android.chrome:id/close_button' "
+            + "or @resource-id='com.android.chrome:id/url_bar' "
+            + "or @package='com.android.chrome']");
+
+        for (int attempt = 1; attempt <= 2; attempt++) {
+            if (isElementVisible(privacyPolicyCardBy)) {
+                tapElement(getVisibleElement(privacyPolicyCardBy));
+            }
+            if (waitUntil(() -> !isElementVisible(aboutTreeCardBy), 3)) {
+                break;
+            }
+            System.out.println("Privacy Policy tap attempt " + attempt + " left My profile visible; retrying...");
+        }
+
+        boolean loaded = waitUntil(() -> !isElementVisible(aboutTreeCardBy)
+                && !findWithUnimportantViews(privacyContentBy).isEmpty(), 15);
+        if (!isElementVisible(aboutTreeCardBy)) {
+            navigateBackToParent(aboutTreeCardBy);
+        }
         return loaded;
     }
 }

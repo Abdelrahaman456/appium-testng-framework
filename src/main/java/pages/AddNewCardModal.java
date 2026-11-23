@@ -18,9 +18,9 @@ public class AddNewCardModal extends BasePage {
             "//*[@resource-id='textfield_credit_debit_card_bottom_sheet_card_number' or @resource-id='textfield_card_number' " +
             "or contains(@resource-id, 'card_number') or contains(@content-desc, 'Card number') or contains(@text, 'Card number') " +
             "or contains(@hint, 'Card number') or contains(@resource-id, 'card_bottom_sheet') " +
-            "or @resource-id='btn_credit_debit_card_bottom_sheet_save']"
+            "or @resource-id='btn_credit_debit_card_bottom_sheet_save' or @content-desc='Add new card' or @text='Add new card']"
         );
-        return waitUntil(() -> !driver.findElements(modalBy).isEmpty(), 10);
+        return waitUntil(() -> !findWithUnimportantViews(modalBy).isEmpty(), 25);
     }
 
     public AddNewCardModal() {
