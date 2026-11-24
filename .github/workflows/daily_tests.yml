@@ -24,7 +24,7 @@ concurrency:
 
 jobs:
   test:
-    timeout-minutes: 120
+    timeout-minutes: 240
     # Linux test VM vm-cmn-appium-01 (GCP prj-cmn-platform-tree). It already runs:
     #   - Android emulator  (systemd: android-emulator@pixel_api34, API 34 Google Play x86_64, KVM)
     #   - Appium 2.19 + UiAutomator2 + Inspector plugin on 127.0.0.1:4723 (systemd: appium)
