@@ -330,10 +330,16 @@ public class BasePage {
                 if (!keyboardShown) {
                     return;
                 }
+                // On Android 14 + Flutter, Appium's default hideKeyboard() falls back to
+                // `input keyevent 111` (ESC) and `input keyevent 4` (BACK), which can pop
+                // Flutter routes back to Home if the IME is already dismissing or unfocused.
+                // Use IME editor action "done" first instead of hardware BACK.
                 try {
-                    androidDriver.hideKeyboard();
+                    java.util.Map<String, Object> args = new java.util.HashMap<>();
+                    args.put("action", "done");
+                    androidDriver.executeScript("mobile: performEditorAction", args);
                 } catch (Exception ignore) {}
-                try { Thread.sleep(350); } catch (Exception ignore) {}
+                try { Thread.sleep(300); } catch (Exception ignore) {}
             } else if (driver instanceof io.appium.java_client.HidesKeyboard) {
                 ((io.appium.java_client.HidesKeyboard) driver).hideKeyboard();
             }

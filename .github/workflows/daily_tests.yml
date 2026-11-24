@@ -177,6 +177,20 @@ jobs:
           echo "Installed app: $PKG version=${APP_VER:-unknown} code=${APP_CODE:-unknown}"
           echo "APP_VERSION=${APP_VER:-$PKG}" >> $GITHUB_ENV
 
+          # Clear stale app session/token state before each CI run and re-grant runtime permissions
+          echo "Clearing stale app data for $PKG and re-granting runtime permissions..."
+          adb -s "$DEV" shell pm clear "$PKG" || true
+          for PERM in android.permission.POST_NOTIFICATIONS android.permission.ACCESS_FINE_LOCATION android.permission.ACCESS_COARSE_LOCATION android.permission.CAMERA android.permission.READ_MEDIA_IMAGES; do
+            adb -s "$DEV" shell pm grant "$PKG" "$PERM" 2>/dev/null || true
+          done
+          echo "=== CI VM & Emulator Network / Environment Diagnostics ==="
+          echo "VM Date (UTC): $(date -u)"
+          echo "VM Egress IP/Geo: $(curl -sS --max-time 5 https://ipinfo.io/json 2>/dev/null | tr '\n' ' ' || echo 'unavailable')"
+          echo "Emulator Timezone: $(adb -s "$DEV" shell getprop persist.sys.timezone 2>/dev/null | tr -d '\r')"
+          echo "Emulator Date: $(adb -s "$DEV" shell date -u 2>/dev/null | tr -d '\r')"
+          echo "Emulator DNS1: $(adb -s "$DEV" shell getprop net.dns1 2>/dev/null | tr -d '\r')"
+          echo "Emulator HTTP Proxy: $(adb -s "$DEV" shell settings get global http_proxy 2>/dev/null | tr -d '\r')"
+
       - name: Ensure Appium server is up
         run: |
           for i in $(seq 1 20); do
