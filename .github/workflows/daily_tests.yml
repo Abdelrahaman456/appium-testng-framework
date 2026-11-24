@@ -194,6 +194,8 @@ jobs:
         run: |
           # Remember where the shared Appium log is, so only this run's lines are archived.
           (wc -l < /var/log/appium/appium.log || echo 0) > .appium_log_start 2>/dev/null
+          DEV=$(adb devices | awk 'NR>1 && $2=="device" {print $1}' | head -1)
+          [ -n "$DEV" ] && adb -s "$DEV" logcat -c 2>/dev/null || true
           TARGET_ENV="${{ inputs.env || 'uat' }}"
           TEST_FILTER="${{ inputs.test_filter || '' }}"
           # Note: APK is pre-installed on the emulator above; omit -DappPath so Appium attaches via appPackage/appActivity in ~2s instead of re-pushing 290 MB on session creation.
@@ -203,12 +205,19 @@ jobs:
           fi
           mvn $MVN_ARGS
 
-      - name: Collect Appium server log for this run
+      - name: Collect Appium & Android logcat logs for this run
         if: always()
         run: |
           START=$(cat .appium_log_start 2>/dev/null || echo 0)
           tail -n +"$((START + 1))" /var/log/appium/appium.log > appium_server.log 2>/dev/null || true
           echo "appium_server.log: $(wc -l < appium_server.log) lines"
+          DEV=$(adb devices | awk 'NR>1 && $2=="device" {print $1}' | head -1)
+          if [ -n "$DEV" ]; then
+            adb -s "$DEV" logcat -d -v time > android_logcat.log 2>/dev/null || true
+            echo "android_logcat.log: $(wc -l < android_logcat.log) lines"
+            echo "=== Key Flutter / App / Network / Activity logcat lines (last 100) ==="
+            grep -iE "flutter|AndroidRuntime|FATAL|DioException|HandshakeException|Certificate|SSL|401|403|MainActivity|sa\.com\.tree|ActivityTaskManager|Force stopping|WIN DEATH|Process.*died" android_logcat.log | tail -n 100 || true
+          fi
 
       - name: Build Daily Teams Report & Bug Triage
         if: always()
@@ -235,6 +244,7 @@ jobs:
             target/screenshots/
             target/videos/
             appium_server.log
+            android_logcat.log
 
       - name: Send Microsoft Teams Notification (Mobile Automation Channel)
         if: always()
