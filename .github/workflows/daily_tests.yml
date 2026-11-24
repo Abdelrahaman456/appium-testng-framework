@@ -141,6 +141,11 @@ jobs:
             sleep 3
           done
           adb -s "$DEV" shell input keyevent 82 || true
+          adb -s "$DEV" shell settings put global window_animation_scale 1 || true
+          adb -s "$DEV" shell settings put global transition_animation_scale 1 || true
+          adb -s "$DEV" shell settings put global animator_duration_scale 1 || true
+          adb -s "$DEV" shell am force-stop io.appium.uiautomator2.server || true
+          adb -s "$DEV" shell am force-stop io.appium.uiautomator2.server.test || true
           ANDROID_VER=$(adb -s "$DEV" shell getprop ro.build.version.release | tr -d '\r')
           DEV_MODEL=$(adb -s "$DEV" shell getprop ro.product.model | tr -d '\r')
           echo "Emulator ready: $DEV_MODEL Android $ANDROID_VER"
@@ -157,10 +162,10 @@ jobs:
             INSTALLED_PATH=$(adb -s "$DEV" shell pm path "$PKG" 2>/dev/null | tr -d '\r' || true)
             if [ -z "$INSTALLED_PATH" ] || [ "$INSTALLED_SHA" != "$APK_SHA" ]; then
               echo "Installing latest UAT APK onto $DEV (sha256=${APK_SHA:0:12})..."
-              if ! adb -s "$DEV" install -r -d app/app-uat-release.apk; then
+              if ! adb -s "$DEV" install -r -d -g app/app-uat-release.apk; then
                 echo "Upgrade install failed (e.g. signature mismatch); uninstalling old $PKG and clean-installing..."
                 adb -s "$DEV" uninstall "$PKG" || true
-                adb -s "$DEV" install app/app-uat-release.apk
+                adb -s "$DEV" install -g app/app-uat-release.apk
               fi
               echo "$APK_SHA" > /tmp/app-uat-release.installed.sha
             else
@@ -191,10 +196,8 @@ jobs:
           (wc -l < /var/log/appium/appium.log || echo 0) > .appium_log_start 2>/dev/null
           TARGET_ENV="${{ inputs.env || 'uat' }}"
           TEST_FILTER="${{ inputs.test_filter || '' }}"
+          # Note: APK is pre-installed on the emulator above; omit -DappPath so Appium attaches via appPackage/appActivity in ~2s instead of re-pushing 290 MB on session creation.
           MVN_ARGS="-B clean test -Denv=${TARGET_ENV}"
-          if [ "$HAVE_APK" = "true" ]; then
-            MVN_ARGS="$MVN_ARGS -DappPath=${GITHUB_WORKSPACE}/app/app-uat-release.apk"
-          fi
           if [ -n "$TEST_FILTER" ]; then
             MVN_ARGS="$MVN_ARGS -Dtest=${TEST_FILTER}"
           fi

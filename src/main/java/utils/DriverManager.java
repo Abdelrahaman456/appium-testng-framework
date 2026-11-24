@@ -12,32 +12,95 @@ import io.appium.java_client.ios.IOSDriver;
 
 import io.appium.java_client.ios.options.XCUITestOptions;
 
+import org.openqa.selenium.NoSuchSessionException;
 import org.openqa.selenium.SessionNotCreatedException;
-
-
+import org.openqa.selenium.WebDriverException;
 
 import java.net.MalformedURLException;
-
 import java.net.URL;
-
 import java.time.Duration;
-
-
+import java.util.Locale;
 
 public class DriverManager {
 
-
-
     // ThreadLocal to support parallel execution
-
     private static final ThreadLocal<AppiumDriver> driver = new ThreadLocal<>();
 
-
-
     public static AppiumDriver getDriver() {
-
         return driver.get();
+    }
 
+    /**
+     * Checks a Throwable and its cause chain for fatal UiAutomator2 instrumentation,
+     * dead Appium session, or dropped ADB transport errors that require session recreation.
+     */
+    public static boolean isInstrumentationDeadError(Throwable t) {
+        Throwable curr = t;
+        int depth = 0;
+        while (curr != null && depth < 10) {
+            if (curr instanceof NoSuchSessionException || curr instanceof SessionNotCreatedException) {
+                return true;
+            }
+            String className = curr.getClass().getName();
+            String message = curr.getMessage() != null ? curr.getMessage() : "";
+            String combined = (className + " " + message).toLowerCase(Locale.ROOT);
+            if (combined.contains("instrumentation process is not running")
+                    || combined.contains("cannot be proxied to uiautomator2 server")
+                    || combined.contains("nosuchsessionexception")
+                    || combined.contains("sessionnotcreatedexception")
+                    || combined.contains("invalid session id")
+                    || combined.contains("session is either terminated or not started")
+                    || combined.contains("socket hang up")
+                    || combined.contains("econnrefused")
+                    || combined.contains("device offline")
+                    || (combined.contains("device") && combined.contains("not found"))) {
+                return true;
+            }
+            curr = curr.getCause();
+            depth++;
+        }
+        return false;
+    }
+
+    /**
+     * Verifies the on-device UiAutomator2 instrumentation server is alive by executing
+     * a direct element lookup (`/*`) that proxies to `io.appium.uiautomator2.server`.
+     */
+    public static boolean isSessionAlive() {
+        AppiumDriver currentDriver = getDriver();
+        if (currentDriver == null) {
+            return false;
+        }
+        try {
+            currentDriver.findElements(org.openqa.selenium.By.xpath("/*"));
+            return true;
+        } catch (Throwable t) {
+            if (isInstrumentationDeadError(t)) {
+                return false;
+            }
+            try {
+                String pageSource = currentDriver.getPageSource();
+                return pageSource != null && !pageSource.isEmpty();
+            } catch (Throwable t2) {
+                return false;
+            }
+        }
+    }
+
+    /**
+     * Tears down a broken or dead Appium session and clears the ThreadLocal reference
+     * so the next test or RetryAnalyzer attempt creates a clean UiAutomator2 session.
+     */
+    public static void forceQuitDeadDriver() {
+        try {
+            AppiumDriver currentDriver = getDriver();
+            if (currentDriver != null) {
+                currentDriver.quit();
+            }
+        } catch (Exception ignore) {
+        } finally {
+            driver.remove();
+        }
     }
 
 
@@ -105,18 +168,32 @@ public class DriverManager {
                     // Setting this to 0 forces Appium to search immediately without waiting for the app to be idle.
 
                     options.setCapability("appium:waitForIdleTimeout", 0);
-
                     options.setCapability("appium:enforceXPath1", true);
+                    options.setUiautomator2ServerLaunchTimeout(Duration.ofSeconds(90));
+                    options.setUiautomator2ServerInstallTimeout(Duration.ofSeconds(90));
+                    options.setAdbExecTimeout(Duration.ofSeconds(90));
 
-                    options.setUiautomator2ServerLaunchTimeout(Duration.ofSeconds(60));
-
-                    options.setUiautomator2ServerInstallTimeout(Duration.ofSeconds(60));
-
-                    options.setAdbExecTimeout(Duration.ofSeconds(60));
-
-                    
-
-                    appiumDriver = new AndroidDriver(appiumServerUrl, options);
+                    WebDriverException lastCreationException = null;
+                    for (int attempt = 1; attempt <= 2; attempt++) {
+                        try {
+                            appiumDriver = new AndroidDriver(appiumServerUrl, options);
+                            lastCreationException = null;
+                            break;
+                        } catch (WebDriverException e) {
+                            lastCreationException = e;
+                            System.out.println("[DriverManager] AndroidDriver creation attempt " + attempt + "/2 failed: " + e.getMessage());
+                            if (attempt < 2) {
+                                try {
+                                    Thread.sleep(3000);
+                                } catch (InterruptedException ie) {
+                                    Thread.currentThread().interrupt();
+                                }
+                            }
+                        }
+                    }
+                    if (appiumDriver == null && lastCreationException != null) {
+                        throw lastCreationException;
+                    }
 
                 } else if (platformName.equalsIgnoreCase("iOS")) {
 
@@ -158,7 +235,7 @@ public class DriverManager {
 
 
 
-            } catch (MalformedURLException | SessionNotCreatedException e) {
+            } catch (MalformedURLException | WebDriverException e) {
 
                 e.printStackTrace();
 
@@ -232,7 +309,14 @@ public class DriverManager {
                     }
                 }
             }
-        } catch (Exception ignore) {}
+        } catch (Exception e) {
+            if (isInstrumentationDeadError(e)) {
+                if (e instanceof RuntimeException) {
+                    throw (RuntimeException) e;
+                }
+                throw new RuntimeException(e);
+            }
+        }
     }
 
     public static void resetAppToHome() {
@@ -331,7 +415,11 @@ public class DriverManager {
                             Thread.sleep(350);
                             continue;
                         }
-                    } catch (Exception ignore) {}
+                    } catch (Exception e) {
+                        if (isInstrumentationDeadError(e)) {
+                            throw e;
+                        }
+                    }
 
                     // Never press Android Back if still on splash or nexuslauncher
                     if (currentDriver.findElements(appInteractiveBy).isEmpty() || !currentDriver.findElements(launcherBy).isEmpty()) {
@@ -368,6 +456,14 @@ public class DriverManager {
                     }
                 }
             } catch (Exception e) {
+                if (isInstrumentationDeadError(e)) {
+                    System.out.println("[FAST RESET] UiAutomator2 instrumentation dead; forcing session recreation...");
+                    forceQuitDeadDriver();
+                    if (e instanceof RuntimeException) {
+                        throw (RuntimeException) e;
+                    }
+                    throw new RuntimeException("UiAutomator2 instrumentation dead during resetAppToHome", e);
+                }
                 System.out.println("[FAST RESET] Back navigation exception: " + e.getMessage());
             }
         }

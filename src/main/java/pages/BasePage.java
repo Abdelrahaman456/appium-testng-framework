@@ -99,7 +99,17 @@ public class BasePage {
 
                 if (Boolean.TRUE.equals(condition.get())) return true;
 
-            } catch (Exception e) { /* element not ready yet, keep polling */ }
+            } catch (Exception e) {
+                if (DriverManager.isInstrumentationDeadError(e)) {
+                    System.out.println("[BasePage] UiAutomator2 instrumentation dead inside waitUntil; aborting wait and forcing session recreation...");
+                    DriverManager.forceQuitDeadDriver();
+                    if (e instanceof RuntimeException) {
+                        throw (RuntimeException) e;
+                    }
+                    throw new RuntimeException(e);
+                }
+                /* element not ready yet, keep polling */
+            }
 
             try { Thread.sleep(200); } catch (Exception e) {}
 
@@ -119,7 +129,18 @@ public class BasePage {
 
     protected boolean isElementVisible(WebElement element) {
 
-        try { return element.isDisplayed(); } catch (Exception e) { return false; }
+        try {
+            return element.isDisplayed();
+        } catch (Exception e) {
+            if (DriverManager.isInstrumentationDeadError(e)) {
+                DriverManager.forceQuitDeadDriver();
+                if (e instanceof RuntimeException) {
+                    throw (RuntimeException) e;
+                }
+                throw new RuntimeException(e);
+            }
+            return false;
+        }
 
     }
 
@@ -139,7 +160,16 @@ public class BasePage {
 
             return !elements.isEmpty() && elements.get(0).isDisplayed();
 
-        } catch (Exception e) { return false; }
+        } catch (Exception e) {
+            if (DriverManager.isInstrumentationDeadError(e)) {
+                DriverManager.forceQuitDeadDriver();
+                if (e instanceof RuntimeException) {
+                    throw (RuntimeException) e;
+                }
+                throw new RuntimeException(e);
+            }
+            return false;
+        }
 
     }
 
@@ -181,7 +211,15 @@ public class BasePage {
 
                 }
 
-            } catch (Exception e) {}
+            } catch (Exception e) {
+                if (DriverManager.isInstrumentationDeadError(e)) {
+                    DriverManager.forceQuitDeadDriver();
+                    if (e instanceof RuntimeException) {
+                        throw (RuntimeException) e;
+                    }
+                    throw new RuntimeException(e);
+                }
+            }
 
         }
 
@@ -200,6 +238,11 @@ public class BasePage {
             element.click();
 
         } catch (Exception e) {
+            if (DriverManager.isInstrumentationDeadError(e)) {
+                System.out.println("[BasePage] UiAutomator2 instrumentation dead during click; forcing session recreation...");
+                DriverManager.forceQuitDeadDriver();
+                throw e;
+            }
 
             System.out.println("[Self-Healing Triggered] Primary click failed. Checking for obstructing popups...");
 
@@ -332,9 +375,20 @@ public class BasePage {
             });
 
         } catch (org.openqa.selenium.TimeoutException e) {
+            if (DriverManager.isInstrumentationDeadError(e)) {
+                System.out.println("[BasePage] UiAutomator2 instrumentation dead inside getVisibleElement; forcing session recreation...");
+                DriverManager.forceQuitDeadDriver();
+                throw e;
+            }
 
             throw new org.openqa.selenium.NoSuchElementException("No visible element found for locator: " + locator + " after " + utils.TestConfig.elementTimeout() + " seconds");
 
+        } catch (org.openqa.selenium.WebDriverException e) {
+            if (DriverManager.isInstrumentationDeadError(e)) {
+                System.out.println("[BasePage] UiAutomator2 instrumentation dead inside getVisibleElement; forcing session recreation...");
+                DriverManager.forceQuitDeadDriver();
+            }
+            throw e;
         }
 
     }
@@ -427,7 +481,16 @@ public class BasePage {
 
 
     protected java.util.List<WebElement> findWithUnimportantViews(org.openqa.selenium.By locator) {
-        java.util.List<WebElement> elements = driver.findElements(locator);
+        java.util.List<WebElement> elements;
+        try {
+            elements = driver.findElements(locator);
+        } catch (org.openqa.selenium.WebDriverException e) {
+            if (DriverManager.isInstrumentationDeadError(e)) {
+                System.out.println("[BasePage] UiAutomator2 instrumentation dead inside findWithUnimportantViews; forcing session recreation...");
+                DriverManager.forceQuitDeadDriver();
+            }
+            throw e;
+        }
         if (!elements.isEmpty()) {
             return elements;
         }
@@ -436,11 +499,21 @@ public class BasePage {
             try {
                 androidDriver.setSetting("ignoreUnimportantViews", false);
                 return androidDriver.findElements(locator);
-            } catch (Exception ignored) {
+            } catch (Exception e) {
+                if (DriverManager.isInstrumentationDeadError(e)) {
+                    System.out.println("[BasePage] UiAutomator2 instrumentation dead inside findWithUnimportantViews fallback; forcing session recreation...");
+                    DriverManager.forceQuitDeadDriver();
+                    if (e instanceof RuntimeException) {
+                        throw (RuntimeException) e;
+                    }
+                    throw new RuntimeException(e);
+                }
             } finally {
-                try {
-                    androidDriver.setSetting("ignoreUnimportantViews", false);
-                } catch (Exception ignored) {}
+                if (DriverManager.getDriver() != null) {
+                    try {
+                        androidDriver.setSetting("ignoreUnimportantViews", false);
+                    } catch (Exception ignored) {}
+                }
             }
         }
         return elements;
