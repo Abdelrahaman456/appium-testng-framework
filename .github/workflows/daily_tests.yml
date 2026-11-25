@@ -245,6 +245,22 @@ jobs:
           JOB_STATUS: ${{ job.status }}
         run: python3 scripts/send_teams_report.py --dry-run
 
+      - name: Create or Update Jira Bugs (UITEST)
+        if: always()
+        env:
+          APP_ENV: ${{ inputs.env || 'uat' }}
+          JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL || 'https://treeda.atlassian.net' }}
+          JIRA_EMAIL: ${{ secrets.JIRA_EMAIL }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+          JIRA_PROJECT_KEY: ${{ secrets.JIRA_PROJECT_KEY || 'UITEST' }}
+          JIRA_ASSIGNEE_QUERY: ${{ secrets.JIRA_ASSIGNEE_QUERY || 'abanaemah@tree.com.sa' }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          COMMIT_URL: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
+          ACTOR: ${{ github.actor }}
+          MAVEN_OUTCOME: ${{ steps.maven.outcome }}
+          JOB_STATUS: ${{ job.status }}
+        run: python3 scripts/create_jira_bugs.py
+
       - name: Upload Test Reports & Screenshots Artifacts
         if: always()
         uses: actions/upload-artifact@v4
