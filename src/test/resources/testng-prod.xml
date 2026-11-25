@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
+<!--
+  Safe Production Smoke & Quote Suite (sa.com.tree.digital.insurance).
+  Runs live Product Quote smoke flows (stopping strictly before Payment) plus
+  all read-only / non-transactional suites (Negative Validation, Support/RTL,
+  SMEs, Auth & Profile, Claims Auth Gate).
+-->
+<suite name="Tree Production Smoke &amp; Quote Suite" parallel="none" configfailurepolicy="continue">
+
+    <listeners>
+        <listener class-name="utils.TestListener" />
+        <listener class-name="utils.AnnotationTransformer" />
+    </listeners>
+
+    <test name="Prod Product Quote Smoke">
+        <parameter name="platformName" value="Android" />
+        <parameter name="deviceName" value="Physical Device" />
+        <parameter name="udid" value="" />
+        <parameter name="appPackage" value="sa.com.tree.digital.insurance" />
+        <parameter name="appActivity" value="sa.com.tree.digital.insurance.MainActivity" />
+        <classes>
+            <class name="tests.ProdSmokeTest" />
+            <class name="tests.NegativeValidationTest" />
+        </classes>
+    </test>
+
+    <test name="Prod Support and Localization">
+        <parameter name="platformName" value="Android" />
+        <parameter name="deviceName" value="Physical Device" />
+        <parameter name="udid" value="" />
+        <parameter name="appPackage" value="sa.com.tree.digital.insurance" />
+        <parameter name="appActivity" value="sa.com.tree.digital.insurance.MainActivity" />
+        <classes>
+            <class name="tests.SupportAndLocalizationTest" />
+        </classes>
+    </test>
+
+    <test name="Prod SME Products">
+        <parameter name="platformName" value="Android" />
+        <parameter name="deviceName" value="Physical Device" />
+        <parameter name="udid" value="" />
+        <parameter name="appPackage" value="sa.com.tree.digital.insurance" />
+        <parameter name="appActivity" value="sa.com.tree.digital.insurance.MainActivity" />
+        <classes>
+            <class name="tests.SmeProductsTest" />
+        </classes>
+    </test>
+
+    <test name="Prod Auth and Profile">
+        <parameter name="platformName" value="Android" />
+        <parameter name="deviceName" value="Physical Device" />
+        <parameter name="udid" value="" />
+        <parameter name="appPackage" value="sa.com.tree.digital.insurance" />
+        <parameter name="appActivity" value="sa.com.tree.digital.insurance.MainActivity" />
+        <classes>
+            <class name="tests.AuthAndProfileTest" />
+        </classes>
+    </test>
+
+    <test name="Prod Claims Auth and Track">
+        <parameter name="platformName" value="Android" />
+        <parameter name="deviceName" value="Physical Device" />
+        <parameter name="udid" value="" />
+        <parameter name="appPackage" value="sa.com.tree.digital.insurance" />
+        <parameter name="appActivity" value="sa.com.tree.digital.insurance.MainActivity" />
+        <classes>
+            <class name="tests.ClaimsLifecycleTest">
+                <methods>
+                    <include name="testClaimsFlow3_OwnPolicyClaim_AuthGate" />
+                    <include name="testClaimsFlow4_TrackClaim_NavigationAndLookup" />
+                    <include name="testClaimsFlow5_ClaimsFormNegativeValidation" />
+                </methods>
+            </class>
+        </classes>
+    </test>
+
+</suite>

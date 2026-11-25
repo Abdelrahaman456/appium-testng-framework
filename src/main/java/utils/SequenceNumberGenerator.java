@@ -10,6 +10,11 @@ public class SequenceNumberGenerator {
      * PROD example: 704857892
      */
     public static synchronized String getNextSequenceNumber() {
+        if (TestConfig.isProd()) {
+            String prodSeq = TestConfig.sequenceNumber();
+            System.out.println("[SequenceNumberGenerator][PROD] Using approved PROD Sequence Number: " + prodSeq);
+            return prodSeq;
+        }
         // 1ms sleep to guarantee uniqueness if called immediately after NationalIdGenerator
         try { Thread.sleep(1); } catch (Exception e) {}
         String prefix = TestConfig.sequenceNumberPrefix();

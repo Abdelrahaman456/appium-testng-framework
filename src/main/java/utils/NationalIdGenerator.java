@@ -10,6 +10,11 @@ public class NationalIdGenerator {
      * PROD example: 1354557891
      */
     public static synchronized String getNextNationalId() {
+        if (TestConfig.isProd()) {
+            String prodId = TestConfig.nationalId();
+            System.out.println("[NationalIdGenerator][PROD] Using approved PROD National ID: " + prodId);
+            return prodId;
+        }
         String prefix = TestConfig.nationalIdPrefix();
         long millis = System.currentTimeMillis();
         String lastFourDigits = String.format("%04d", millis % 10000);

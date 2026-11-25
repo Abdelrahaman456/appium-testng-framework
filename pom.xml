@@ -16,6 +16,7 @@
         <testng.version>7.9.0</testng.version>
         <slf4j.version>2.0.12</slf4j.version>
         <selenium.version>4.20.0</selenium.version>
+        <suiteXmlFile>src/test/resources/testng.xml</suiteXmlFile>
     </properties>
 
     <dependencyManagement>
@@ -92,7 +93,7 @@
                 <configuration>
                     <testFailureIgnore>true</testFailureIgnore>
                     <suiteXmlFiles>
-                        <suiteXmlFile>src/test/resources/testng.xml</suiteXmlFile>
+                        <suiteXmlFile>${suiteXmlFile}</suiteXmlFile>
                     </suiteXmlFiles>
                 </configuration>
             </plugin>
