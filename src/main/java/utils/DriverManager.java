@@ -356,6 +356,14 @@ public class DriverManager {
                 org.openqa.selenium.By homeTabBy = org.openqa.selenium.By.xpath(
                     "//*[@content-desc='Home' or @text='Home' or @content-desc='الرئيسية' or @text='الرئيسية']"
                 );
+                org.openqa.selenium.By closeOrHomeCtaBy = org.openqa.selenium.By.xpath(
+                    "//*[@resource-id='btn_close' or @resource-id='btn_back_to_home' or @resource-id='btn_go_home' "
+                    + "or @content-desc='Back to Home' or @text='Back to Home' "
+                    + "or @content-desc='Go to Home' or @text='Go to Home' "
+                    + "or @content-desc='Go Home' or @text='Go Home' "
+                    + "or @content-desc='Return to Home' or @text='Return to Home' "
+                    + "or @content-desc='Close' or @text='Close']"
+                );
                 org.openqa.selenium.By inAppBackBy = org.openqa.selenium.By.xpath(
                     "//*[@resource-id='btn_back' or @content-desc='Back'] | " +
                     "//android.widget.ImageView[@clickable='true' and (@content-desc='Login' or @content-desc='FAQs' or @content-desc='Contact us' or @content-desc='Complaints tracking' or contains(@content-desc, 'About') or contains(@content-desc, 'Privacy'))]"
@@ -369,7 +377,8 @@ public class DriverManager {
                     "//*[@package='com.google.android.apps.nexuslauncher']"
                 );
 
-                for (int i = 0; i < 4; i++) {
+                int hardwareBackCount = 0;
+                for (int i = 0; i < 6; i++) {
                     try {
                         closeChromeCustomTabIfActive(currentDriver, pkg);
                         // Guard against pressing Android Back while on nexuslauncher or app splash screen
@@ -421,7 +430,16 @@ public class DriverManager {
                             }
                         }
 
-                        // 4. In-app back button present (sub-screens)
+                        // 4. Policy confirmation / modal Close or Back-to-Home CTA present
+                        java.util.List<org.openqa.selenium.WebElement> closeBtns = currentDriver.findElements(closeOrHomeCtaBy);
+                        if (!closeBtns.isEmpty() && closeBtns.get(0).isDisplayed()) {
+                            System.out.println("[FAST RESET] Found Close / Back-to-Home CTA. Tapping to return to Home without restarting app...");
+                            closeBtns.get(0).click();
+                            Thread.sleep(400);
+                            continue;
+                        }
+
+                        // 5. In-app back button present (sub-screens)
                         java.util.List<org.openqa.selenium.WebElement> backBtns = currentDriver.findElements(inAppBackBy);
                         if (!backBtns.isEmpty() && backBtns.get(0).isDisplayed()) {
                             System.out.println("[FAST RESET] Found in-app Back button. Tapping to return towards Home...");
@@ -441,7 +459,12 @@ public class DriverManager {
                         break;
                     }
 
-                    System.out.println("[FAST RESET] Not on Home yet. Pressing Android Back (" + (i + 1) + "/4)...");
+                    if (hardwareBackCount >= 3) {
+                        System.out.println("[FAST RESET] Reached hardware Back cap (3); falling back to clean app restart.");
+                        break;
+                    }
+                    hardwareBackCount++;
+                    System.out.println("[FAST RESET] Not on Home yet. Pressing Android Back (" + hardwareBackCount + "/3)...");
                     if (currentDriver instanceof io.appium.java_client.android.AndroidDriver) {
                         ((io.appium.java_client.android.AndroidDriver) currentDriver).pressKey(
                             new io.appium.java_client.android.nativekey.KeyEvent(io.appium.java_client.android.nativekey.AndroidKey.BACK)
