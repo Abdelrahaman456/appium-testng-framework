@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
 <!-- Set parallel="false" so that if both are uncommented, they run one after another on the same device. -->
-<suite name="Appium Mobile Test Suite" parallel="false">
+<suite name="Appium Mobile Test Suite" parallel="none" configfailurepolicy="continue">
 
     <listeners>
         <listener class-name="utils.TestListener" />

@@ -200,13 +200,36 @@ public class MalpracticeScreen extends BasePage {
     public MalpracticeScreen selectProfession(String profession) {
         System.out.println("Selecting Profession: " + profession);
         hideKeyboard();
-        By professionBy = By.xpath("//android.widget.EditText[contains(@hint, 'Profession') or contains(@hint, 'profession')]");
+        By professionBy = By.xpath("//android.widget.EditText[contains(@hint, 'Profession') or contains(@hint, 'profession') or @resource-id='dropdown_profession']");
+        By professionFallbackBy = By.xpath("//*[contains(@text, 'Profession') or contains(@content-desc, 'Profession') or contains(@hint, 'Profession') or contains(@hint, 'profession') or @resource-id='dropdown_profession']");
         By optionBy = By.xpath("//android.view.View[contains(@content-desc, '" + profession + "') or contains(@text, '" + profession + "')]");
         String prefix = profession.contains(" ") ? profession.split(" ")[0] : profession;
 
         for (int attempt = 0; attempt < 3; attempt++) {
             try {
                 WebElement input = findDisplayedElement(professionBy);
+                if (input == null) {
+                    input = findDisplayedElement(professionFallbackBy);
+                }
+                if (input == null) {
+                    // Profession field may be below the fold or scrolled out of view; scroll dynamically to locate it
+                    for (int s = 0; s < 2 && input == null; s++) {
+                        scrollDown();
+                        try { Thread.sleep(400); } catch (Exception ignore) {}
+                        input = findDisplayedElement(professionBy);
+                        if (input == null) {
+                            input = findDisplayedElement(professionFallbackBy);
+                        }
+                    }
+                }
+                if (input == null) {
+                    scrollUp();
+                    try { Thread.sleep(400); } catch (Exception ignore) {}
+                    input = findDisplayedElement(professionBy);
+                    if (input == null) {
+                        input = findDisplayedElement(professionFallbackBy);
+                    }
+                }
                 if (input == null) {
                     waitForVisibility(professionInput);
                     input = professionInput;

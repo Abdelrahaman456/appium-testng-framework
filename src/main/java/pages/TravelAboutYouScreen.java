@@ -874,11 +874,11 @@ public class TravelAboutYouScreen extends BasePage {
     }
 
     public static final org.openqa.selenium.By TRAVEL_CHECKOUT_INDICATOR = org.openqa.selenium.By.xpath(
-        "//*[@content-desc='Checkout' or @text='Checkout' "
-        + "or contains(@content-desc, 'Required info') or contains(@text, 'Required info') "
-        + "or @resource-id='textfield_iban' or contains(@resource-id, 'iban') "
-        + "or contains(@content-desc, 'IBAN') or contains(@text, 'IBAN') "
-        + "or @resource-id='btn_pay_now' or @content-desc='Pay now' or @text='Pay now']"
+        "//*[@resource-id='textfield_iban' or contains(@resource-id, 'iban') "
+        + "or @resource-id='btn_pay_now' or @content-desc='Pay now' or @text='Pay now' "
+        + "or @resource-id='textfield_building_number' "
+        + "or contains(@content-desc, 'Payment method') or contains(@text, 'Payment method') "
+        + "or contains(@content-desc, 'IBAN') or contains(@text, 'IBAN')]"
     );
 
     public void clickBuyNow() {
