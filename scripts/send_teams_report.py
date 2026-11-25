@@ -170,6 +170,8 @@ class ReportModel:
     warnings_list: List[Tuple[str, List[str], bool]]
     config_errors: List[str]
     perf: Optional[PerfSummary]
+    jira_links: Dict[str, Dict[str, str]] = field(default_factory=dict)
+    jira_board_url: str = ""
 
 
 def format_duration(duration_ms: int) -> str:
@@ -716,7 +718,19 @@ def build_report_model(
         warnings_list=warnings_list,
         config_errors=config_errors,
         perf=perf_summary,
+        jira_links=_load_jira_links(telemetry_path.parent / "jira-links.json"),
+        jira_board_url=os.environ.get("JIRA_BOARD_URL", "https://treeda.atlassian.net/jira/software/projects/UITEST/boards/1076").strip(),
     )
+
+
+def _load_jira_links(jira_links_path: Path) -> Dict[str, Dict[str, str]]:
+    if not jira_links_path.is_file():
+        return {}
+    try:
+        data = json.loads(jira_links_path.read_text(encoding="utf-8"))
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
 
 
 def render_markdown_report(model: ReportModel) -> str:
@@ -745,6 +759,10 @@ def render_markdown_report(model: ReportModel) -> str:
             t = bug.triage
             assert t is not None
             lines.append(f"### Bug #{idx}: `{bug.method_name}` — {t.category} ({t.severity})")
+            jira_info = model.jira_links.get(bug.method_name)
+            if jira_info and jira_info.get("key") and jira_info.get("url"):
+                action_tag = "Created" if jira_info.get("action") == "created" else "Updated"
+                lines.append(f"- **Jira Ticket**: [{jira_info['key']}]({jira_info['url']}) ({action_tag})")
             lines.append(f"- **Suite / Flow**: {bug.suite_name} — {bug.description}")
             lines.append(f"- **Exception**: `{t.exception_class}`")
             lines.append(f"- **Root Cause**: {t.clean_message}")
@@ -927,6 +945,22 @@ def build_adaptive_card_payload(
             "wrap": True,
             "spacing": "Small",
         })
+        if model.jira_links:
+            created_cnt = sum(1 for v in model.jira_links.values() if v.get("action") == "created")
+            updated_cnt = sum(1 for v in model.jira_links.values() if v.get("action") == "commented")
+            jira_parts = []
+            if created_cnt:
+                jira_parts.append(f"{created_cnt} created")
+            if updated_cnt:
+                jira_parts.append(f"{updated_cnt} updated")
+            if jira_parts:
+                body.append({
+                    "type": "TextBlock",
+                    "text": f"**Jira Sync (UITEST):** {' | '.join(jira_parts)}",
+                    "size": "Small",
+                    "wrap": True,
+                    "spacing": "None",
+                })
 
         shown_bugs = model.failures[:max_bugs] if max_bugs > 0 else []
         for idx, bug in enumerate(shown_bugs, start=1):
@@ -934,8 +968,12 @@ def build_adaptive_card_payload(
             assert t is not None
             bug_facts = [
                 {"title": "Suite", "value": f"{bug.suite_name} ({bug.description})"},
-                {"title": "Root Cause", "value": f"[{t.exception_class}] {t.clean_message}"},
             ]
+            jira_info = model.jira_links.get(bug.method_name)
+            if jira_info and jira_info.get("key") and jira_info.get("url"):
+                action_tag = "Created" if jira_info.get("action") == "created" else "Updated"
+                bug_facts.append({"title": "Jira Ticket", "value": f"[{jira_info['key']}]({jira_info['url']}) ({action_tag})"})
+            bug_facts.append({"title": "Root Cause", "value": f"[{t.exception_class}] {t.clean_message}"})
             if t.failing_location:
                 bug_facts.append({"title": "Code Location", "value": t.failing_location})
             if t.last_step:
@@ -1065,6 +1103,12 @@ def build_adaptive_card_payload(
             "type": "Action.OpenUrl",
             "title": "View Commit",
             "url": model.commit_url,
+        })
+    if model.jira_links and model.jira_board_url:
+        actions.append({
+            "type": "Action.OpenUrl",
+            "title": "Open Jira Board (UITEST)",
+            "url": model.jira_board_url,
         })
 
     card: Dict[str, Any] = {

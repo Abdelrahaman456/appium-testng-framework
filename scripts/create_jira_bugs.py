@@ -180,47 +180,95 @@ def _adf_link_paragraph(label: str, url: str) -> Dict[str, Any]:
     }
 
 
-def build_description_adf(model: ReportModel, failure: UnifiedTestResult) -> Dict[str, Any]:
+def find_failure_screenshot(failure: UnifiedTestResult, screenshots_dir: Path) -> Optional[Path]:
+    if failure.screenshot_file:
+        direct = Path(failure.screenshot_file)
+        if direct.is_file():
+            return direct
+        in_dir = screenshots_dir / direct.name
+        if in_dir.is_file():
+            return in_dir
+    if screenshots_dir.is_dir() and failure.method_name:
+        matches = sorted(
+            screenshots_dir.glob(f"{failure.method_name}_*.png"),
+            key=lambda p: p.stat().st_mtime,
+            reverse=True,
+        )
+        if matches:
+            return matches[0]
+    return None
+
+
+def build_description_adf(
+    model: ReportModel,
+    failure: UnifiedTestResult,
+    screenshot_name: str = "",
+) -> Dict[str, Any]:
     triage = failure.triage
     blocks: List[Dict[str, Any]] = [
         {
             "type": "heading",
             "attrs": {"level": 3},
-            "content": [{"type": "text", "text": "Automated Mobile Test Failure"}],
+            "content": [{"type": "text", "text": "Bug Details & Environment"}],
         },
-        _adf_paragraph(f"{failure.suite_name} ({failure.description or failure.method_name})", "Suite / Flow: "),
+        _adf_paragraph(f"{failure.suite_name}", "Suite: "),
+        _adf_paragraph(f"{failure.description or failure.method_name} ({failure.method_name})", "Test Scenario: "),
         _adf_paragraph(f"{model.environment} | App Build: {model.app_version} | Device: {model.device_info}", "Environment: "),
-        _adf_paragraph(f"{model.branch} @ {model.commit_short} ({model.timestamp_ksa})", "Branch / Commit: "),
+        _adf_paragraph(f"{model.branch} @ {model.commit_short} | {model.timestamp_ksa}", "Build / Run Time: "),
         _adf_paragraph(
             f"{triage.category if triage else 'Functional'} | Severity: {triage.severity if triage else 'High'} | "
             f"Duration: {format_duration(failure.duration_ms)} | Retries: {failure.retries}",
-            "Triage: ",
+            "Classification: ",
         ),
     ]
-    if triage and triage.clean_message:
+
+    steps = [s.strip() for s in (failure.last_steps or []) if s and s.strip()]
+    if steps:
         blocks.append(
             {
                 "type": "heading",
-                "attrs": {"level": 4},
-                "content": [{"type": "text", "text": "Root Cause"}],
+                "attrs": {"level": 3},
+                "content": [{"type": "text", "text": "Steps Executed Before Failure"}],
             }
         )
         blocks.append(
             {
-                "type": "codeBlock",
-                "attrs": {"language": "text"},
+                "type": "orderedList",
                 "content": [
                     {
-                        "type": "text",
-                        "text": f"[{triage.exception_class or 'Error'}] {triage.clean_message}",
+                        "type": "listItem",
+                        "content": [_adf_paragraph(step)],
                     }
+                    for step in steps[-10:]
                 ],
             }
         )
-    if triage and triage.failing_location:
-        blocks.append(_adf_paragraph(triage.failing_location, "Code Location: "))
-    if triage and triage.last_step:
+    elif triage and triage.last_step:
         blocks.append(_adf_paragraph(triage.last_step, "Last Executed Step: "))
+
+    blocks.append(
+        {
+            "type": "heading",
+            "attrs": {"level": 3},
+            "content": [{"type": "text", "text": "Actual Result / Root Cause"}],
+        }
+    )
+    blocks.append(
+        {
+            "type": "codeBlock",
+            "attrs": {"language": "text"},
+            "content": [
+                {
+                    "type": "text",
+                    "text": f"[{triage.exception_class if triage else 'Error'}] {triage.clean_message if triage else 'Test failed'}",
+                }
+            ],
+        }
+    )
+    if triage and triage.failing_location:
+        blocks.append(_adf_paragraph(triage.failing_location, "Failing Code Location: "))
+    if screenshot_name:
+        blocks.append(_adf_paragraph(f"Attached to this ticket: {screenshot_name}", "Failure Screenshot (SC): "))
     if model.run_url:
         blocks.append(_adf_link_paragraph("GitHub Actions Run", model.run_url))
     if model.commit_url:
@@ -251,6 +299,7 @@ def build_issue_payload(
     failure: UnifiedTestResult,
     project_key: str,
     assignee_account_id: Optional[str],
+    screenshot_name: str = "",
 ) -> Dict[str, Any]:
     triage = failure.triage
     severity = triage.severity if triage else "High"
@@ -268,7 +317,7 @@ def build_issue_payload(
         "project": {"key": project_key},
         "issuetype": {"name": "Bug"},
         "summary": summary,
-        "description": build_description_adf(model, failure),
+        "description": build_description_adf(model, failure, screenshot_name=screenshot_name),
         "priority": {"name": priority_name},
         "labels": [
             "mobile-automation",
@@ -426,10 +475,17 @@ def sync_failures_to_jira(
         processed += 1
 
         dedup_label = make_dedup_label(failure.method_name)
-        payload = build_issue_payload(model, failure, project_key, assignee_id)
+        shot_path = find_failure_screenshot(failure, screenshots_dir)
+        payload = build_issue_payload(
+            model,
+            failure,
+            project_key,
+            assignee_id,
+            screenshot_name=shot_path.name if shot_path else "",
+        )
 
         if dry_run:
-            print(f"[JIRA][DRY-RUN] Would sync {failure.method_name} -> project={project_key} label={dedup_label} assignee={assignee_id} summary={payload['fields']['summary']}")
+            print(f"[JIRA][DRY-RUN] Would sync {failure.method_name} -> project={project_key} label={dedup_label} assignee={assignee_id} screenshot={shot_path.name if shot_path else 'none'} summary={payload['fields']['summary']}")
             links[failure.method_name] = {
                 "key": f"{project_key}-DRYRUN",
                 "url": f"{base_url.rstrip('/')}/browse/{project_key}-DRYRUN",
@@ -453,12 +509,9 @@ def sync_failures_to_jira(
                 created += 1
                 print(f"[JIRA] Created new bug {issue_key} for {failure.method_name} (assigned to {assignee_id})")
 
-            if failure.screenshot_file:
-                shot_path = Path(failure.screenshot_file)
-                if not shot_path.is_file():
-                    shot_path = screenshots_dir / shot_path.name
-                if shot_path.is_file():
-                    client.attach_file(issue_key, shot_path)
+            if shot_path is not None and shot_path.is_file():
+                client.attach_file(issue_key, shot_path)
+                print(f"[JIRA] Attached screenshot {shot_path.name} to {issue_key}")
 
             links[failure.method_name] = {
                 "key": issue_key,

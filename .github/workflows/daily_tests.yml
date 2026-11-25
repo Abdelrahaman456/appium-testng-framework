@@ -233,18 +233,6 @@ jobs:
             grep -iE "flutter|AndroidRuntime|FATAL|DioException|HandshakeException|Certificate|SSL|401|403|MainActivity|sa\.com\.tree|ActivityTaskManager|Force stopping|WIN DEATH|Process.*died" android_logcat.log | tail -n 100 || true
           fi
 
-      - name: Build Daily Teams Report & Bug Triage
-        if: always()
-        env:
-          APP_ENV: ${{ inputs.env || 'uat' }}
-          TEAMS_CHANNEL_NAME: Mobile Automation
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          COMMIT_URL: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
-          ACTOR: ${{ github.actor }}
-          MAVEN_OUTCOME: ${{ steps.maven.outcome }}
-          JOB_STATUS: ${{ job.status }}
-        run: python3 scripts/send_teams_report.py --dry-run
-
       - name: Create or Update Jira Bugs (UITEST)
         if: always()
         env:
@@ -260,6 +248,19 @@ jobs:
           MAVEN_OUTCOME: ${{ steps.maven.outcome }}
           JOB_STATUS: ${{ job.status }}
         run: python3 scripts/create_jira_bugs.py
+
+      - name: Build Daily Teams Report & Bug Triage
+        if: always()
+        env:
+          APP_ENV: ${{ inputs.env || 'uat' }}
+          TEAMS_CHANNEL_NAME: Mobile Automation
+          JIRA_BOARD_URL: https://treeda.atlassian.net/jira/software/projects/UITEST/boards/1076
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          COMMIT_URL: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
+          ACTOR: ${{ github.actor }}
+          MAVEN_OUTCOME: ${{ steps.maven.outcome }}
+          JOB_STATUS: ${{ job.status }}
+        run: python3 scripts/send_teams_report.py --dry-run
 
       - name: Upload Test Reports & Screenshots Artifacts
         if: always()
