@@ -174,19 +174,33 @@ public class DriverManager {
                     options.setAdbExecTimeout(Duration.ofSeconds(90));
 
                     WebDriverException lastCreationException = null;
-                    for (int attempt = 1; attempt <= 2; attempt++) {
+                    int maxAttempts = 6;
+                    for (int attempt = 1; attempt <= maxAttempts; attempt++) {
                         try {
                             appiumDriver = new AndroidDriver(appiumServerUrl, options);
                             lastCreationException = null;
                             break;
                         } catch (WebDriverException e) {
                             lastCreationException = e;
-                            System.out.println("[DriverManager] AndroidDriver creation attempt " + attempt + "/2 failed: " + e.getMessage());
-                            if (attempt < 2) {
+                            String msg = e.getMessage() != null ? e.getMessage().toLowerCase(Locale.ROOT) : "";
+                            boolean emulatorRebooting = msg.contains("could not find a connected android device")
+                                    || msg.contains("can't find service: settings")
+                                    || msg.contains("device offline")
+                                    || msg.contains("still being initialized")
+                                    || msg.contains("socket hang up")
+                                    || msg.contains("instrumentation process is not running");
+                            System.out.println("[DriverManager] AndroidDriver creation attempt " + attempt + "/" + maxAttempts
+                                    + " failed" + (emulatorRebooting ? " (emulator reboot/booting detected)" : "") + ": " + e.getMessage());
+                            if (attempt < maxAttempts) {
+                                long backoffMs = emulatorRebooting ? 10000L : 3000L;
+                                if (!emulatorRebooting && attempt >= 2) {
+                                    break;
+                                }
                                 try {
-                                    Thread.sleep(3000);
+                                    Thread.sleep(backoffMs);
                                 } catch (InterruptedException ie) {
                                     Thread.currentThread().interrupt();
+                                    break;
                                 }
                             }
                         }
