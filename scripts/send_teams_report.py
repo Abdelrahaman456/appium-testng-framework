@@ -855,7 +855,7 @@ def build_adaptive_card_payload(
 ) -> Dict[str, Any]:
     body: List[Dict[str, Any]] = []
 
-    # 1. Header Banner
+    # 1. Header Banner (clean & scannable)
     body.append({
         "type": "Container",
         "style": model.card_style,
@@ -870,17 +870,16 @@ def build_adaptive_card_payload(
             },
             {
                 "type": "TextBlock",
-                "text": f"**{model.overall_status}**  |  Channel: {model.channel_name}  |  {model.timestamp_ksa}",
+                "text": f"**{model.overall_status}**  •  {model.timestamp_ksa}",
                 "wrap": True,
                 "spacing": "Small",
             },
         ],
     })
 
-    # 2. 5-Column KPI Strip
+    # 2. 4-Column KPI Strip (key numbers at a glance)
     pass_color = "Good" if model.failed == 0 and model.total > 0 else ("Attention" if model.failed > 0 else "Warning")
     fail_color = "Attention" if model.failed > 0 else "Good"
-    flaky_color = "Warning" if model.flaky > 0 else "Default"
     body.append({
         "type": "ColumnSet",
         "spacing": "Medium",
@@ -888,23 +887,16 @@ def build_adaptive_card_payload(
         "columns": [
             _kpi_column("Pass Rate", f"{model.pass_rate_pct:.1f}%", pass_color),
             _kpi_column("Passed", f"{model.passed}/{model.total}", "Good" if model.passed > 0 else "Default"),
-            _kpi_column("Bugs / Failed", str(model.failed), fail_color),
-            _kpi_column("Flaky", str(model.flaky), flaky_color),
+            _kpi_column("Failed (Bugs)", str(model.failed), fail_color),
             _kpi_column("Duration", format_duration(model.total_duration_ms), "Default"),
         ],
     })
 
-    # 3. Build & Environment Context FactSet
-    commit_display = f"{model.branch} @ {model.commit_short}"
-    if model.commit_message:
-        commit_display += f" ({model.commit_message})"
+    # 3. Compact Run Context (3 essential lines only)
     facts = [
-        {"title": "Trigger", "value": model.trigger_label},
-        {"title": "Branch / Commit", "value": commit_display},
-        {"title": "App / Build", "value": model.app_version},
-        {"title": "Device / OS", "value": model.device_info},
-        {"title": "Triggered By", "value": model.actor},
-        {"title": "UTC Timestamp", "value": model.timestamp_utc},
+        {"title": "App Build", "value": f"{model.app_version} ({model.environment})"},
+        {"title": "Device", "value": model.device_info},
+        {"title": "Run", "value": f"{model.trigger_label}  •  {model.branch} @ {model.commit_short}"},
     ]
     body.append({"type": "FactSet", "facts": facts, "spacing": "Medium", "separator": True})
 
@@ -966,24 +958,21 @@ def build_adaptive_card_payload(
         for idx, bug in enumerate(shown_bugs, start=1):
             t = bug.triage
             assert t is not None
+            issue_text = (t.clean_message or "Test failed").strip()
+            if len(issue_text) > 180:
+                issue_text = issue_text[:177].rstrip() + "..."
             bug_facts = [
-                {"title": "Suite", "value": f"{bug.suite_name} ({bug.description})"},
+                {"title": "Product", "value": bug.suite_name},
+                {"title": "Issue", "value": issue_text},
             ]
             jira_info = model.jira_links.get(bug.method_name)
             if jira_info and jira_info.get("key") and jira_info.get("url"):
                 action_tag = "Created" if jira_info.get("action") == "created" else "Updated"
                 bug_facts.append({"title": "Jira Ticket", "value": f"[{jira_info['key']}]({jira_info['url']}) ({action_tag})"})
-            bug_facts.append({"title": "Root Cause", "value": f"[{t.exception_class}] {t.clean_message}"})
-            if t.failing_location:
-                bug_facts.append({"title": "Code Location", "value": t.failing_location})
-            if t.last_step:
-                bug_facts.append({"title": "Last Step", "value": t.last_step})
-            bug_facts.append({"title": "Execution", "value": f"Retries: {bug.retries} | Duration: {format_duration(bug.duration_ms)}"})
+            if t.last_step and not t.last_step.startswith("[PERF"):
+                bug_facts.append({"title": "Failed At", "value": t.last_step})
 
-            artifact_parts = [x for x in (bug.screenshot_file, bug.dom_xml_file, bug.video_file) if x]
-            if artifact_parts:
-                bug_facts.append({"title": "Evidence Files", "value": ", ".join(artifact_parts)})
-
+            human_title = bug.description.strip() if bug.description and bug.description.strip() else bug.method_name
             body.append({
                 "type": "Container",
                 "style": "Emphasis",
@@ -991,7 +980,7 @@ def build_adaptive_card_payload(
                 "items": [
                     {
                         "type": "TextBlock",
-                        "text": f"Bug #{idx} [{t.severity.upper()}] {t.category} — `{bug.method_name}`",
+                        "text": f"#{idx} [{t.severity.upper()}] {human_title}",
                         "weight": "Bolder",
                         "color": _severity_color(t.severity),
                         "size": "Small",
@@ -1090,19 +1079,13 @@ def build_adaptive_card_payload(
                 perf_items.append({"type": "TextBlock", "text": f"{prefix}\n{rows_text}", "size": "Small", "wrap": True, "spacing": "Small"})
         body.append({"type": "Container", "spacing": "Medium", "separator": True, "items": perf_items})
 
-    # 9. Actions
+    # 8. Actions (Full Report & Jira Board)
     actions: List[Dict[str, Any]] = []
     if model.run_url:
         actions.append({
             "type": "Action.OpenUrl",
-            "title": "View Full Report, Screenshots & Videos",
+            "title": "View Full Report & Screenshots",
             "url": model.run_url,
-        })
-    if model.commit_url:
-        actions.append({
-            "type": "Action.OpenUrl",
-            "title": "View Commit",
-            "url": model.commit_url,
         })
     if model.jira_links and model.jira_board_url:
         actions.append({
