@@ -48,6 +48,7 @@ public class NegativeValidationTest extends BaseTest {
 
         AboutYouScreen aboutYouScreen = new AboutYouScreen();
         aboutYouScreen.selectNewInsuranceTab();
+        aboutYouScreen.selectSequenceNumberRadio();
         aboutYouScreen.enterSequenceNumber(utils.SequenceNumberGenerator.getNextSequenceNumber());
 
         System.out.println("Entering short invalid National ID: 12345...");
@@ -75,6 +76,7 @@ public class NegativeValidationTest extends BaseTest {
 
         AboutYouScreen aboutYouScreen = new AboutYouScreen();
         aboutYouScreen.selectNewInsuranceTab();
+        aboutYouScreen.selectSequenceNumberRadio();
         System.out.println("Entering non-numeric Sequence Number: ABC12345...");
         aboutYouScreen.enterSequenceNumber("ABC12345");
 

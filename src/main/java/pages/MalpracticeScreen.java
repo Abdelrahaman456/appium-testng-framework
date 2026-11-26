@@ -773,10 +773,10 @@ public class MalpracticeScreen extends BasePage {
     private WebElement buyNowButton;
 
     public MalpracticeScreen waitForPlanSelectionScreen() {
-        System.out.println("Waiting for Malpractice Insurance Quote/Plan screen...");
-        WebDriverWait localWait = new WebDriverWait(driver, Duration.ofSeconds(30));
+        System.out.println("Waiting up to 45s for Malpractice Insurance Quote/Plan screen...");
+        WebDriverWait localWait = new WebDriverWait(driver, Duration.ofSeconds(45));
         localWait.until(ExpectedConditions.presenceOfElementLocated(
-            By.xpath("//*[@resource-id='btn_buy_now' or contains(@content-desc, 'Buy now') or contains(@text, 'Buy now') or contains(@content-desc, 'quote') or contains(@text, 'quote')]")));
+            By.xpath("//*[@resource-id='btn_buy_now' or @resource-id='btn_sales_quote_page_buy_now_button' or contains(@content-desc, 'Buy now') or contains(@text, 'Buy now') or contains(@content-desc, 'quote') or contains(@text, 'quote') or contains(@content-desc, 'Quote') or contains(@text, 'Quote')]")));
         System.out.println("Malpractice Plan Selection Screen loaded!");
         return this;
     }

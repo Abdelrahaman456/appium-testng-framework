@@ -185,6 +185,8 @@ public class TravelTest extends BaseTest {
         travelScreen.clickPrivacyCheckbox();
         travelScreen.clickNext();
 
+        travelScreen.answerAllDeclarationQuestions(false);
+        travelScreen.clickDeclarationProceed();
         travelScreen.waitForPlanSelectionScreen();
         Assert.assertTrue(travelScreen.isQuoteScreenDisplayed(), "Travel plan selection screen did not load!");
         
