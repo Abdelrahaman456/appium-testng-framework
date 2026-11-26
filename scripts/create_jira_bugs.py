@@ -104,9 +104,12 @@ INFRA_ERROR_SIGNATURES = (
 )
 
 
-def make_dedup_label(method_name: str) -> str:
+def make_dedup_label(method_name: str, env_name: str = "uat") -> str:
     cleaned = re.sub(r"[^A-Za-z0-9_-]+", "_", (method_name or "unknown").strip())
     cleaned = cleaned.strip("_") or "unknown"
+    env_key = (env_name or "uat").strip().lower()
+    if env_key == "prod" or env_key == "production":
+        return f"auto-mobile-prod-{cleaned[:47]}"
     return f"auto-mobile-{cleaned[:52]}"
 
 
@@ -303,7 +306,8 @@ def build_issue_payload(
 ) -> Dict[str, Any]:
     triage = failure.triage
     severity = triage.severity if triage else "High"
-    priority_name = SEVERITY_TO_PRIORITY.get(severity, "High")
+    is_prod_env = (model.environment or "").strip().lower() in ("prod", "production")
+    priority_name = "Highest" if is_prod_env else SEVERITY_TO_PRIORITY.get(severity, "High")
     short_reason = (triage.clean_message if triage else "Test failed").splitlines()[0].strip()
     if len(short_reason) > 95:
         short_reason = short_reason[:92].rstrip() + "..."
@@ -312,7 +316,7 @@ def build_issue_payload(
     if len(summary) > 250:
         summary = summary[:247].rstrip() + "..."
 
-    dedup_label = make_dedup_label(failure.method_name)
+    dedup_label = make_dedup_label(failure.method_name, model.environment)
     fields: Dict[str, Any] = {
         "project": {"key": project_key},
         "issuetype": {"name": "Bug"},
@@ -474,7 +478,7 @@ def sync_failures_to_jira(
             break
         processed += 1
 
-        dedup_label = make_dedup_label(failure.method_name)
+        dedup_label = make_dedup_label(failure.method_name, model.environment)
         shot_path = find_failure_screenshot(failure, screenshots_dir)
         payload = build_issue_payload(
             model,

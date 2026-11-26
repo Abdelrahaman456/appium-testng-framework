@@ -259,6 +259,9 @@ public class CheckoutScreen extends BasePage {
     }
 
     public void clickPayNow() {
+        if (utils.TestConfig.isProd() && utils.TestConfig.skipPayment()) {
+            throw new IllegalStateException("SAFETY GUARD: Pay now is strictly blocked in PRODUCTION mode (prod.skip.payment=true).");
+        }
         if (isPaymentOrConfirmationAlreadyActive()) {
             System.out.println("Payment/confirmation already active; skipping duplicate Pay now click.");
             return;

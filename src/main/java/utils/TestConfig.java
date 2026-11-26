@@ -68,6 +68,10 @@ public class TestConfig {
     public static boolean isProd() { return "prod".equals(ACTIVE_ENV); }
 
     public static String get(String key, String defaultValue) {
+        String sysOverride = System.getProperty(key);
+        if (sysOverride != null && !sysOverride.trim().isEmpty()) {
+            return sysOverride.trim();
+        }
         return props.getProperty(key, defaultValue);
     }
 
@@ -87,10 +91,15 @@ public class TestConfig {
     public static String appiumServerUrl(){ return get("appium.server.url","http://127.0.0.1:4723"); }
 
     // ─── Customer Data ───────────────────────────────────────────────────────────
-    public static String phone()   { return get("default.phone",  "500421222"); }
-    public static String otp()     { return get("default.otp",    "1234"); }
-    public static String email()   { return get("default.email",  "aashraf@tree.com.sa"); }
-    public static String iban()    { return get("default.iban",   "SA6530400108071059170014"); }
+    public static String nationalId()     { return get("default.national.id",     "1313424273"); }
+    public static String sequenceNumber() { return get("default.sequence.number", "704848484"); }
+    public static String dobYear()        { return get("default.dob.year",        "1998"); }
+    public static String dobMonth()       { return get("default.dob.month",       "Jan"); }
+    public static String phone()          { return get("default.phone",           "500421222"); }
+    public static String otp()            { return get("default.otp",             "1234"); }
+    public static String email()          { return get("default.email",           "aashraf@tree.com.sa"); }
+    public static String iban()           { return get("default.iban",            "SA6530400108071059170014"); }
+    public static boolean skipPayment()   { return Boolean.parseBoolean(get("prod.skip.payment", isProd() ? "true" : "false")); }
 
     // ─── Vehicle Data ────────────────────────────────────────────────────────────
     public static String cardNumber()   { return get("default.card.number",  "4111111111111111"); }

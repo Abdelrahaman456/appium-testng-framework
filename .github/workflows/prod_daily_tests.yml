@@ -1,0 +1,204 @@
+name: Daily Production Smoke & Quote Tests
+
+on:
+  schedule:
+    # Runs every day at 6:00 AM UTC (9:00 AM KSA / UTC+3) — 2 hours before UAT full suite
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+    inputs:
+      test_filter:
+        description: 'Optional TestNG class/method filter (-Dtest=...), leave empty for full Prod Smoke suite'
+        required: false
+        default: ''
+      skip_playstore_update:
+        description: 'Skip Play Store check and use currently installed Prod app'
+        type: boolean
+        required: false
+        default: false
+
+# Share the same emulator lock with UAT so Prod and UAT never collide on emulator-5554
+concurrency:
+  group: appium-vm-emulator
+  cancel-in-progress: false
+
+jobs:
+  prod-smoke:
+    timeout-minutes: 90
+    runs-on: [appium-vm]
+
+    steps:
+      - name: Checkout Repository Code
+        uses: actions/checkout@v4
+
+      - name: Ensure Android Emulator is Booted and Healthy
+        run: |
+          adb start-server >/dev/null 2>&1 || true
+          DEV=""
+          for i in $(seq 1 36); do
+            DEV=$(adb devices | awk 'NR>1 && $2=="device" {print $1}' | head -1)
+            [ -n "$DEV" ] && break
+            sleep 5
+          done
+          if [ -z "$DEV" ]; then
+            echo "::error::No online emulator on vm-cmn-appium-01."
+            exit 1
+          fi
+          for i in $(seq 1 60); do
+            [ "$(adb -s "$DEV" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ] && break
+            sleep 3
+          done
+          adb -s "$DEV" shell input keyevent 82 || true
+          adb -s "$DEV" shell settings put global window_animation_scale 1 || true
+          adb -s "$DEV" shell settings put global transition_animation_scale 1 || true
+          adb -s "$DEV" shell settings put global animator_duration_scale 1 || true
+          adb -s "$DEV" shell am force-stop io.appium.uiautomator2.server || true
+          adb -s "$DEV" shell am force-stop io.appium.uiautomator2.server.test || true
+          ANDROID_VER=$(adb -s "$DEV" shell getprop ro.build.version.release | tr -d '\r')
+          DEV_MODEL=$(adb -s "$DEV" shell getprop ro.product.model | tr -d '\r')
+          COMMIT_MSG=$(git log -1 --pretty=%s 2>/dev/null || true)
+          echo "COMMIT_MESSAGE=${COMMIT_MSG}" >> $GITHUB_ENV
+          echo "DEVICE_INFO=${DEV_MODEL:-Android Emulator} (Android ${ANDROID_VER:-14}, ${DEV})" >> $GITHUB_ENV
+          echo "DEV_ID=${DEV}" >> $GITHUB_ENV
+
+      - name: Update or Install Latest Production App (Play Store + prod-apk Fallback)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PKG="sa.com.tree.digital.insurance"
+          DEV="${DEV_ID}"
+          if [ "${{ inputs.skip_playstore_update }}" != "true" ]; then
+            echo "Checking Google Play Store for latest $PKG..."
+            if ! python3 scripts/update_prod_app_playstore.py --device "$DEV" --package "$PKG" --timeout 180; then
+              echo "Play Store update skipped/unavailable; checking prod-apk GitHub Release fallback..."
+              mkdir -p app
+              ASSET_URL=$(python3 - <<'PY'
+          import json, os, urllib.request
+          repo = os.environ.get("GITHUB_REPOSITORY", "TreeDigitalInsurance/Mobile_Automation_Testing")
+          token = os.environ.get("GH_TOKEN", "")
+          req = urllib.request.Request(
+              f"https://api.github.com/repos/{repo}/releases/tags/prod-apk",
+              headers={"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"},
+          )
+          try:
+              with urllib.request.urlopen(req, timeout=20) as resp:
+                  rel = json.loads(resp.read().decode("utf-8"))
+              picked = next((a for a in rel.get("assets", []) if str(a.get("name", "")).endswith(".apk")), None)
+              if picked:
+                  print(picked["url"])
+          except Exception:
+              pass
+          PY
+              )
+              if [ -n "$ASSET_URL" ]; then
+                curl -fSL -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/octet-stream" "$ASSET_URL" -o app/app-prod-release.apk || true
+                if [ -f app/app-prod-release.apk ] && unzip -tq app/app-prod-release.apk >/dev/null 2>&1; then
+                  adb -s "$DEV" install -r -d -g app/app-prod-release.apk || true
+                fi
+              fi
+            fi
+          fi
+
+          INSTALLED_PATH=$(adb -s "$DEV" shell pm path "$PKG" 2>/dev/null | tr -d '\r' || true)
+          if [ -z "$INSTALLED_PATH" ]; then
+            echo "::error::Production app $PKG is not installed. Sign in to Google Play Store on qa-emulator.tree.com.sa or upload APK to release tag 'prod-apk'."
+            exit 1
+          fi
+
+          adb -s "$DEV" shell pm clear "$PKG" || true
+          for PERM in android.permission.POST_NOTIFICATIONS android.permission.ACCESS_FINE_LOCATION android.permission.ACCESS_COARSE_LOCATION android.permission.CAMERA android.permission.READ_MEDIA_IMAGES; do
+            adb -s "$DEV" shell pm grant "$PKG" "$PERM" 2>/dev/null || true
+          done
+
+          APP_VER=$(adb -s "$DEV" shell dumpsys package "$PKG" 2>/dev/null | grep -m1 "versionName=" | sed 's/.*versionName=//' | tr -d '\r' || true)
+          APP_CODE=$(adb -s "$DEV" shell dumpsys package "$PKG" 2>/dev/null | grep -m1 "versionCode=" | sed -n 's/.*versionCode=\([0-9]*\).*/\1/p' | tr -d '\r' || true)
+          echo "Installed PROD app: $PKG version=${APP_VER:-unknown} code=${APP_CODE:-unknown}"
+          echo "APP_VERSION=${APP_VER:-$PKG}" >> $GITHUB_ENV
+
+      - name: Ensure Appium server is up
+        run: |
+          for i in $(seq 1 20); do
+            if curl -fsS http://127.0.0.1:4723/status >/dev/null; then
+              exit 0
+            fi
+            sleep 3
+          done
+          echo "::error::Appium is not answering on 127.0.0.1:4723."
+          exit 1
+
+      - name: Run Production Smoke & Quote Suite (Payment Strictly Blocked)
+        id: maven
+        run: |
+          (wc -l < /var/log/appium/appium.log || echo 0) > .appium_log_start 2>/dev/null
+          [ -n "${DEV_ID}" ] && adb -s "${DEV_ID}" logcat -c 2>/dev/null || true
+          MVN_ARGS="-B clean test -Denv=prod -Dprod.skip.payment=true -DsuiteXmlFile=src/test/resources/testng-prod.xml"
+          TEST_FILTER="${{ inputs.test_filter || '' }}"
+          if [ -n "$TEST_FILTER" ]; then
+            MVN_ARGS="$MVN_ARGS -Dtest=${TEST_FILTER}"
+          fi
+          mvn $MVN_ARGS
+
+      - name: Collect Appium & Android logcat logs
+        if: always()
+        run: |
+          START=$(cat .appium_log_start 2>/dev/null || echo 0)
+          tail -n +"$((START + 1))" /var/log/appium/appium.log > appium_server.log 2>/dev/null || true
+          [ -n "${DEV_ID}" ] && adb -s "${DEV_ID}" logcat -d -v time > android_logcat.log 2>/dev/null || true
+
+      - name: Create or Update Jira Bugs (UITEST - PROD)
+        if: always()
+        env:
+          APP_ENV: prod
+          JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL || 'https://treeda.atlassian.net' }}
+          JIRA_EMAIL: ${{ secrets.JIRA_EMAIL }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+          JIRA_PROJECT_KEY: ${{ secrets.JIRA_PROJECT_KEY || 'UITEST' }}
+          JIRA_ASSIGNEE_QUERY: ${{ secrets.JIRA_ASSIGNEE_QUERY || 'abanaemah@tree.com.sa' }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          COMMIT_URL: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
+          ACTOR: ${{ github.actor }}
+          MAVEN_OUTCOME: ${{ steps.maven.outcome }}
+          JOB_STATUS: ${{ job.status }}
+        run: python3 scripts/create_jira_bugs.py
+
+      - name: Build Daily Teams Report (PROD)
+        if: always()
+        env:
+          APP_ENV: prod
+          TEAMS_CHANNEL_NAME: Mobile Automation
+          JIRA_BOARD_URL: https://treeda.atlassian.net/jira/software/projects/UITEST/boards/1076
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          COMMIT_URL: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
+          ACTOR: ${{ github.actor }}
+          MAVEN_OUTCOME: ${{ steps.maven.outcome }}
+          JOB_STATUS: ${{ job.status }}
+        run: python3 scripts/send_teams_report.py --dry-run
+
+      - name: Upload Production Test Reports & Screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: appium-prod-test-reports
+          path: |
+            target/extent-reports/
+            target/surefire-reports/
+            target/perf-reports/
+            target/teams-report/
+            target/screenshots/
+            appium_server.log
+            android_logcat.log
+          if-no-files-found: ignore
+          retention-days: 30
+
+      - name: Send Microsoft Teams Notification (PROD)
+        if: always()
+        env:
+          APP_ENV: prod
+          TEAMS_CHANNEL_NAME: Mobile Automation
+          TEAMS_WEBHOOK_URL: ${{ secrets.TEAMS_WEBHOOK_URL }}
+          JIRA_BOARD_URL: https://treeda.atlassian.net/jira/software/projects/UITEST/boards/1076
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          COMMIT_URL: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
+          ACTOR: ${{ github.actor }}
+          MAVEN_OUTCOME: ${{ steps.maven.outcome }}
+          JOB_STATUS: ${{ job.status }}
+        run: python3 scripts/send_teams_report.py
