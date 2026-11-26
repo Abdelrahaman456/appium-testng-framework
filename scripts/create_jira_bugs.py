@@ -546,7 +546,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     args = parser.parse_args(argv)
 
     base_url = os.environ.get("JIRA_BASE_URL", "https://treeda.atlassian.net").strip()
-    email = os.environ.get("JIRA_EMAIL", "").strip()
+    email = (os.environ.get("JIRA_EMAIL") or "aashraf@tree.com.sa").strip() or "aashraf@tree.com.sa"
     api_token = os.environ.get("JIRA_API_TOKEN", "").strip()
     project_key = os.environ.get("JIRA_PROJECT_KEY", "UITEST").strip() or "UITEST"
     assignee_query = os.environ.get("JIRA_ASSIGNEE_QUERY", DEFAULT_ASSIGNEE_QUERY).strip()

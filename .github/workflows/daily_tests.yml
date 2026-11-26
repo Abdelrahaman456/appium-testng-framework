@@ -238,7 +238,7 @@ jobs:
         env:
           APP_ENV: ${{ inputs.env || 'uat' }}
           JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL || 'https://treeda.atlassian.net' }}
-          JIRA_EMAIL: ${{ secrets.JIRA_EMAIL }}
+          JIRA_EMAIL: ${{ secrets.JIRA_EMAIL || 'aashraf@tree.com.sa' }}
           JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
           JIRA_PROJECT_KEY: ${{ secrets.JIRA_PROJECT_KEY || 'UITEST' }}
           JIRA_ASSIGNEE_QUERY: ${{ secrets.JIRA_ASSIGNEE_QUERY || 'abanaemah@tree.com.sa' }}
