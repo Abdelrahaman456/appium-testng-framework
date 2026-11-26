@@ -875,25 +875,33 @@ public class TravelAboutYouScreen extends BasePage {
 
     public static final org.openqa.selenium.By TRAVEL_CHECKOUT_INDICATOR = org.openqa.selenium.By.xpath(
         "//*[@resource-id='textfield_iban' or contains(@resource-id, 'iban') "
-        + "or @resource-id='btn_pay_now' or @content-desc='Pay now' or @text='Pay now' "
-        + "or @resource-id='textfield_building_number' "
-        + "or contains(@content-desc, 'Payment method') or contains(@text, 'Payment method') "
-        + "or contains(@content-desc, 'IBAN') or contains(@text, 'IBAN')]"
+        + "or @resource-id='btn_pay_now' or @resource-id='textfield_building_number' "
+        + "or (//android.widget.Button[@clickable='true' and (@content-desc='Pay now' or @text='Pay now')])]"
     );
+
+    private boolean isTravelCheckoutVisible(org.openqa.selenium.By buyNowBy) {
+        org.openqa.selenium.By strictCheckoutBy = org.openqa.selenium.By.xpath(
+            "//*[@resource-id='textfield_iban' or contains(@resource-id, 'iban') "
+            + "or @resource-id='btn_pay_now' or @resource-id='textfield_building_number' "
+            + "or @resource-id='btn_payment_method_moyasar' or contains(@resource-id, 'moyasar')]"
+            + " | //android.widget.Button[@clickable='true' and (@content-desc='Pay now' or @text='Pay now')]"
+        );
+        return findDisplayedElement(strictCheckoutBy) != null && findDisplayedElement(buyNowBy) == null;
+    }
 
     public void clickBuyNow() {
         System.out.println("Ensuring transition to Travel Checkout screen...");
-        if (waitUntil(() -> !findWithUnimportantViews(TRAVEL_CHECKOUT_INDICATOR).isEmpty(), 8)) {
-            System.out.println("Travel Checkout screen already loaded!");
-            return;
-        }
-
-        System.out.println("Clicking Buy now on Travel Quote Screen...");
         org.openqa.selenium.By buyNowBy = org.openqa.selenium.By.xpath(
             "//*[@resource-id='btn_buy_now' or @resource-id='btn_sales_quote_page_buy_now_button' or contains(@resource-id, 'buy_now')]//*[@clickable='true'] "
             + "| //android.widget.Button[@clickable='true' and (@content-desc='Buy now' or @text='Buy now' or @content-desc='Select' or @text='Select' or @content-desc='Choose' or @text='Choose')] "
             + "| //*[@resource-id='btn_buy_now' or @resource-id='btn_sales_quote_page_buy_now_button' or contains(@resource-id, 'buy_now') or contains(@content-desc, 'Buy now') or contains(@text, 'Buy now') or @content-desc='Select' or @text='Select' or @content-desc='Choose' or @text='Choose']"
         );
+        if (waitUntil(() -> isTravelCheckoutVisible(buyNowBy), 4)) {
+            System.out.println("Travel Checkout screen already loaded!");
+            return;
+        }
+
+        System.out.println("Clicking Buy now on Travel Quote Screen...");
         org.openqa.selenium.By planCardFallbackBy = org.openqa.selenium.By.xpath(
             "//*[@clickable='true' and (contains(@content-desc, 'Explorer Savvy') or contains(@text, 'Explorer Savvy') "
             + "or contains(@content-desc, 'Explorer Start') or contains(@text, 'Explorer Start'))] "
@@ -906,7 +914,7 @@ public class TravelAboutYouScreen extends BasePage {
                 try {
                     if (el.isDisplayed()) {
                         tapElement(el);
-                        if (waitUntil(() -> !findWithUnimportantViews(TRAVEL_CHECKOUT_INDICATOR).isEmpty(), 8)) {
+                        if (waitUntil(() -> isTravelCheckoutVisible(buyNowBy), 8)) {
                             return;
                         }
                     }
@@ -917,18 +925,18 @@ public class TravelAboutYouScreen extends BasePage {
                 try {
                     if (card.isDisplayed()) {
                         tapElement(card);
-                        if (waitUntil(() -> !findWithUnimportantViews(TRAVEL_CHECKOUT_INDICATOR).isEmpty(), 5)) {
+                        if (waitUntil(() -> isTravelCheckoutVisible(buyNowBy), 5)) {
                             return;
                         }
                     }
                 } catch (Exception ignore) {}
             }
             scrollDown();
-            if (waitUntil(() -> !findWithUnimportantViews(TRAVEL_CHECKOUT_INDICATOR).isEmpty(), 3)) {
+            if (waitUntil(() -> isTravelCheckoutVisible(buyNowBy), 3)) {
                 return;
             }
         }
-        waitUntil(() -> !findWithUnimportantViews(TRAVEL_CHECKOUT_INDICATOR).isEmpty(), 15);
+        waitUntil(() -> isTravelCheckoutVisible(buyNowBy), 15);
     }
 
     // ==========================================

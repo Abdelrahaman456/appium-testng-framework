@@ -284,9 +284,10 @@ public class MotorTest extends BaseTest {
         if (quoteScreen.hasPromoCodeField()) {
             quoteScreen.enterPromoCode("PROMO10");
             quoteScreen.clickApplyPromoCode();
-            try { Thread.sleep(2000); } catch (Exception ignore) {}
+            try { Thread.sleep(2500); } catch (Exception ignore) {}
 
             // Re-expand Comprehensive cover after promo code re-rates and refreshes the card list
+            quoteScreen.scrollUp();
             quoteScreen.selectComprehensiveCover();
         }
 

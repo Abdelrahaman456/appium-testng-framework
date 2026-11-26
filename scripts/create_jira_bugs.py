@@ -340,9 +340,21 @@ def build_issue_payload(
 
 class JiraClient:
     def __init__(self, base_url: str, email: str, api_token: str) -> None:
-        self.base_url = base_url.rstrip("/")
-        raw = f"{email}:{api_token}".encode("utf-8")
+        parsed = urllib.parse.urlparse(base_url.strip())
+        if parsed.scheme and parsed.netloc:
+            self.base_url = f"{parsed.scheme}://{parsed.netloc}"
+        else:
+            self.base_url = base_url.strip().rstrip("/")
+        raw = f"{email.strip()}:{api_token.strip()}".encode("utf-8")
         self.auth_header = "Basic " + base64.b64encode(raw).decode("ascii")
+
+    def verify_auth(self) -> None:
+        try:
+            me = self._request_json("GET", "/rest/api/3/myself")
+            print(f"[JIRA] Authenticated as: {me.get('displayName', 'unknown')} ({me.get('emailAddress', 'unknown')}) on {self.base_url}")
+        except Exception as exc:
+            print(f"[JIRA] AUTH CHECK FAILED on {self.base_url}: {exc}", file=sys.stderr)
+            print("[JIRA] Hint: Verify JIRA_EMAIL and JIRA_API_TOKEN GitHub Secrets belong to the same Atlassian account with access to project UITEST.", file=sys.stderr)
 
     def _request_json(
         self,
@@ -465,6 +477,7 @@ def sync_failures_to_jira(
     client = None if dry_run else JiraClient(base_url, email, api_token)
     assignee_id = assignee_fallback_id
     if client is not None:
+        client.verify_auth()
         assignee_id = client.resolve_assignee_account_id(project_key, assignee_query, assignee_fallback_id)
 
     processed = 0
